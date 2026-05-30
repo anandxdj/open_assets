@@ -16,8 +16,29 @@ export function createApp() {
 
   app.set('trust proxy', 1);
   app.use(helmet());
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://openassets.anands.dev',
+    'https://openasset.anands.dev'
+  ].filter(Boolean) as string[];
+
   app.use(cors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const isAllowed = allowedOrigins.includes(origin) || 
+        origin.endsWith('.anands.dev') ||
+        /^http:\/\/localhost:\d+$/.test(origin);
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   }));
   // SECURITY (#16): bound JSON payloads. Uploads go through Multer (20 MB), not here.

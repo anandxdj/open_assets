@@ -29,10 +29,10 @@ export const sendVerificationEmail = async (email: string, token: string) => {
   const url = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email/${token}`;
   await sendEmail(
     email,
-    'Verify your email - OpenPoll',
+    'Verify your email - Open Assets',
     `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-      <h2 style="color: #d8ad87;">Welcome to OpenPoll!</h2>
+      <h2 style="color: #d8ad87;">Welcome to Open Assets!</h2>
       <p>Thank you for signing up. Please click the button below to verify your email address:</p>
       <div style="text-align: center; margin: 30px 0;">
         <a href="${url}" style="background-color: #d8ad87; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verify Email</a>
@@ -50,7 +50,7 @@ export const sendResetPasswordEmail = async (email: string, token: string) => {
   const url = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${token}`;
   await sendEmail(
     email,
-    'Reset your password - OpenPoll',
+    'Reset your password - Open Assets',
     `
     <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
       <h2 style="color: #d8ad87;">Password Reset Request</h2>
@@ -61,7 +61,7 @@ export const sendResetPasswordEmail = async (email: string, token: string) => {
       <p>This link will expire in 15 minutes.</p>
       <p>If you didn't request a password reset, please ignore this email.</p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-      <p style="font-size: 12px; color: #999;">OpenPoll Platform</p>
+      <p style="font-size: 12px; color: #999;">Open Assets Platform</p>
     </div>
     `
   );
