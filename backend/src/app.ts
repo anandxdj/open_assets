@@ -58,7 +58,7 @@ export function createApp() {
       res.redirect(`${frontendUrl}/login?error=missing_token`);
       return;
     }
-    res.redirect(`${frontendUrl}/auth/callback#token=${encodeURIComponent(token)}`);
+    res.redirect(`${frontendUrl}/callback#token=${encodeURIComponent(token)}`);
   });
 
   // SECURITY (#5): loose global backstop on the whole API surface.

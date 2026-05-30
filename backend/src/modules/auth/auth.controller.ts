@@ -119,7 +119,7 @@ export class AuthController {
 
     if (!clientId || !clientSecret) {
       const errorMsg = 'Google OAuth is not configured on the server. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in the backend env file.';
-      return res.redirect(`${frontendUrl}/auth/callback?error=${encodeURIComponent(errorMsg)}`);
+      return res.redirect(`${frontendUrl}/callback?error=${encodeURIComponent(errorMsg)}`);
     }
 
     const url = AuthService.getGoogleAuthUrl();
@@ -144,7 +144,7 @@ export class AuthController {
       // reads it from window.location.hash and clears it immediately.
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       console.log('[Auth] Redirecting to frontend callback');
-      res.redirect(`${frontendUrl}/auth/callback#token=${encodeURIComponent(accessToken)}`);
+      res.redirect(`${frontendUrl}/callback#token=${encodeURIComponent(accessToken)}`);
     } catch (error: any) {
       console.error('Google callback error:', error);
       const errorMessage = error.message || 'Google authentication failed';
