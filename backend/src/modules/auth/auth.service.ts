@@ -217,7 +217,7 @@ export class AuthService {
   static getGoogleAuthUrl() {
     const rootUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
     const options = {
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_CALLBACK_URL || '',
       client_id: process.env.GOOGLE_CLIENT_ID!,
       access_type: 'offline',
       response_type: 'code',
@@ -238,7 +238,7 @@ export class AuthService {
       code,
       client_id: process.env.GOOGLE_CLIENT_ID!,
       client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_CALLBACK_URL || '',
       grant_type: 'authorization_code',
     };
 
