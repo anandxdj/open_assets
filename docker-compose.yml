@@ -30,7 +30,7 @@ services:
       - PORT=4000
       - REDIS_URL=redis://openpoll-redis:6379
       - PY_BACKEND_URL=http://openasset-py-backend:8000
-      - FRONTEND_URL=https://openasset.anands.dev
+      - FRONTEND_URL=https://openassets.anands.dev
     depends_on:
       openasset-py-backend:
         condition: service_started

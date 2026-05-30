@@ -113,6 +113,15 @@ export class AuthController {
   }
 
   static async googleLogin(req: Request, res: Response) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    if (!clientId || !clientSecret) {
+      const errorMsg = 'Google OAuth is not configured on the server. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in the backend env file.';
+      return res.redirect(`${frontendUrl}/auth/callback?error=${encodeURIComponent(errorMsg)}`);
+    }
+
     const url = AuthService.getGoogleAuthUrl();
     res.redirect(url);
   }
