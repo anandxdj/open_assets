@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    // ── Target & Lib ─────────────────────────────────────────────────────────
+    "target": "ES2022",            // Stable; fully supported by Node 22
+    "lib": ["ES2023"],             // Newer built-in types (Array.findLast etc.) without changing emit
+
+    // ── Module system (tsx/bundler mode) ─────────────────────────────────────
+    "module": "Preserve",          // tsx handles emit; TS makes zero assumptions about output format
+    "moduleResolution": "Bundler", // Allows extensionless imports; matches how tsx resolves files
+    "moduleDetection": "force",    // Every .ts file is a module, never a global script
+    "allowJs": true,
+
+    // ── Imports ───────────────────────────────────────────────────────────────
+    "allowImportingTsExtensions": true, // Write .ts imports; tsx resolves natively (requires noEmit)
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+
+    // ── Emit ─────────────────────────────────────────────────────────────────
+    "noEmit": true,                // tsx transpiles at runtime; tsc is type-check only
+
+    // ── Types ─────────────────────────────────────────────────────────────────
+    "types": ["node"],             // Only Node globals; prevents DOM from leaking in
+
+    // ── Strictness ────────────────────────────────────────────────────────────
+    "strict": true,
+    "verbatimModuleSyntax": true,  // Requires `import type` for type-only imports; replaces importsNotUsedAsValues
+    "erasableSyntaxOnly": true,    // No enums/namespaces/param-props — safe for esbuild single-file transform
+    "noUncheckedIndexedAccess": true, // arr[i] returns T | undefined; catches real runtime crashes
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+
+    // ── Off (too noisy for a backend) ─────────────────────────────────────────
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noPropertyAccessFromIndexSignature": false
+  },
+  "include": ["index.ts", "src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
