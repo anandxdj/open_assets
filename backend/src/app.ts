@@ -32,7 +32,8 @@ export function createApp() {
       }
       const isAllowed = allowedOrigins.includes(origin) || 
         origin.endsWith('.anands.dev') ||
-        /^http:\/\/localhost:\d+$/.test(origin);
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        origin.startsWith('chrome-extension://');
       if (isAllowed) {
         callback(null, true);
       } else {
