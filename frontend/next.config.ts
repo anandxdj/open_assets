@@ -11,7 +11,7 @@ const csp = [
   // nonces. Tighten to a nonce-based policy later if needed.
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://res.cloudinary.com https://*.cloudinary.com",
+  "img-src 'self' data: blob: https://res.cloudinary.com https://*.cloudinary.com https://lh3.googleusercontent.com https://*.googleusercontent.com",
   "font-src 'self' data:",
   `connect-src 'self' ${API_URL} https://res.cloudinary.com https://*.cloudinary.com`,
   "frame-ancestors 'none'",
