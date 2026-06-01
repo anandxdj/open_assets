@@ -27,9 +27,9 @@ chrome.runtime.onInstalled.addListener(() => {
     chrome.storage.sync.set(items);
   });
 
-  // Initialize session storage (JWT token — memory-only, most secure)
-  chrome.storage.session.get(DEFAULT_SESSION_CONFIG, (items) => {
-    chrome.storage.session.set(items);
+  // Initialize local storage (JWT token — persists across restarts, doesn't sync)
+  chrome.storage.local.get(DEFAULT_LOCAL_CONFIG, (items) => {
+    chrome.storage.local.set(items);
   });
 
   // Context menu: right-click an image → auto-crop directly
@@ -86,6 +86,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ job: activeJob });
     return false;
   }
+
+  if (request.action === 'SYNC_TOKEN') {
+    chrome.storage.local.set({ jwtToken: request.jwtToken }, () => {
+      console.log('OpenAssets: JWT Token synchronized from frontend!');
+    });
+    return false;
+  }
 });
 
 // ─── Keyboard Shortcut Command Listener ──────────────────────────────────────
@@ -94,8 +101,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 chrome.commands.onCommand.addListener((command) => {
   if (command === 'extract-image') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'EXTRACT_LAST_HOVERED' });
+      if (tabs[0] && tabs[0].id) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'EXTRACT_LAST_HOVERED' }).catch(() => {
+          // Silently ignore if content script is not injected in the active tab (e.g., chrome:// pages)
+        });
       }
     });
   }

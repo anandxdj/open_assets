@@ -50,8 +50,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ─── 4. Sign Out Button ────────────────────────────────
   document.getElementById('signOutBtn').addEventListener('click', async () => {
-    // Clear JWT from session storage
-    await chrome.storage.session.remove('jwtToken');
+    // Clear JWT from local storage
+    await chrome.storage.local.remove('jwtToken');
     
     // Reset UI to guest state
     displayGuestUser();
@@ -77,31 +77,46 @@ document.addEventListener('DOMContentLoaded', async () => {
       credentials: 'include'
     });
 
-    if (!meRes.ok) throw new Error('Not authenticated');
-
-    const meData = await meRes.json();
-    const user = meData.data?.user || meData.data || meData;
-    
-    if (user && user.email) {
-      displayAuthenticatedUser(user);
-      loadRecentCollections(apiUrl, authHeaders, frontendUrl);
-    } else {
+    if (!meRes.ok) {
       displayGuestUser();
+      if (jwtToken) {
+        const msg = meRes.status === 401
+          ? 'Session expired. Visit the site to refresh.'
+          : 'Could not verify authentication. Server may be unavailable.';
+        showError(msg);
+      }
+    } else {
+      const meData = await meRes.json();
+      const user = meData.data?.user || meData.data || meData;
+
+      if (user && user.email) {
+        displayAuthenticatedUser(user);
+        loadRecentCollections(apiUrl, authHeaders, frontendUrl);
+      } else {
+        displayGuestUser();
+      }
     }
   } catch (err) {
     console.warn('Authentication check failed:', err.message);
     displayGuestUser();
-    
-    // Show error state only if there's a JWT but auth failed (server issue)
     if (jwtToken) {
-      showError('Could not verify authentication. Server may be unavailable.');
+      showError('Could not connect to server.');
     }
   }
 
-  // ─── 6. Check Active Job Progress ──────────────────────
+  // ─── 6. Auto-refresh popup when token changes ──────────
+  // Fires when the content script syncs a new JWT (e.g. user just signed in
+  // on the frontend while this popup was already open).
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && 'jwtToken' in changes) {
+      window.location.reload();
+    }
+  });
+
+  // ─── 7. Check Active Job Progress ──────────────────────
   checkActiveJobProgress();
 
-  // ─── 7. Listen for Real-Time Progress Updates ──────────
+  // ─── 8. Listen for Real-Time Progress Updates ──────────
   chrome.runtime.onMessage.addListener((message) => {
     if (message.action === 'EXTRACT_PROGRESS') {
       showProgress(message.statusText, message.percent);

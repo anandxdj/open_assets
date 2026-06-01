@@ -2,61 +2,65 @@
    OpenAssets Extension — Shared Design Tokens & Base Resets
    
    Imported by popup.html, options.html via <link> tag.
-   Content script CSS uses its own copy inside Shadow DOM.
+   Matches the monospace brutalist high-tech theme of the landing page.
    ========================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700;900&display=swap');
 
 :root {
-  /* Background & surfaces */
-  --bg-color: #0b0f19;
-  --card-bg: rgba(255, 255, 255, 0.03);
-  --card-border: rgba(255, 255, 255, 0.08);
+  /* Background & surfaces (Pure monochrome zinc dark theme) */
+  --bg-color: #09090b;
+  --card-bg: #09090b;
+  --card-border: #27272a; /* zinc-800 */
 
   /* Typography */
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa; /* zinc-400 */
+  --font-family: 'Roboto Mono', 'Fira Code', 'Courier New', Courier, monospace;
 
-  /* Brand / accent */
-  --primary-color: #6366f1;
-  --primary-hover: #4f46e5;
-  --primary-deep: #4338ca;
-  --primary-light: #818cf8;
-  --primary-glow: rgba(99, 102, 241, 0.2);
-  --primary-subtle: rgba(99, 102, 241, 0.15);
+  /* Brand / accent (Vibrant neon orange from landing page) */
+  --primary-color: #ff7c00;
+  --primary-hover: #e06d00;
+  --primary-deep: #b35700;
+  --primary-light: #ff9d42;
+  --primary-glow: rgba(255, 124, 0, 0.2);
+  --primary-subtle: rgba(255, 124, 0, 0.15);
+  
+  /* Accent Green from landing page */
+  --accent-green: #00ff66;
 
   /* Form inputs */
-  --input-bg: rgba(255, 255, 255, 0.05);
-  --input-border: rgba(255, 255, 255, 0.1);
-  --input-focus: #818cf8;
+  --input-bg: #030303;
+  --input-border: #27272a;
+  --input-focus: #ff7c00;
 
   /* Status colors */
-  --success-color: #10b981;
-  --success-light: #34d399;
-  --success-bg: rgba(16, 185, 129, 0.1);
-  --success-border: rgba(16, 185, 129, 0.2);
+  --success-color: #00ff66;
+  --success-light: #5eff99;
+  --success-bg: rgba(0, 255, 102, 0.05);
+  --success-border: rgba(0, 255, 102, 0.2);
 
+  /* Error state */
   --error-color: #ef4444;
   --error-light: #f87171;
-  --error-bg: rgba(239, 68, 68, 0.1);
+  --error-bg: rgba(239, 68, 68, 0.05);
   --error-border: rgba(239, 68, 68, 0.2);
 
-  --warning-color: #f59e0b;
-  --warning-bg: rgba(245, 158, 11, 0.1);
+  /* Warning state */
+  --warning-color: #ff7c00;
+  --warning-bg: rgba(255, 124, 0, 0.05);
 
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.4);
-  --shadow-primary: 0 4px 10px rgba(99, 102, 241, 0.2);
-  --shadow-primary-hover: 0 6px 14px rgba(99, 102, 241, 0.35);
+  /* Shadows (Flat retro technical border shadows) */
+  --shadow-sm: 2px 2px 0px rgba(255, 124, 0, 0.1);
+  --shadow-md: 3px 3px 0px rgba(255, 124, 0, 0.15);
+  --shadow-lg: 5px 5px 0px rgba(255, 124, 0, 0.2);
+  --shadow-primary: 3px 3px 0px rgba(255, 124, 0, 0.2);
+  --shadow-primary-hover: 4px 4px 0px rgba(255, 124, 0, 0.35);
 
   /* Transitions */
-  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.2s ease;
-  --transition-smooth: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: 0.1s ease;
+  --transition-normal: 0.15s ease;
+  --transition-smooth: 0.2s ease;
 }
 
 /* Base resets */
@@ -74,59 +78,79 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Custom text selection */
+::selection {
+  background-color: var(--primary-color);
+  color: #000000;
+}
+
 /* Shared utility classes */
 .gradient-text {
-  background: linear-gradient(135deg, #a5b4fc, #6366f1);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-primary);
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-  border: none;
-  border-radius: 8px;
-  color: white;
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 600;
+  background: var(--primary-color);
+  border: 1px solid var(--primary-color);
+  border-radius: 0px; /* Monospace tech look */
+  color: #000000;
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   font-family: var(--font-family);
   cursor: pointer;
   width: 100%;
-  transition: all var(--transition-smooth);
+  transition: all var(--transition-fast);
   box-shadow: var(--shadow-primary);
 }
 
 .primary-btn:hover {
-  background: linear-gradient(135deg, var(--primary-hover), var(--primary-deep));
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
   box-shadow: var(--shadow-primary-hover);
-  transform: translateY(-1px);
+  transform: translate(-1px, -1px);
 }
 
 .primary-btn:active {
-  transform: scale(0.98);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px rgba(255, 124, 0, 0.2);
 }
 
 .primary-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
+  background: var(--card-border);
+  border-color: var(--card-border);
+  color: var(--text-secondary);
 }
 
 .secondary-btn {
   background: transparent;
   border: 1px solid var(--card-border);
-  border-radius: 8px;
+  border-radius: 0px; /* Monospace tech look */
   color: var(--text-secondary);
-  padding: 6px 12px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 8px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   font-family: var(--font-family);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .secondary-btn:hover {
-  border-color: var(--primary-light);
+  border-color: var(--primary-color);
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 124, 0, 0.05);
+}
+
+.secondary-btn:active {
+  transform: scale(0.98);
 }

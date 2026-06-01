@@ -1,12 +1,12 @@
 /**
  * OpenAssets Extension — Options Page Controller
  *
- * Uses shared config.js for defaults (DEFAULT_SYNC_CONFIG, DEFAULT_SESSION_CONFIG)
+ * Uses shared config.js for defaults (DEFAULT_SYNC_CONFIG, DEFAULT_LOCAL_CONFIG)
  * and helpers (getSyncConfig, isValidUrl).
  *
  * Storage split:
  *   sync    → apiUrl, frontendUrl, mode
- *   session → jwtToken (memory-only, clears on browser restart)
+ *   local   → jwtToken (persists on local machine, does not sync to cloud)
  */
 
 // ── Real-time field validation ──────────────────────────────────────────────
@@ -50,11 +50,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('apiUrl').value      = syncConfig.apiUrl;
   document.getElementById('frontendUrl').value  = syncConfig.frontendUrl;
 
-  // Load session-only settings (JWT token)
-  const sessionConfig = await new Promise((resolve) => {
-    chrome.storage.session.get(DEFAULT_SESSION_CONFIG, resolve);
+  // Load local settings (JWT token)
+  const localConfig = await new Promise((resolve) => {
+    chrome.storage.local.get(DEFAULT_LOCAL_CONFIG, resolve);
   });
-  document.getElementById('jwtToken').value = sessionConfig.jwtToken;
+  document.getElementById('jwtToken').value = localConfig.jwtToken;
 
   // Attach real-time validation listeners to URL fields
   document.getElementById('apiUrl').addEventListener('input', validateAll);
@@ -85,9 +85,9 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
       }, resolve);
     });
 
-    // Persist JWT in session storage (memory-only, most secure)
+    // Persist JWT in local storage (local-only, survives restarts)
     await new Promise((resolve) => {
-      chrome.storage.session.set({ jwtToken }, resolve);
+      chrome.storage.local.set({ jwtToken }, resolve);
     });
 
     // Show success feedback

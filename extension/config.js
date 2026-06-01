@@ -6,7 +6,7 @@
  * 
  * Storage strategy:
  *   - chrome.storage.sync  → URLs + mode (persists across sessions, syncs across devices)
- *   - chrome.storage.session → jwtToken (memory-only, most secure, clears on restart)
+ *   - chrome.storage.local → jwtToken (local persistence, persists across restarts, doesn't sync to cloud)
  */
 
 // Default non-secret configuration (stored in sync storage)
@@ -16,26 +16,26 @@ const DEFAULT_SYNC_CONFIG = {
   mode: 'direct' // 'direct' or 'interactive'
 };
 
-// Default secret configuration (stored in session storage)
-const DEFAULT_SESSION_CONFIG = {
+// Default secret configuration (stored in local storage)
+const DEFAULT_LOCAL_CONFIG = {
   jwtToken: ''
 };
 
 /**
- * Retrieve the full merged configuration from both sync and session storage.
+ * Retrieve the full merged configuration from both sync and local storage.
  * @returns {Promise<{apiUrl: string, frontendUrl: string, mode: string, jwtToken: string}>}
  */
 async function getFullConfig() {
-  const [syncSettings, sessionSettings] = await Promise.all([
+  const [syncSettings, localSettings] = await Promise.all([
     new Promise((resolve) => {
       chrome.storage.sync.get(DEFAULT_SYNC_CONFIG, resolve);
     }),
     new Promise((resolve) => {
-      chrome.storage.session.get(DEFAULT_SESSION_CONFIG, resolve);
+      chrome.storage.local.get(DEFAULT_LOCAL_CONFIG, resolve);
     })
   ]);
 
-  return { ...syncSettings, ...sessionSettings };
+  return { ...syncSettings, ...localSettings };
 }
 
 /**
@@ -54,7 +54,7 @@ async function getSyncConfig() {
  */
 async function getAuthHeaders() {
   const { jwtToken } = await new Promise((resolve) => {
-    chrome.storage.session.get(DEFAULT_SESSION_CONFIG, resolve);
+    chrome.storage.local.get(DEFAULT_LOCAL_CONFIG, resolve);
   });
 
   const headers = {};

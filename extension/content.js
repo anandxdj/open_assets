@@ -1,4 +1,54 @@
 (function () {
+  // ─── Token Sync Feature ───
+  // If the content script is running on the OpenAssets frontend, automatically sync the token to extension storage!
+  try {
+    const isFrontend = window.location.hostname === 'localhost' || window.location.hostname.endsWith('.anands.dev');
+    if (isFrontend) {
+      function syncToken(jwt) {
+        // Write directly to storage — avoids chrome.runtime.sendMessage which
+        // silently fails when the content script context is invalidated after
+        // an extension reload on an already-open tab.
+        chrome.storage.local.set({ jwtToken: jwt || '' }).catch(() => {});
+      }
+
+      // Track last synced value to avoid redundant messages.
+      let lastSeen = undefined;
+
+      function checkAndSync() {
+        const t = localStorage.getItem('accessToken');
+        if (t !== lastSeen) {
+          lastSeen = t;
+          syncToken(t);
+        }
+      }
+
+      // 1. Immediate read on page load.
+      checkAndSync();
+
+      // 2. Indefinite polling every 2 s — catches restoreSession() completing
+      //    async AND manual login no matter how long the user takes to type.
+      //    localStorage reads are in-memory and essentially free.
+      setInterval(checkAndSync, 2000);
+
+      // 3. CustomEvent — fired by token-store.ts once the frontend change is
+      //    deployed. Instant same-tab notification for login / logout / OAuth.
+      window.addEventListener('openassets:token', (e) => {
+        lastSeen = e.detail;
+        syncToken(e.detail);
+      });
+
+      // 4. Cross-tab fallback — storage event fires when another tab writes.
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'accessToken') {
+          lastSeen = e.newValue;
+          syncToken(e.newValue);
+        }
+      });
+    }
+  } catch (err) {
+    // Gracefully handle context invalidation errors
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // State
   // ──────────────────────────────────────────────────────────────────────────
@@ -25,39 +75,43 @@
     .open-assets-extract-btn {
       position: fixed;
       z-index: 1000000000;
-      background: linear-gradient(135deg, rgba(99, 102, 241, 0.95), rgba(79, 70, 229, 0.95));
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 20px;
-      color: #ffffff;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 12px;
-      font-weight: 600;
+      background: var(--primary-color, #ff7c00);
+      border: 1px solid var(--primary-color, #ff7c00);
+      border-radius: 0px; /* Sharp brutalist */
+      color: #000000;
+      font-family: 'Roboto Mono', 'Fira Code', 'Courier New', Courier, monospace;
+      font-size: 11px;
+      font-weight: 700;
       padding: 6px 14px;
       cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, opacity 0.2s ease;
+      box-shadow: 3px 3px 0px rgba(255, 124, 0, 0.2);
+      transition: opacity 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
       display: flex;
       align-items: center;
       gap: 6px;
       user-select: none;
       pointer-events: none;
       opacity: 0;
-      transform: translateY(4px) scale(0.95);
+      transform: translateY(4px);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     .open-assets-extract-btn.visible {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: translateY(0);
     }
 
     .open-assets-extract-btn:hover {
-      transform: scale(1.05);
-      background: linear-gradient(135deg, rgba(79, 70, 229, 0.98), rgba(67, 56, 202, 0.98));
-      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+      transform: translate(-1px, -1px);
+      background: var(--primary-hover, #e06d00);
+      border-color: var(--primary-hover, #e06d00);
+      box-shadow: 4px 4px 0px rgba(255, 124, 0, 0.35);
     }
 
     .open-assets-extract-btn:active {
-      transform: scale(0.98);
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0px rgba(255, 124, 0, 0.2);
     }
 
     .open-assets-extract-btn svg {
@@ -72,59 +126,60 @@
       bottom: 24px;
       right: 24px;
       z-index: 1000000001;
-      background: rgba(11, 15, 25, 0.85);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px;
+      background: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 0px; /* Sharp brutalist */
       padding: 14px 18px;
-      color: #f3f4f6;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 13px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      color: #fafafa;
+      font-family: 'Roboto Mono', 'Fira Code', 'Courier New', Courier, monospace;
+      font-size: 12px;
+      box-shadow: 4px 4px 0px rgba(255, 124, 0, 0.15);
       display: flex;
       align-items: center;
       gap: 12px;
-      transform: translateY(20px) scale(0.95);
+      transform: translateY(20px);
       opacity: 0;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.2s ease;
       pointer-events: auto;
     }
 
     .open-assets-toast.active {
-      transform: translateY(0) scale(1);
+      transform: translateY(0);
       opacity: 1;
     }
 
     .open-assets-toast .toast-icon {
       width: 18px;
       height: 18px;
-      border-radius: 50%;
+      border-radius: 0px; /* Sharp brutalist */
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      font-weight: 700;
+      border: 1px solid currentColor;
     }
 
     .open-assets-toast.info .toast-icon {
-      background: rgba(99, 102, 241, 0.15);
-      color: #818cf8;
+      background: rgba(255, 124, 0, 0.1);
+      color: #ff7c00;
     }
 
     .open-assets-toast.success .toast-icon {
-      background: rgba(16, 185, 129, 0.15);
-      color: #34d399;
+      background: rgba(0, 255, 102, 0.1);
+      color: #00ff66;
     }
 
     .open-assets-toast.error .toast-icon {
       background: rgba(239, 68, 68, 0.15);
-      color: #f87171;
+      color: #ef4444;
     }
 
     .open-assets-toast-spinner {
       width: 14px;
       height: 14px;
-      border: 2px solid rgba(99, 102, 241, 0.2);
-      border-top-color: #818cf8;
+      border: 2px solid rgba(255, 124, 0, 0.2);
+      border-top-color: #ff7c00;
       border-radius: 50%;
       animation: open-assets-spin 0.8s linear infinite;
       flex-shrink: 0;
@@ -137,23 +192,26 @@
       right: 4px;
       width: 20px;
       height: 20px;
-      background: rgba(255, 255, 255, 0.08);
-      border: none;
-      border-radius: 50%;
-      color: #9ca3af;
-      font-size: 12px;
+      background: rgba(255, 124, 0, 0.08);
+      border: 1px solid rgba(255, 124, 0, 0.2);
+      border-radius: 0px; /* Sharp brutalist */
+      color: #ff7c00;
+      font-size: 11px;
       line-height: 1;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.15s ease, color 0.15s ease;
+      transition: all 0.1s ease;
       padding: 0;
+      font-family: 'Roboto Mono', monospace;
+      font-weight: 700;
     }
 
     .toast-dismiss:hover {
-      background: rgba(255, 255, 255, 0.15);
-      color: #f3f4f6;
+      background: #ff7c00;
+      color: #000000;
+      border-color: #ff7c00;
     }
 
     @keyframes open-assets-spin {
