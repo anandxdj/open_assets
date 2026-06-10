@@ -15,6 +15,9 @@ export interface IUser extends Document {
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
   lastLogin: Date;
+  credits: number;
+  creditsGrantedAt: Date;
+  plan: 'free' | 'byok' | 'pro';
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -31,6 +34,10 @@ const UserSchema = new Schema<IUser>({
   resetPasswordToken: { type: String, select: false },
   resetPasswordExpires: { type: Date, select: false },
   lastLogin: { type: Date, default: Date.now },
+  // Studio generation credits — monthly free grant, lazily reset by usage.service.
+  credits: { type: Number, default: 150 },
+  creditsGrantedAt: { type: Date, default: Date.now },
+  plan: { type: String, enum: ['free', 'byok', 'pro'], default: 'free' },
 }, {
   timestamps: true,
 });

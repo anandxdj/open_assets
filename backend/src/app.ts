@@ -8,6 +8,7 @@ import { jobRouter } from './modules/jobs/job.routes';
 import { cropRouter } from './modules/crop/crop.routes';
 import { finalizeRouter } from './modules/finalize/finalize.routes';
 import { collectionRouter } from './modules/collections/collection.routes';
+import { usageRouter } from './modules/usage/usage.routes';
 import { errorHandler } from './common/middlewares/errorHandler';
 import { apiLimiter } from './common/middlewares/rateLimit';
 
@@ -71,6 +72,7 @@ export function createApp() {
   app.use('/api', cropRouter);
   app.use('/api', finalizeRouter);
   app.use('/api', collectionRouter);
+  app.use('/api', usageRouter);
 
   app.use(errorHandler);
 

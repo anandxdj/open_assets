@@ -354,6 +354,14 @@ the AI service, and keep py_backend's port off the public internet.
 
 ---
 
+## Credits
+
+Studio features (AI outpainting, Parallax/Tile/Sprite/Props studios) are adapted from
+[image-extender](https://github.com/boona13/image-extender) by **boona13** (MIT License).
+See `frontend/src/features/studio/LICENSE-image-extender.txt`.
+
+---
+
 ## Further reading
 
 Per-service deep dives live in [`docs/llm_wiki/`](docs/llm_wiki/):

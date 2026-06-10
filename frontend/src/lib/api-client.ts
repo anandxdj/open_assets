@@ -8,7 +8,7 @@ const REFRESH_PATH = "/api/auth/refresh-token";
 // single refresh-token call instead of stampeding the endpoint.
 let refreshPromise: Promise<string | null> | null = null;
 
-function refreshAccessToken(): Promise<string | null> {
+export function refreshAccessToken(): Promise<string | null> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${BASE_URL}${REFRESH_PATH}`, {
       method: "POST",
