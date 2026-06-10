@@ -427,12 +427,22 @@ Credits/auth matrix (curl, Phase 0 — repeatable):
 | Phase | Status | Notes |
 |---|---|---|
 | 0 — infra | ✅ done | backend tests green; tsc + lint clean |
-| 1 — Extender | ⏳ in progress | route + components + useExtender being ported |
-| 2 — Parallax | ⏸ pending | generate/scene-brief routes land here |
-| 3 — Tiles | ⏸ pending | |
-| 4 — Sprites | ⏸ pending | |
-| 5 — Props | ⏸ pending | |
-| 6 — Collections integration | ⏸ optional | |
+| 1 — Extender | ✅ done | mock-mode curl verified (PNG fixture sized to request; 401 path) |
+| 2 — Parallax | ✅ done | generate + scene-brief routes; shared extendRunner; LayerRail/Preview/TargetBar split |
+| 3 — Tiles | ✅ done | tile-review route; QA keep-best loop; padded atlas export |
+| 4 — Sprites | ✅ done | sprite-review route (vision QA disabled by design — deterministic twin check); pose-rig guide; sheet cache as state (lint-safe) |
+| 5 — Props | ✅ done | prop-brief route; art-director→painter pipeline; atlas/ZIP export |
+| 6 — Collections integration | ⏸ optional | save-to-collection + upscale-before-save not started |
+
+All `/api/studio/*` routes mock-smoke-tested (`OPENROUTER_MOCK=1` + BYOK header):
+extend ✓ generate ✓ scene-brief ✓ tile-review ✓ sprite-review ✓ prop-brief ✓, plus
+401 AUTH_REQUIRED without keys ✓. `next build` green (all 6 studio routes + 5 pages
+registered). Frontend `tsc --noEmit` + studio-scoped ESLint clean. Backend
+typecheck + 12 tests green (atomic-race test runs when MONGO_URI set).
+
+Still to verify manually (needs running Mongo/Redis + real key):
+free-tier consume/402/refund flow end-to-end; one real-OpenRouter smoke per
+image route; in-browser canvas pipeline runs per mode (mock fixtures).
 
 Files created/modified so far (Phase 0):
 

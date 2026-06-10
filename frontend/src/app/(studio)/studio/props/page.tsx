@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/features/studio/components/ComingSoon";
+import { PropsScreen } from "@/features/studio/props/PropsScreen";
 
 export default function PropsPage() {
-  return <ComingSoon mode="Props" note="Ever-growing decoration libraries with transparent atlas export." />;
+  return <PropsScreen />;
 }

@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/features/studio/components/ComingSoon";
+import { ParallaxScreen } from "@/features/studio/parallax/ParallaxScreen";
 
 export default function ParallaxPage() {
-  return <ComingSoon mode="Parallax" note="Multi-layer sidescroller backgrounds with tileable loops." />;
+  return <ParallaxScreen />;
 }

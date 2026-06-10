@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/features/studio/components/ComingSoon";
+import { ExtenderScreen } from "@/features/studio/extender/ExtenderScreen";
 
 export default function ExtenderPage() {
-  return <ComingSoon mode="Extender" note="Directional AI outpainting with Poisson-blended seams." />;
+  return <ExtenderScreen />;
 }

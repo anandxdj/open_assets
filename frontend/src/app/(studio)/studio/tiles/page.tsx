@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/features/studio/components/ComingSoon";
+import { TilesScreen } from "@/features/studio/tiles/TilesScreen";
 
 export default function TilesPage() {
-  return <ComingSoon mode="Tiles" note="13-tile autotile sets with engine-ready atlas export." />;
+  return <TilesScreen />;
 }

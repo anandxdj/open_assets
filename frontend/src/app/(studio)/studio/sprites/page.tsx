@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/features/studio/components/ComingSoon";
+import { SpritesScreen } from "@/features/studio/sprites/SpritesScreen";
 
 export default function SpritesPage() {
-  return <ComingSoon mode="Sprites" note="Character animation sheets across five body plans." />;
+  return <SpritesScreen />;
 }
