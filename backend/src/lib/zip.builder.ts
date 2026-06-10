@@ -1,6 +1,6 @@
 import archiver from 'archiver';
 import axios from 'axios';
-import { cloudinary } from '../common/config/cloudinary';
+import { storage } from './storage';
 import { mapLimit } from '../common/utils/mapLimit';
 
 export interface ZipItem {
@@ -105,22 +105,12 @@ export async function buildAndUploadZip(items: ZipItem[], jobId: string): Promis
   const zipBuffer = Buffer.concat(chunks);
   console.log(`[zip.builder] Job ${jobId}: zipped ${downloaded.length} assets (${zipBuffer.length} bytes)`);
 
-  // 3. Upload the zip to Cloudinary (raw) and return the download URL.
-  const uploadResult = await new Promise<{ secure_url: string }>((resolve, reject) => {
-    cloudinary.uploader
-      .upload_stream(
-        {
-          folder: 'open_assets/exports',
-          resource_type: 'raw',
-          public_id: `export_${jobId}`,
-        },
-        (err, result) => {
-          if (err ?? !result) return reject(err ?? new Error('Cloudinary zip upload failed'));
-          resolve({ secure_url: result.secure_url });
-        },
-      )
-      .end(zipBuffer);
+  // 3. Upload the zip and return the download URL.
+  const uploadResult = await storage.upload(zipBuffer, {
+    folder: 'exports',
+    publicId: `export_${jobId}`,
+    resourceType: 'raw',
   });
 
-  return uploadResult.secure_url;
+  return uploadResult.url;
 }

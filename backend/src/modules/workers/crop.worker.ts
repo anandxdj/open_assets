@@ -3,7 +3,7 @@ import { redis } from '../../common/config/redis';
 import { getJob, updateJob, parseBoxes } from '../jobs/job.store';
 import { nameAssets, cropAssets } from '../../lib/py.client';
 import type { NameAssetsResult } from '../../lib/py.client';
-import { applyBackgroundRemoval } from '../../lib/cloudinary.transform';
+import { storage } from '../../lib/storage';
 import { extractError } from '../../common/utils/extractError';
 import { scaffoldCollectionFromJob } from '../collections/collection.service';
 import type { ScaffoldImage } from '../collections/collection.service';
@@ -93,7 +93,7 @@ export function startCropWorker(): void {
         // 1. Make the whole image transparent. Cut as soon as it's ready —
         //    don't block on Gemini, which keeps running in the background.
         try {
-          workingUrl = await applyBackgroundRemoval(jobData.publicId);
+          workingUrl = await storage.applyBackgroundRemoval(jobData.publicId);
         } catch (err) {
           throw new Error(`Background removal failed: ${extractError(err)}`);
         }

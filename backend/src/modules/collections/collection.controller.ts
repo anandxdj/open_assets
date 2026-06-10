@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { AuthRequest } from '../auth/auth.middleware';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { ApiError } from '../../common/utils/ApiError';
-import { cloudinary } from '../../common/config/cloudinary';
+import { storage } from '../../lib/storage';
 import { getJob, parseAssets } from '../jobs/job.store';
 import { assertOwner } from '../../common/utils/authz';
 import { buildZipBuffer } from '../../lib/zip.builder';
@@ -79,26 +79,6 @@ export async function createFolder(req: AuthRequest, res: Response): Promise<voi
 
 /* -------------------------------- images ------------------------------- */
 
-/** Upload a single in-memory image buffer to Cloudinary under the collections folder. */
-function uploadBuffer(buffer: Buffer, publicId: string): Promise<{
-  secure_url: string;
-  public_id: string;
-  width?: number;
-  height?: number;
-  bytes?: number;
-}> {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: 'open_assets/collections', resource_type: 'image', public_id: publicId },
-      (err, result) => {
-        if (err || !result) return reject(err ?? new Error('Cloudinary upload failed'));
-        resolve(result as never);
-      },
-    );
-    stream.end(buffer);
-  });
-}
-
 /**
  * Add images to a folder. Two modes:
  *  1. Direct upload  — multipart/form-data files (req.files).
@@ -117,11 +97,16 @@ export async function addImages(req: AuthRequest, res: Response): Promise<void> 
     images = await Promise.all(
       files.map(async (file) => {
         const baseName = file.originalname.replace(/\.[^.]+$/, '') || 'image';
-        const uploaded = await uploadBuffer(file.buffer, `${baseName}_${uuidv4().slice(0, 8)}`);
+        const publicId = `${baseName}_${uuidv4().slice(0, 8)}`;
+        const uploaded = await storage.upload(file.buffer, {
+          folder: 'collections',
+          publicId,
+          resourceType: 'image',
+        });
         return {
           name: baseName,
-          cloudinaryUrl: uploaded.secure_url,
-          cloudinaryPublicId: uploaded.public_id,
+          cloudinaryUrl: uploaded.url,
+          cloudinaryPublicId: uploaded.publicId,
           width: uploaded.width,
           height: uploaded.height,
           sizeBytes: uploaded.bytes,

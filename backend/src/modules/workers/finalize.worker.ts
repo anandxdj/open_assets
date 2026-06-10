@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import { redis } from '../../common/config/redis';
 import { getJob, updateJob, parseAssets } from '../jobs/job.store';
-import { buildUpscaleUrl, pollUntilReady } from '../../lib/cloudinary.transform';
+import { storage } from '../../lib/storage';
 import { extractError } from '../../common/utils/extractError';
 import { mapLimit } from '../../common/utils/mapLimit';
 import { replaceImageWithUpscaled } from '../collections/collection.service';
@@ -45,9 +45,8 @@ export function startFinalizeWorker(): void {
         if (skipUpscale) {
           url = asset.cropped_url;
         } else {
-          url = buildUpscaleUrl(asset.public_id);
           try {
-            await pollUntilReady(url);
+            url = await storage.applyUpscale(asset.public_id);
           } catch (err) {
             throw new Error(`Upscale failed for asset "${asset.name}" (${asset.public_id}): ${extractError(err)}`);
           }

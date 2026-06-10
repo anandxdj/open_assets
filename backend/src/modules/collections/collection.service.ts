@@ -4,7 +4,7 @@ import { FolderModel } from './folder.model';
 import { ImageModel } from './image.model';
 import type { IImage } from './image.model';
 import { CollectionLikeModel } from './collectionLike.model';
-import { cloudinary } from '../../common/config/cloudinary';
+import { storage } from '../../lib/storage';
 import { ApiError } from '../../common/utils/ApiError';
 import { assertOwner } from '../../common/utils/authz';
 
@@ -262,7 +262,7 @@ export async function deleteCollection(
 
   const images = await ImageModel.find({ collectionId: id }).select('cloudinaryPublicId').lean();
   await Promise.allSettled(
-    images.map((img) => cloudinary.uploader.destroy(img.cloudinaryPublicId, { resource_type: 'image' })),
+    images.map((img) => storage.delete(img.cloudinaryPublicId, 'image')),
   );
 
   await Promise.all([
@@ -343,9 +343,7 @@ export async function deleteImage(
   const image = await ImageModel.findOne({ _id: imageId, folderId, collectionId });
   if (!image) throw ApiError.notFound('Image not found');
 
-  await Promise.allSettled([
-    cloudinary.uploader.destroy(image.cloudinaryPublicId, { resource_type: 'image' }),
-  ]);
+  await Promise.allSettled([storage.delete(image.cloudinaryPublicId, 'image')]);
   await image.deleteOne();
 }
 
