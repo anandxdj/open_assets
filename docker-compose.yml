@@ -13,8 +13,8 @@ services:
     environment:
       - PORT=8000
       - REDIS_URL=redis://openpoll-redis:6379
-    # networks:
-      # - traefik
+    networks:
+      - traefik
 
   # 🚀 Node.js Backend: Handled by Traefik and serves the Frontend
   openasset-backend:

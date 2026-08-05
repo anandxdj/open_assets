@@ -127,6 +127,12 @@ async function startExtractionWorkflow(imageUrl, mode, tabId) {
   const settings = await getFullConfig();
   const { apiUrl, frontendUrl } = settings;
 
+  // Mint a fresh access token from the refresh cookie before the pipeline starts.
+  // In production this guarantees a valid token up front; in local dev the cookie
+  // isn't sent (SameSite=Lax) so this is a no-op and we fall back to the token the
+  // content-script localStorage bridge synced into storage.
+  await refreshAccessToken(apiUrl);
+
   try {
     // ── Step 1: Download image from the host page ──────────────────────────
     // Runs in the service worker context, bypassing host-page CORS via host_permissions
@@ -151,10 +157,8 @@ async function startExtractionWorkflow(imageUrl, mode, tabId) {
     updateActiveJob(null, 'uploading', 'Uploading to OpenAssets engine...', 30);
     notifyProgress(tabId, 'Uploading to OpenAssets engine...', 30);
 
-    const authHeaders = await getAuthHeaders();
-    const uploadRes = await fetch(`${apiUrl}/api/upload`, {
+    const uploadRes = await apiFetch(apiUrl, '/api/upload', {
       method: 'POST',
-      headers: authHeaders,
       body: formData
     });
 
@@ -179,7 +183,7 @@ async function startExtractionWorkflow(imageUrl, mode, tabId) {
     }
 
     // ── Step 4: Direct mode — run the full background pipeline ─────────────
-    await runBackgroundDirectWorkflow(jobId, apiUrl, authHeaders, tabId);
+    await runBackgroundDirectWorkflow(jobId, apiUrl, tabId);
 
   } catch (error) {
     console.error('OpenAssets: Extraction flow failed:', error);
@@ -199,16 +203,15 @@ async function startExtractionWorkflow(imageUrl, mode, tabId) {
  *
  * @param {string} jobId       - Backend job identifier
  * @param {string} apiUrl      - Base URL for the OpenAssets API
- * @param {Object} authHeaders - Authorization headers object
  * @param {number|undefined} tabId - Tab ID for progress notifications
  */
-async function runBackgroundDirectWorkflow(jobId, apiUrl, authHeaders, tabId) {
+async function runBackgroundDirectWorkflow(jobId, apiUrl, tabId) {
 
   // ── PIPELINE STEP A: Wait for OpenCV detection ───────────────────────────
   updateActiveJob(jobId, 'detecting', 'Analyzing image sheet layout (AI)...', 50);
   notifyProgress(tabId, 'Analyzing image sheet layout (AI)...', 50);
 
-  const detectionResult = await pollJobUntil(jobId, 'detected', apiUrl, authHeaders, {
+  const detectionResult = await pollJobUntil(jobId, 'detected', apiUrl, {
     failureMessage: 'OpenCV detection failed',
     timeoutMessage: 'Timeout waiting for OpenCV layout detection'
   });
@@ -223,12 +226,9 @@ async function runBackgroundDirectWorkflow(jobId, apiUrl, authHeaders, tabId) {
   updateActiveJob(jobId, 'cropping', `Layout analyzed! Cropping ${boxes.length} assets...`, 70);
   notifyProgress(tabId, `Layout analyzed! Cropping ${boxes.length} assets...`, 70);
 
-  const cropRes = await fetch(`${apiUrl}/api/crop`, {
+  const cropRes = await apiFetch(apiUrl, '/api/crop', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jobId, boxes })
   });
 
@@ -238,7 +238,7 @@ async function runBackgroundDirectWorkflow(jobId, apiUrl, authHeaders, tabId) {
   }
 
   // Poll until cropping completes
-  const croppedResult = await pollJobUntil(jobId, 'cropped', apiUrl, authHeaders, {
+  const croppedResult = await pollJobUntil(jobId, 'cropped', apiUrl, {
     failureMessage: 'Asset cropping execution failed',
     timeoutMessage: 'Timeout waiting for assets to be cropped'
   });
@@ -254,12 +254,9 @@ async function runBackgroundDirectWorkflow(jobId, apiUrl, authHeaders, tabId) {
   updateActiveJob(jobId, 'finalizing', 'Bundling & upscaling assets...', 90);
   notifyProgress(tabId, 'Bundling & upscaling assets...', 90);
 
-  const finalizeRes = await fetch(`${apiUrl}/api/finalize`, {
+  const finalizeRes = await apiFetch(apiUrl, '/api/finalize', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jobId, selectedIds, skipUpscale: false })
   });
 
@@ -269,7 +266,7 @@ async function runBackgroundDirectWorkflow(jobId, apiUrl, authHeaders, tabId) {
   }
 
   // Poll until the ZIP is ready for download
-  const readyResult = await pollJobUntil(jobId, 'ready', apiUrl, authHeaders, {
+  const readyResult = await pollJobUntil(jobId, 'ready', apiUrl, {
     failureMessage: 'Finalization zip bundle failed',
     timeoutMessage: 'Timeout waiting for extraction zip bundle'
   });
@@ -326,7 +323,6 @@ async function runBackgroundDirectWorkflow(jobId, apiUrl, authHeaders, tabId) {
  * @param {string} jobId          - The backend job identifier to poll
  * @param {string} targetStatus   - The status string we're waiting for (e.g. 'detected', 'cropped', 'ready')
  * @param {string} apiUrl         - Base URL for the OpenAssets API
- * @param {Object} authHeaders    - Authorization headers object
  * @param {Object} [options]      - Optional tuning parameters
  * @param {number} [options.maxPolls=60]    - Max number of poll iterations (~2 min at default interval)
  * @param {number} [options.intervalMs=2000] - Milliseconds between each poll request
@@ -335,7 +331,7 @@ async function runBackgroundDirectWorkflow(jobId, apiUrl, authHeaders, tabId) {
  * @returns {Promise<Object>} The job data object once targetStatus is reached
  * @throws {Error} If the job fails or polling times out
  */
-async function pollJobUntil(jobId, targetStatus, apiUrl, authHeaders, options = {}) {
+async function pollJobUntil(jobId, targetStatus, apiUrl, options = {}) {
   const maxPolls = options.maxPolls || 60;
   const intervalMs = options.intervalMs || 2000;
   const failureMessage = options.failureMessage || `Job failed while waiting for "${targetStatus}"`;
@@ -350,9 +346,7 @@ async function pollJobUntil(jobId, targetStatus, apiUrl, authHeaders, options = 
     pollCount++;
 
     try {
-      const res = await fetch(`${apiUrl}/api/jobs/${jobId}`, {
-        headers: authHeaders
-      });
+      const res = await apiFetch(apiUrl, `/api/jobs/${jobId}`);
 
       // Silently retry on transient HTTP errors
       if (!res.ok) continue;

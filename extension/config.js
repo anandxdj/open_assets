@@ -65,6 +65,76 @@ async function getAuthHeaders() {
 }
 
 /**
+ * Mint a fresh access token from the httpOnly refreshToken cookie.
+ *
+ * Mirrors the frontend's restoreSession() / api-client refresh flow: the cookie
+ * is set when the user logs in on the site, and (in production) is SameSite=None;
+ * Secure, so it travels on this cross-origin request from the extension. The
+ * backend CORS layer reflects chrome-extension:// origins with credentials.
+ *
+ * On success the token is persisted to chrome.storage.local so getAuthHeaders()
+ * picks it up. On any failure returns null WITHOUT clearing the stored token —
+ * in local dev the cookie is SameSite=Lax and won't be sent, so we keep the
+ * token supplied by the content-script localStorage bridge.
+ *
+ * @param {string} apiUrl - Base URL for the OpenAssets API.
+ * @returns {Promise<string|null>} The fresh access token, or null on failure.
+ */
+async function refreshAccessToken(apiUrl) {
+  try {
+    const res = await fetch(`${apiUrl}/api/auth/refresh-token`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => null);
+    const token = body?.data?.accessToken;
+    if (!token) return null;
+    await chrome.storage.local.set({ jwtToken: token });
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Centralized authenticated fetch with transparent 401 → refresh → retry.
+ *
+ * Sends the request with the stored Bearer token (and credentials, so the
+ * refresh cookie is available). If the backend rejects with 401 — typically an
+ * expired access token — it mints a fresh one via refreshAccessToken() and
+ * retries the request once. Mirrors frontend/src/lib/api-client.ts.
+ *
+ * Callers own init.headers and init.body, so FormData uploads keep their
+ * browser-generated multipart boundary (do NOT inject Content-Type here).
+ *
+ * @param {string} apiUrl - Base URL for the OpenAssets API.
+ * @param {string} path   - API path beginning with '/' (e.g. '/api/upload').
+ * @param {RequestInit} [init] - Standard fetch init (method, headers, body).
+ * @returns {Promise<Response>}
+ */
+async function apiFetch(apiUrl, path, init = {}) {
+  const send = async () => {
+    const authHeaders = await getAuthHeaders();
+    return fetch(`${apiUrl}${path}`, {
+      credentials: 'include',
+      ...init,
+      headers: { ...(init.headers || {}), ...authHeaders },
+    });
+  };
+
+  let res = await send();
+
+  // Access token likely expired — mint a new one via the cookie, then retry once.
+  if (res.status === 401 && !path.includes('/auth/refresh-token')) {
+    const token = await refreshAccessToken(apiUrl);
+    if (token) res = await send();
+  }
+
+  return res;
+}
+
+/**
  * Validate that a string is a valid HTTP or HTTPS URL.
  * @param {string} str - The URL string to validate.
  * @returns {boolean}

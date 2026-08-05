@@ -10,7 +10,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   // ─── 1. Load Configuration ─────────────────────────────
   const config = await getFullConfig();
-  const { apiUrl, frontendUrl, jwtToken } = config;
+  const { apiUrl, frontendUrl } = config;
 
   // ─── 2. Setup Mode Selection ───────────────────────────
   const modeDirectRadio = document.getElementById('modeDirect');
@@ -66,20 +66,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ─── 5. Authenticate & Load Profile ────────────────────
-  const authHeaders = {};
-  if (jwtToken) {
-    authHeaders['Authorization'] = `Bearer ${jwtToken}`;
-  }
+  // Mint a fresh access token from the refresh cookie (prod). In dev this is a
+  // no-op and we rely on the token the content-script bridge synced to storage.
+  await refreshAccessToken(apiUrl);
+  // Did we end up with any token at all (minted or bridged)?
+  const { jwtToken: activeToken } = await getFullConfig();
 
   try {
-    const meRes = await fetch(`${apiUrl}/api/auth/me`, {
-      headers: authHeaders,
-      credentials: 'include'
-    });
+    const meRes = await apiFetch(apiUrl, '/api/auth/me');
 
     if (!meRes.ok) {
       displayGuestUser();
-      if (jwtToken) {
+      if (activeToken) {
         const msg = meRes.status === 401
           ? 'Session expired. Visit the site to refresh.'
           : 'Could not verify authentication. Server may be unavailable.';
@@ -91,7 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (user && user.email) {
         displayAuthenticatedUser(user);
-        loadRecentCollections(apiUrl, authHeaders, frontendUrl);
+        loadRecentCollections(apiUrl, frontendUrl);
       } else {
         displayGuestUser();
       }
@@ -99,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     console.warn('Authentication check failed:', err.message);
     displayGuestUser();
-    if (jwtToken) {
+    if (activeToken) {
       showError('Could not connect to server.');
     }
   }
@@ -233,15 +231,12 @@ function checkActiveJobProgress() {
 
 // ─── Collections ───────────────────────────────────────────
 
-async function loadRecentCollections(apiUrl, headers, frontendUrl) {
+async function loadRecentCollections(apiUrl, frontendUrl) {
   const listEl = document.getElementById('collectionsList');
   const countEl = document.getElementById('collectionsCount');
 
   try {
-    const res = await fetch(`${apiUrl}/api/collections/mine`, {
-      headers,
-      credentials: 'include'
-    });
+    const res = await apiFetch(apiUrl, '/api/collections/mine');
 
     if (!res.ok) throw new Error('Failed to fetch collections');
 
