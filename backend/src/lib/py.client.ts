@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { BoundingBox } from '../modules/jobs/job.types';
+import type { ExcaliburRecipe } from '../modules/enhance/enhance.types';
 
 const pyClient = axios.create({
   baseURL: process.env.PY_BACKEND_URL ?? 'http://localhost:8000',
@@ -123,4 +124,12 @@ export async function cropAssets(
     job_id: jobId,
   });
   return res.data;
+}
+
+export async function runExcaliburEnhancement(image: Buffer, mimeType: string, recipe: ExcaliburRecipe): Promise<Buffer> {
+  const form = new FormData();
+  form.append('image', new Blob([image], { type: mimeType }), 'source-image');
+  form.append('recipe', JSON.stringify(recipe));
+  const response = await pyClient.post<ArrayBuffer>('/enhance/excalibur', form, { responseType: 'arraybuffer' });
+  return Buffer.from(response.data);
 }

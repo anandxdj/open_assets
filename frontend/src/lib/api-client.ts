@@ -74,6 +74,25 @@ async function requestWithRetry<T>(
   return res.json() as Promise<T>;
 }
 
+async function postFormBlobWithRetry(path: string, form: FormData): Promise<Blob> {
+  const send = () => fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    body: form,
+    credentials: "include",
+    headers: buildHeaders(true),
+  });
+  let res = await send();
+  if (res.status === 401) {
+    const token = await refreshAccessToken();
+    if (token) res = await send();
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { message?: string }).message ?? `HTTP ${res.status}`);
+  }
+  return res.blob();
+}
+
 export const apiClient = {
   get<T>(path: string): Promise<T> {
     return requestWithRetry<T>(path, { method: "GET" });
@@ -88,6 +107,10 @@ export const apiClient = {
 
   postForm<T>(path: string, form: FormData): Promise<T> {
     return requestWithRetry<T>(path, { method: "POST", body: form }, true);
+  },
+
+  postFormBlob(path: string, form: FormData): Promise<Blob> {
+    return postFormBlobWithRetry(path, form);
   },
 
   put<T>(path: string, body?: unknown): Promise<T> {

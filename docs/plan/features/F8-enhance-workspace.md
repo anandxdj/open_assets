@@ -31,8 +31,8 @@ can preserve an existing design.
 - Give users one landing page that clearly separates three jobs: deterministic
   line-art enhancement, Cloudinary-backed AI enhancement, and AniBuddy
   animation (specified separately in F9).
-- Preserve source pixels and make every result reproducible from a saved
-  transformation recipe.
+- Keep source pixels out of object storage on the Excalibur path and make every
+  result reproducible from a transformation recipe.
 - Expose Cloudinary functionality only when it is both configured and enabled
   for the active account.
 
@@ -65,18 +65,25 @@ work, usage tracking, and later collection saving have a consistent owner.
 
 This path is for line-art, sparse iconography, diagrams, and low-detail art
 whose identity must remain under the user's control. It uses deterministic,
-server-side image processing rather than image generation.
+server-side image processing rather than image generation or Cloudinary. SVG
+exports are rendered directly at the requested resolution. Raster fallback
+detects text and thin line structures, sharpens their luminance only, and
+preserves surrounding colours and background texture. The browser sends the
+source through the authenticated Node API to `py_backend`; OpenCV returns the
+PNG in memory through the Node API to the browser. Neither the source nor the
+result is uploaded to object storage on this path.
 
 The baseline pipeline offers these independently adjustable operations:
 
 1. Decode safely, normalize orientation and color, then preserve alpha.
-2. Reduce noise; repair small breaks in outlines; smooth jagged edges while
-   keeping intentional hard corners selectable.
+2. Improve the clarity of existing text and thin lines with a selective stroke
+   mask; optionally remove isolated specks and repair small breaks. Do not use
+   global smoothing or OCR/text regeneration.
 3. Improve contrast and line visibility; provide white, dark, transparent, and
    custom background treatments.
 4. Apply controlled flat fills or palette styling to enclosed regions; never
    infer unbounded new objects, texture, or scenery.
-5. Restore resolution with a deterministic upscale/sharpen pass and export PNG.
+5. Restore resolution with a deterministic 1×, 2×, or 3× upscale/sharpen pass and export PNG.
 
 The UI must offer a reset-to-original control, a side-by-side or draggable
 before/after comparison, and presets such as `Clean outline`, `Dark display`,
@@ -106,7 +113,7 @@ Studio's generation APIs:
 | Interface | Purpose |
 |---|---|
 | `GET /api/enhance/capabilities` | Returns active provider, availability, and supported AI-enhancement operations. |
-| `POST /api/enhance/excalibur` | Accepts a source asset plus deterministic recipe and returns an enhanced asset and canonical recipe. |
+| `POST /api/enhance/excalibur` | Accepts a multipart source image plus deterministic settings and returns the enhanced PNG directly; the canonical recipe is returned in a response header. No object-storage asset is created. |
 | `POST /api/enhance/ai` | Accepts an allowed Cloudinary operation and parameters; validates capability and returns the transformed asset and recipe. |
 
 An `EnhancementRecipe` stores `tool`, source asset reference, ordered operations,
@@ -123,7 +130,7 @@ PNG. Saving to Collections is deliberately deferred to F1's shared save flow.
 3. Ship presets, adjustable operations, recipe output, and PNG export.
 
 **Phase 2 — Cloudinary AI Enhance** *(M)*
-4. Add the capability endpoint and Cloudinary account/configuration checks.
+4. Add the capability endpoint and Cloudinary account/configuration checks. This is the first Enhance path permitted to use Cloudinary.
 5. Implement the supported Cloudinary operations with provider-owned credentials,
    recipe recording, actionable errors, and usage accounting where applicable.
 6. Keep unsupported and non-Cloudinary configurations visibly unavailable.
@@ -154,4 +161,3 @@ PNG. Saving to Collections is deliberately deferred to F1's shared save flow.
   disabled operations and ImageKit configurations fail safely and explain why.
 - Existing Studio routes and image-generation settings remain absent from
   Enhance.
-

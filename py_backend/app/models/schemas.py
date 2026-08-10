@@ -97,3 +97,16 @@ class DetectUploadResponse(BaseModel):
     detection_mode: str = "auto"
     detection_confidence: float = 0.0
     detection_warning: Optional[str] = None
+
+
+class ExcaliburRecipe(BaseModel):
+    schemaVersion: Literal[1]
+    engine: Literal["openassets-excalibur"]
+    engineVersion: Literal["2"]
+    sourceSha256: str
+    sourceKind: Literal["raster", "svg"] = "raster"
+    cleanup: float = 2
+    speckRemoval: float = 1
+    contrast: float = 1
+    background: Literal["transparent", "white", "dark"] = "transparent"
+    scale: Literal[1, 2, 3] = 1

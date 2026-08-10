@@ -1,5 +1,5 @@
 export type ResourceType = 'image' | 'raw';
-export type StorageFolder = 'originals' | 'collections' | 'exports';
+export type StorageFolder = 'originals' | 'collections' | 'exports' | 'enhance';
 
 export interface UploadOptions {
   folder: StorageFolder;

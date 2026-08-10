@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from app.core.config import settings
-from app.routers import detect, name, crop
+from app.routers import detect, name, crop, enhance
 
 logger = logging.getLogger("open_assets")
 
@@ -40,6 +40,7 @@ app.add_middleware(SlowAPIMiddleware)
 app.include_router(detect.router)
 app.include_router(name.router)
 app.include_router(crop.router)
+app.include_router(enhance.router)
 
 
 @app.get("/health")

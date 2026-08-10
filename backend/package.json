@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@imagekit/nodejs": "^7.6.3",
+    "@resvg/resvg-js": "^2.6.2",
     "archiver": "^6.0.2",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
