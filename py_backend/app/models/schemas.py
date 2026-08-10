@@ -1,9 +1,11 @@
 from pydantic import BaseModel, HttpUrl
-from typing import Optional
+from typing import Literal, Optional
 
 
 class DetectRequest(BaseModel):
     image_url: HttpUrl
+    mode: Literal["auto", "light", "dark", "sampled"] = "auto"
+    background_color: Optional[str] = None
 
 
 class DetectedBox(BaseModel):
@@ -19,6 +21,9 @@ class DetectResponse(BaseModel):
     boxes: list[DetectedBox]
     image_width: int
     image_height: int
+    detection_mode: str = "auto"
+    detection_confidence: float = 0.0
+    detection_warning: Optional[str] = None
 
 
 class TransparencyResponse(BaseModel):
@@ -89,3 +94,6 @@ class DetectUploadResponse(BaseModel):
     image_width: int
     image_height: int
     asset_count: int
+    detection_mode: str = "auto"
+    detection_confidence: float = 0.0
+    detection_warning: Optional[str] = None

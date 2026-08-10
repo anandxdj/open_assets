@@ -39,10 +39,6 @@ export function startDetectionWorker(): void {
         throw new Error(`Asset detection failed: ${extractError(err)}`);
       }
 
-      if (result.boxes.length === 0) {
-        throw new Error('No assets detected — image may be blank or detection thresholds too strict');
-      }
-
       const boxes: BoundingBox[] = result.boxes.map((b) => ({
         id: b.id,
         x: b.x,
@@ -57,6 +53,9 @@ export function startDetectionWorker(): void {
         boxes: JSON.stringify(boxes),
         imageWidth: String(result.image_width),
         imageHeight: String(result.image_height),
+        detectionMode: result.detection_mode,
+        detectionConfidence: String(result.detection_confidence),
+        detectionWarning: result.detection_warning ?? '',
       });
 
       console.log(`[detection.worker] Job ${jobId}: ${boxes.length} assets detected`);

@@ -25,6 +25,9 @@ export interface DetectResult {
   boxes: DetectedBox[];
   image_width: number;
   image_height: number;
+  detection_mode: string;
+  detection_confidence: number;
+  detection_warning?: string | null;
 }
 
 export interface TransparencyResult {
@@ -81,8 +84,20 @@ export async function checkTransparency(imageUrl: string): Promise<TransparencyR
   return res.data;
 }
 
-export async function detectAssets(imageUrl: string): Promise<DetectResult> {
-  const res = await pyClient.post<DetectResult>('/detect', { image_url: imageUrl });
+export interface DetectionOptions {
+  mode?: 'auto' | 'light' | 'dark' | 'sampled';
+  backgroundColor?: string;
+}
+
+export async function detectAssets(
+  imageUrl: string,
+  options: DetectionOptions = {},
+): Promise<DetectResult> {
+  const res = await pyClient.post<DetectResult>('/detect', {
+    image_url: imageUrl,
+    mode: options.mode ?? 'auto',
+    background_color: options.backgroundColor,
+  });
   return res.data;
 }
 

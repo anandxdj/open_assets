@@ -13,6 +13,7 @@ import { ZoomControls } from "./ZoomControls";
 import { ShortcutsLegend } from "./ShortcutsLegend";
 import { buttonVariants } from "@/components/ui/button";
 import { startExport } from "@/features/editor/services/exportApi";
+import { redetectJob, type DetectionMode } from "@/features/upload/services/uploadApi";
 import { Zap } from "lucide-react";
 import {
   CircularProgress,
@@ -27,6 +28,9 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   const canvas = useCanvasEditor();
   const containerRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
+  const [redetecting, setRedetecting] = useState(false);
+  const [detectionNotice, setDetectionNotice] = useState<string | null>(null);
+  const [customBackground, setCustomBackground] = useState("#000000");
 
   // Redirect if job has already advanced past the editing stage
   useEffect(() => {
@@ -68,6 +72,27 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     const clamped = Math.max(0.05, Math.min(10, newZoom));
     canvas.setCamera({ zoom: clamped, x: cx - wx * clamped, y: cy - wy * clamped });
   }, [canvas.camera, canvas.setCamera]);
+
+  const handleRedetect = useCallback(async (mode: DetectionMode) => {
+    setRedetecting(true);
+    setDetectionNotice(null);
+    try {
+      const result = await redetectJob(jobId, {
+        mode,
+        backgroundColor: mode === "sampled" ? customBackground : undefined,
+      });
+      canvas.initBoxes(result.boxes);
+      const confidence = Math.round(result.detectionConfidence * 100);
+      setDetectionNotice(
+        result.detectionWarning ??
+          `Re-detected ${result.boxes.length} asset${result.boxes.length === 1 ? "" : "s"} using ${result.detectionMode} (${confidence}% confidence).`,
+      );
+    } catch (err) {
+      setDetectionNotice(err instanceof Error ? err.message : "Re-detection failed");
+    } finally {
+      setRedetecting(false);
+    }
+  }, [canvas, customBackground, jobId]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -199,6 +224,13 @@ export function EditorScreen({ jobId }: { jobId: string }) {
 
   const singleSelectedId = canvas.selectedIds.size === 1 ? Array.from(canvas.selectedIds)[0] : null;
   const selectedBox = singleSelectedId ? canvas.boxes.find(b => b.id === singleSelectedId) : null;
+  const hasFullSheetDetection = canvas.boxes.length === 1 &&
+    canvas.boxes[0].width >= job.imageWidth * 0.9 &&
+    canvas.boxes[0].height >= job.imageHeight * 0.9;
+  const detectionMessage = detectionNotice ?? job.detectionWarning ??
+    (hasFullSheetDetection
+      ? "The previous detector treated most of this sheet as one asset. Re-detect it with a background-aware mode."
+      : "Trying another background strategy…");
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950">
@@ -244,6 +276,51 @@ export function EditorScreen({ jobId }: { jobId: string }) {
           onZoom={handleZoom}
           onFit={handleFitToScreen}
         />
+        {(job.detectionWarning || detectionNotice || redetecting || hasFullSheetDetection) && (
+          <div className="absolute left-4 top-4 z-20 w-[min(390px,calc(100%-2rem))] border border-amber-500/50 bg-zinc-950/95 p-3 font-mono shadow-xl backdrop-blur-sm">
+            <p className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+              Detection review
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-300">
+              {detectionMessage}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {([
+                ["auto", "Auto"],
+                ["dark", "Dark bg"],
+                ["light", "Light bg"],
+              ] as const).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  disabled={redetecting}
+                  onClick={() => void handleRedetect(mode)}
+                  className="border border-zinc-700 px-2 py-1 text-[10px] font-bold uppercase text-zinc-200 hover:border-amber-400 hover:text-amber-200 disabled:cursor-wait disabled:opacity-50"
+                >
+                  {label}
+                </button>
+              ))}
+              <label className="flex items-center gap-1 border border-zinc-700 px-1.5 py-0.5 text-[10px] text-zinc-300">
+                <span>Custom</span>
+                <input
+                  aria-label="Custom background colour"
+                  type="color"
+                  value={customBackground}
+                  onChange={(event) => setCustomBackground(event.target.value)}
+                  className="h-4 w-4 cursor-pointer bg-transparent"
+                />
+                <button
+                  type="button"
+                  disabled={redetecting}
+                  onClick={() => void handleRedetect("sampled")}
+                  className="font-bold uppercase text-amber-200 disabled:cursor-wait disabled:opacity-50"
+                >
+                  Try
+                </button>
+              </label>
+            </div>
+          </div>
+        )}
         <ShortcutsLegend />
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
           <Toolbar activeTool={canvas.activeTool} onToolChange={canvas.setActiveTool} />

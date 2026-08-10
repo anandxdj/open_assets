@@ -35,8 +35,11 @@ export interface JobResponse {
   isTransparent?: boolean;
   imageWidth: number;
   imageHeight: number;
+  detectionMode?: string;
+  detectionConfidence?: number;
+  detectionWarning?: string;
   boxes: BoundingBox[];
-  assets?: any[];
+  assets?: Asset[];
   downloadUrl?: string;
   error?: string;
 }

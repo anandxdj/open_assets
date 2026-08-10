@@ -37,6 +37,9 @@ export interface JobHash {
   isTransparent: string;
   imageWidth: string;
   imageHeight: string;
+  detectionMode: string;
+  detectionConfidence: string;
+  detectionWarning: string;
   boxes: string;          // JSON.stringify(BoundingBox[])
   nameMap: string;        // JSON.stringify(Record<string,string>)
   assets: string;         // JSON.stringify(Asset[])
@@ -56,6 +59,9 @@ export interface JobResponse {
   isTransparent?: boolean;
   imageWidth: number;
   imageHeight: number;
+  detectionMode?: string;
+  detectionConfidence?: number;
+  detectionWarning?: string;
   boxes: BoundingBox[];
   assets: Asset[];
   downloadUrl?: string;

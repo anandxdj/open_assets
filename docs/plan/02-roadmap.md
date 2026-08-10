@@ -14,8 +14,10 @@
 
 Today OpenAssets does two things well in isolation — **extract** assets from
 packed images, and **generate** assets in five AI studios — and lets users
-**publish** results to public Collections. The next chapter is about making
-those three loops feed each other and turning a tool into a destination:
+**publish** results to public Collections. Enhance adds a fourth, intentionally
+non-generative loop for improving and animating assets users already own. The
+next chapter is about making those loops feed each other and turning a tool into
+a destination:
 
 > *Generate or extract → refine → publish → get discovered → others remix.*
 
@@ -26,6 +28,7 @@ The roadmap is organized around three themes:
 | **A. Close the loop** | Every producer surface can save into the platform; nothing is a dead-end. | F1 (studio→collections), F2 (history) |
 | **B. Make the foundation real** | The plumbing the product *claims* to have actually works and is trustworthy. | F3 (storage parity), F4 (billing), F7 (testing/CI) |
 | **C. Become a destination** | Collections grow from a feature into a community. | F5 (community hub), F6 (extension v2) |
+| **D. Refine without generating** | Improve outline art, use supported provider enhancement, and animate supplied characters. | F8 (Enhance), F9 (AniBuddy) |
 
 ---
 
@@ -83,6 +86,26 @@ safety net: integration tests for the collections ZIP/authz paths, auth flows,
 worker failure transitions, plus CI steps that actually catch a broken build. →
 [F7](features/F7-testing-and-ci-hardening.md)
 
+### F8 — Enhance workspace *(Theme D)*
+Add a top-level Enhance workspace separate from Studio. Excalibur Enhance
+polishes sparse line art through deterministic server-side processing; AI
+Enhance exposes only Cloudinary transformations verified as available for the
+configured account. Both preserve source artwork, record reproducible recipes,
+and avoid image-generation calls. → [F8](features/F8-enhance-workspace.md)
+
+### F9 — AniBuddy: non-generative character animation *(Theme D)*
+AniBuddy turns user-supplied character art into editable 2D puppet animation.
+It can help write an external-image prompt and suggest a mesh rig, but all
+output frames are deformed from supplied pixels — no generated character frames.
+Ship constrained single-character loops first, then pose sheets and compositions.
+→ [F9](features/F9-anibuddy.md)
+
+### F10 — Background-aware asset detection *(Theme B)*
+Replace the white-background-only contour threshold with scored multi-pass masks
+for alpha, dark, light, sampled-colour, and adaptive detection. Low-confidence
+results stay editable and can be re-detected from the original upload without a
+second upload. → [F10](features/F10-background-aware-detection.md)
+
 ---
 
 ## Dependency graph
@@ -117,6 +140,11 @@ worker failure transitions, plus CI steps that actually catch a broken build. �
 
    F4 billing — independent track; do the honest-rewrite now,
    schedule the Stripe build when monetization is a priority.
+
+   F8 Enhance — starts after the foundation; Excalibur can ship independently
+   while Cloudinary capability reporting benefits from F3.
+   F9 AniBuddy — depends on the Enhance shell; ship constrained single-character
+   animation before pose sheets, composition, or persistence.
 ```
 
 **Reading it:** the P0 fixes gate everything. F3 (storage) and F7 (tests) are
@@ -133,6 +161,7 @@ footprint). F4 is its own track.
 ### M0 — Trustworthy foundation (≈1 sprint)
 - P0 fixes: **FX-02, FX-03, FX-04, FX-09** (auth, py fail-open, compose, env examples).
 - **F3** storage-provider parity (FX-01, FX-10).
+- **F10** background-aware detection and in-editor re-detection.
 - Honest pricing rewrite (the cheap half of **F4**).
 - *Exit:* both storage providers work end-to-end; the documented setup commands actually work; no fictional product claims.
 
@@ -142,11 +171,26 @@ footprint). F4 is its own track.
 - First slice of **F7** (collections + auth integration tests) landed alongside so the new endpoints are covered.
 - *Exit:* nothing a user produces is a dead-end; "my work" is browsable.
 
+### M1.5 — Refine existing artwork (≈1 sprint)
+- **F8 Phase 1:** Enhance navigation and Excalibur deterministic line-art
+  enhancement.
+- **F8 Phase 2:** Cloudinary capability-gated AI Enhance, after provider checks
+  are reliable.
+- *Exit:* existing artwork can be polished without entering a generation studio.
+
 ### M2 — Destination (≈2–3 sprints)
 - **FX-06** AI tag enrichment → then **F5** community hub (profiles, discovery, comments, follows).
 - **F6** extension v2 completion + extract-to-collection.
 - Remainder of **F7** (worker tests, CI build/lint/py).
+- **F9 Phase 1:** AniBuddy single-character 2D puppet loops and local exports.
 - *Exit:* Collections is a place people browse, not just a place exports land.
+
+### M2.5 — Animate supplied assets (≈1–2 sprints)
+- **F9 Phase 2:** pose-sheet extraction and sequencing.
+- **F9 Phase 3:** optional multi-sprite compositions and F1-backed saved
+  projects.
+- *Exit:* users can animate their own character art without image generation and
+  understand the boundaries of 2D mesh motion.
 
 ### M3 — Monetize (when ready)
 - Full **F4** billing (Stripe, plan tiers, metered top-ups) on top of the existing atomic credits economy.
@@ -162,7 +206,6 @@ tighten CORS when revisiting auth).
 Captured so they aren't re-proposed as if new. Promote to a feature doc only when prioritized.
 
 - Real-time collaborative editing of bounding boxes (multiplayer canvas).
-- Animation/GIF export from sprite studio sheets directly.
 - A public REST API with API keys for programmatic extraction (the surface exists; productizing it is a separate effort tied to F4).
 - Desktop/Electron wrapper.
 - Self-hosted model inference (replace OpenRouter/Gemini deps).

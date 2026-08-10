@@ -11,8 +11,8 @@ router = APIRouter()
 @router.post("/detect", response_model=DetectResponse)
 async def detect_assets(request: DetectRequest) -> DetectResponse:
     img = await download_image(str(request.image_url))
-    boxes, width, height = find_bounding_boxes(img)
-    return DetectResponse(boxes=boxes, image_width=width, image_height=height)
+    result = find_bounding_boxes(img, request.mode, request.background_color)
+    return DetectResponse(**result)
 
 
 @router.post("/detect-upload", response_model=DetectUploadResponse)
@@ -22,8 +22,8 @@ async def detect_assets_upload(file: UploadFile = File(...)) -> DetectUploadResp
     img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
     if img is None:
         raise HTTPException(status_code=400, detail="Invalid image file")
-    boxes, width, height = find_bounding_boxes(img)
-    return DetectUploadResponse(boxes=boxes, image_width=width, image_height=height, asset_count=len(boxes))
+    result = find_bounding_boxes(img)
+    return DetectUploadResponse(**result, asset_count=len(result["boxes"]))
 
 
 @router.post("/check-transparency", response_model=TransparencyResponse)

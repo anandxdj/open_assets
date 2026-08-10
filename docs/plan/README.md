@@ -20,6 +20,9 @@
 | [`features/F5-community-hub.md`](features/F5-community-hub.md) | Collections → a social asset-sharing community (profiles, discovery, comments, follows). |
 | [`features/F6-extension-v2-completion.md`](features/F6-extension-v2-completion.md) | Finish the Chrome extension overhaul (live progress, real icons, session-storage JWT). |
 | [`features/F7-testing-and-ci-hardening.md`](features/F7-testing-and-ci-hardening.md) | Close the test/CI gaps so regressions can't ship silently. |
+| [`features/F8-enhance-workspace.md`](features/F8-enhance-workspace.md) | Add the non-generative Enhance workspace: deterministic line-art polish and Cloudinary-backed AI enhancement. |
+| [`features/F9-anibuddy.md`](features/F9-anibuddy.md) | Animate user-supplied character art with AI-assisted 2D mesh rigs, without image generation. |
+| [`features/F10-background-aware-detection.md`](features/F10-background-aware-detection.md) | Detect assets reliably on black, dark, light, and non-uniform opaque backgrounds. |
 
 Related existing docs (predate this folder, still useful):
 - [`../studio_integration_plan.md`](../studio_integration_plan.md) — the original 6-phase studio port plan (phases 0–5 done, 6 open → see F1).
@@ -33,7 +36,7 @@ Related existing docs (predate this folder, still useful):
 
 OpenAssets is four surfaces (Next.js frontend, Express backend + BullMQ workers,
 FastAPI `py_backend`, Chrome extension) over MongoDB + Redis + pluggable object
-storage. Two product lines now live side by side:
+storage. Four product lines now live side by side or are explicitly planned:
 
 1. **Extraction** — upload a packed image → OpenCV detect → canvas edit → Gemini
    names → crop → optional 2× upscale → ZIP or push to a Collection. **End-to-end
@@ -43,8 +46,11 @@ storage. Two product lines now live side by side:
    BYOK / server-credits key model. **All five ship; the credits economy is real
    and atomic.**
 3. **Collections** — public galleries with folders, images, likes, download
-   counts, search, and on-the-fly ZIP export. **Working, with one promised AI
-   feature missing (auto-tagging on manual upload).**
+counts, search, and on-the-fly ZIP export. **Working, with one promised AI
+feature missing (auto-tagging on manual upload).**
+4. **Enhance** *(planned)* — a non-generative workspace for deterministic
+line-art refinement, Cloudinary-backed enhancement, and AniBuddy 2D character
+animation. **Specified in F8/F9; not yet implemented.**
 
 ### What's genuinely solid (don't re-plan these)
 
