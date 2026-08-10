@@ -58,7 +58,8 @@ export function SettingsDrawer({
                 <p>
                   <span className="font-black uppercase">BYOK</span>{" "}
                   <span className="text-muted-foreground">
-                    — using your OpenRouter key, no credit limits.
+                    — using your OpenRouter key, no credit limits. Requests go to
+                    OpenRouter only.
                   </span>
                 </p>
               ) : credits ? (
@@ -72,6 +73,21 @@ export function SettingsDrawer({
               ) : (
                 <p className="text-muted-foreground">
                   Sign in for free monthly credits, or add your own OpenRouter key below.
+                </p>
+              )}
+              {!apiKey && (
+                <p className="mt-2 border-t-2 border-zinc-200 dark:border-zinc-800 pt-2 text-muted-foreground">
+                  Free-tier prompts and images are routed through{" "}
+                  <a
+                    href="https://openquota.anands.dev"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold underline underline-offset-4"
+                  >
+                    Open Quota
+                  </a>
+                  , which forwards them to whichever provider it picks, and fall back to
+                  OpenRouter. Add your own key to use OpenRouter only.
                 </p>
               )}
             </div>

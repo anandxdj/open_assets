@@ -89,8 +89,9 @@ export function ApiKeyModal({
         <div className="mb-4 border-2 border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-3 text-[12px] leading-relaxed text-muted-foreground">
           Stored only in this browser&apos;s{" "}
           <code className="font-mono font-bold">localStorage</code>. Sent with each request to
-          this app&apos;s server, which proxies it to OpenRouter — never logged, never
-          persisted server-side.
+          this app&apos;s server, which proxies it to OpenRouter and nowhere else — never
+          logged, never persisted server-side. Without a key, free-tier prompts and images
+          are routed through Open Quota first, then OpenRouter.
         </div>
 
         <a

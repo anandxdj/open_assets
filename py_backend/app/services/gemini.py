@@ -2,11 +2,8 @@ import re
 import base64
 import cv2
 import numpy as np
-import httpx
-from app.core.config import settings
 from app.models.schemas import BoxInput
-
-GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+from app.services import llm
 
 PROMPT = (
     "This image is a sprite sheet / icon pack. Each individual asset is outlined "
@@ -24,40 +21,8 @@ PROMPT = (
     "Every folder you reference in an asset MUST also appear in the folders list."
 )
 
-RESPONSE_SCHEMA = {
-    "type": "OBJECT",
-    "properties": {
-        "collection_name": {"type": "STRING"},
-        "collection_tags": {"type": "ARRAY", "items": {"type": "STRING"}},
-        "folders": {
-            "type": "ARRAY",
-            "items": {
-                "type": "OBJECT",
-                "properties": {
-                    "name": {"type": "STRING"},
-                    "tags": {"type": "ARRAY", "items": {"type": "STRING"}},
-                },
-                "required": ["name"],
-            },
-        },
-        "assets": {
-            "type": "ARRAY",
-            "items": {
-                "type": "OBJECT",
-                "properties": {
-                    "systematic": {"type": "STRING"},
-                    "name": {"type": "STRING"},
-                    "folder": {"type": "STRING"},
-                    "tags": {"type": "ARRAY", "items": {"type": "STRING"}},
-                    "description": {"type": "STRING"},
-                    "dominant_colors": {"type": "ARRAY", "items": {"type": "STRING"}},
-                },
-                "required": ["systematic", "name"],
-            },
-        },
-    },
-    "required": ["collection_name", "collection_tags", "folders", "assets"],
-}
+# The structured-output schema now lives with the providers that send it.
+RESPONSE_SCHEMA = llm.RESPONSE_SCHEMA
 
 
 def _annotate(img: np.ndarray, boxes: list[BoxInput]) -> bytes:
@@ -116,7 +81,7 @@ def _clean_words(raw) -> list[str]:
 
 
 def name_assets_fallback(boxes: list[BoxInput]) -> dict:
-    """Identity result used whenever Gemini is unavailable or fails."""
+    """Identity result used whenever every naming provider is unavailable or fails."""
     return {
         "names": {b.name: b.name for b in boxes},
         "collection": None,
@@ -127,7 +92,8 @@ def name_assets_fallback(boxes: list[BoxInput]) -> dict:
 
 async def name_assets(img: np.ndarray, boxes: list[BoxInput]) -> dict:
     """
-    Send one annotated full image to Gemini and return a structured result:
+    Send one annotated full image to the naming provider chain (Open Quota, then
+    Gemini) and return a structured result:
         {
           "names": { systematic_id -> descriptive filename },   # de-duped
           "collection": { "name": str|None, "tags": [str] } | None,
@@ -136,53 +102,19 @@ async def name_assets(img: np.ndarray, boxes: list[BoxInput]) -> dict:
                          "description", "dominant_colors" } ],
         }
 
-    Graceful degradation: with no API key (or any failure) it returns an
-    identity `names` map and empty collection/folders/assets, so the crop
-    pipeline still works (filenames stay asset_001, asset_002, ...) and the
-    auto-scaffold step simply falls back to a single default folder.
+    Graceful degradation: with no provider configured (or every provider
+    failing) it returns an identity `names` map and empty
+    collection/folders/assets, so the crop pipeline still works (filenames stay
+    asset_001, asset_002, ...) and the auto-scaffold step simply falls back to a
+    single default folder.
     """
-    if not settings.GEMINI_API_KEY or not boxes:
+    if not boxes or not llm.providers:
         return name_assets_fallback(boxes)
 
     image_bytes = _annotate(img, boxes)
     b64 = base64.b64encode(image_bytes).decode("ascii")
 
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": PROMPT},
-                    {"inline_data": {"mime_type": "image/png", "data": b64}},
-                ]
-            }
-        ],
-        "generationConfig": {
-            "response_mime_type": "application/json",
-            "response_schema": RESPONSE_SCHEMA,
-        },
-    }
-
-    url = GEMINI_ENDPOINT.format(model=settings.GEMINI_MODEL)
-    try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(url, params={"key": settings.GEMINI_API_KEY}, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-    except httpx.HTTPStatusError as e:
-        # Gemini API error (invalid key, quota, etc.) — degrade gracefully.
-        print(f"[gemini] API error HTTP {e.response.status_code}: {e.response.text[:200]}")
-        return name_assets_fallback(boxes)
-    except httpx.RequestError as e:
-        print(f"[gemini] Network error: {e}")
-        return name_assets_fallback(boxes)
-
-    import json
-    try:
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        parsed = json.loads(text)
-    except (KeyError, IndexError, ValueError):
-        return name_assets_fallback(boxes)
-
+    parsed = await llm.generate_json(PROMPT, b64)
     if not isinstance(parsed, dict):
         return name_assets_fallback(boxes)
 

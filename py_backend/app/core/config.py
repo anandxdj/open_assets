@@ -6,9 +6,19 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
 
-    # Gemini (asset naming)
+    # Gemini (asset naming) — the fallback provider.
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-flash-lite-latest"
+
+    # Open Quota (asset naming) — primary provider, tried before Gemini. Empty
+    # key means Gemini-only, i.e. unchanged behaviour. Note this is the /llm
+    # root, not the /llm/v1 the frontend uses: the native Gemini surface we call
+    # lives at <root>/v1beta/models/<model>:generateContent.
+    OPENQUOTA_API_KEY: str = ""
+    OPENQUOTA_BASE_URL: str = "https://openquota.anands.dev/llm"
+    # Must not contain a ':' — it would collide with the ':generateContent'
+    # method suffix, so the auto:<strategy> forms are unusable here.
+    OPENQUOTA_MODEL: str = "auto"
 
     # SECURITY (#9): only fetch images from these hosts (comma-separated). Empty
     # disables host allowlisting (private-IP blocking still applies).

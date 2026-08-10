@@ -1,6 +1,7 @@
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode, refundCredits, resolveKeyAndCredits } from '../_lib/openrouter'
+import { callLlm, providerHeaders, LLM_LONG_BUDGET_MS } from '../_lib/llm'
 
 export const maxDuration = 120
 
@@ -159,37 +160,33 @@ Output STRICT JSON only — no prose, no markdown fences. Schema:
 
 Propose ${n} brand-new decoration props as strict JSON.`
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${auth.key}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': request.headers.get('referer') || 'http://localhost:3000',
-        'X-Title': 'AI Image Extender - Prop Art Director',
-      },
-      body: JSON.stringify({
-        model: modelId,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 900,
-        // High temperature: this is the CREATIVE step. We want it reaching for
-        // novel kinds, not playing it safe.
-        temperature: 1.0,
-      }),
+    const result = await callLlm({
+      byok: auth.byok,
+      key: auth.key,
+      model: modelId,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      maxTokens: 900,
+      // High temperature: this is the CREATIVE step. We want it reaching for
+      // novel kinds, not playing it safe.
+      temperature: 1.0,
+      title: 'AI Image Extender - Prop Art Director',
+      referer: request.headers.get('referer'),
+      signal: request.signal,
+      budgetMs: LLM_LONG_BUDGET_MS,
     })
 
-    if (!response.ok) {
+    if (!result.ok) {
       if (!auth.byok && auth.eventId) await refundCredits(auth.eventId)
-      const errorData = await response.json().catch(() => ({}))
       return NextResponse.json(
-        { error: errorData.error?.message || 'Failed to generate prop brief' },
-        { status: response.status }
+        { error: result.error || 'Failed to generate prop brief' },
+        { status: result.status || 502 }
       )
     }
 
-    const data = await response.json()
+    const data = result.data
     const content = data.choices?.[0]?.message?.content
     const raw =
       typeof content === 'string'
@@ -202,13 +199,16 @@ Propose ${n} brand-new decoration props as strict JSON.`
 
     const ideas = parseIdeas(raw).slice(0, n)
     if (ideas.length === 0) {
+      // The user gets nothing usable, so don't keep their credit — same as
+      // scene-brief does on empty output.
+      if (!auth.byok && auth.eventId) await refundCredits(auth.eventId)
       return NextResponse.json(
         { error: 'Art director returned no usable ideas' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ ideas })
+    return NextResponse.json({ ideas }, { headers: providerHeaders(result) })
   } catch (error) {
     console.error('Error in prop-brief route:', error)
     return NextResponse.json(

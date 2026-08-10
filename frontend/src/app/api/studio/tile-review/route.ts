@@ -1,6 +1,8 @@
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode, refundCredits, resolveKeyAndCredits } from '../_lib/openrouter'
+import { callLlm, providerHeaders, LLM_LONG_BUDGET_MS } from '../_lib/llm'
+import type { LlmContentPart } from '../_lib/llm'
 
 export const maxDuration = 120
 
@@ -126,7 +128,7 @@ Review the attached platform preview${
         : ''
     } and return your verdict as strict JSON.`
 
-    const content: Array<Record<string, unknown>> = [
+    const content: LlmContentPart[] = [
       { type: 'image_url', image_url: { url: previewImage } },
     ]
     if (typeof sheetImage === 'string' && sheetImage.startsWith('data:image/')) {
@@ -134,36 +136,32 @@ Review the attached platform preview${
     }
     content.push({ type: 'text', text: userText })
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${auth.key}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': request.headers.get('referer') || 'http://localhost:3000',
-        'X-Title': 'AI Image Extender - Tile QA',
-      },
-      body: JSON.stringify({
-        model: modelId,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content },
-        ],
-        max_tokens: 600,
-        // Low temperature: this is a judgment call, we want consistency.
-        temperature: 0.2,
-      }),
+    const result = await callLlm({
+      byok: auth.byok,
+      key: auth.key,
+      model: modelId,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content },
+      ],
+      maxTokens: 600,
+      // Low temperature: this is a judgment call, we want consistency.
+      temperature: 0.2,
+      title: 'AI Image Extender - Tile QA',
+      referer: request.headers.get('referer'),
+      signal: request.signal,
+      budgetMs: LLM_LONG_BUDGET_MS,
     })
 
-    if (!response.ok) {
+    if (!result.ok) {
       if (!auth.byok && auth.eventId) await refundCredits(auth.eventId)
-      const errorData = await response.json().catch(() => ({}))
       return NextResponse.json(
-        { error: errorData.error?.message || 'Failed to review tileset' },
-        { status: response.status }
+        { error: result.error || 'Failed to review tileset' },
+        { status: result.status || 502 }
       )
     }
 
-    const data = await response.json()
+    const data = result.data
     const raw = data.choices?.[0]?.message?.content
     const text =
       typeof raw === 'string'
@@ -177,9 +175,9 @@ Review the attached platform preview${
     const review = parseReview(text)
     if (!review) {
       // Don't block the user on a parse failure — treat as approved.
-      return NextResponse.json({ ok: true, issues: [], fix: '' })
+      return NextResponse.json({ ok: true, issues: [], fix: '' }, { headers: providerHeaders(result) })
     }
-    return NextResponse.json(review)
+    return NextResponse.json(review, { headers: providerHeaders(result) })
   } catch (error) {
     console.error('Error in tile-review route:', error)
     return NextResponse.json(

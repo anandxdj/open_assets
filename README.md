@@ -21,7 +21,7 @@ The same pipeline is reachable three ways: a **web app**, a **Chrome extension**
    │  1. Detect    OpenCV finds each │   bounding boxes + auto-names
    │               asset's box       │   (asset_001, asset_002, …)
    ├────────────────────────────────┤
-   │  2. Name      Gemini looks at   │   fire_sword, health_potion, …
+   │  2. Name      an LLM looks at   │   fire_sword, health_potion, …
    │               the sheet         │
    ├────────────────────────────────┤
    │  3. Crop      each box sliced   │   individual transparent PNGs
@@ -61,7 +61,7 @@ Four deployable surfaces around two data stores and one object-storage provider.
                       ▼
             ┌────────────────────┐
             │  AI Service        │────▶ OpenCV / NumPy   (detect + crop)
-            │  FastAPI / uvicorn │────▶ Gemini 2.0 Flash (asset naming)
+            │  FastAPI / uvicorn │────▶ Open Quota → Gemini (asset naming)
             │  :8000             │────▶ Object storage   (upload crops)
             └────────────────────┘
 ```
@@ -70,7 +70,7 @@ Four deployable surfaces around two data stores and one object-storage provider.
 |---|---|---|---|
 | **frontend** | 3000 | Next.js 16, React 19, Tailwind 4, TypeScript | Web UI: upload, SVG canvas editor, export, public galleries |
 | **backend** | 4000 | Express 4, TypeScript (run via `tsx`), BullMQ | API, auth, job orchestration, ZIP building, persistence |
-| **py_backend** | 8000 | FastAPI, Python 3.11, OpenCV, Gemini | Stateless image compute: detection, naming, cropping |
+| **py_backend** | 8000 | FastAPI, Python 3.11, OpenCV, Open Quota/Gemini | Stateless image compute: detection, naming, cropping |
 | **extension** | — | Manifest V3, vanilla JS | Extract assets from any image on any webpage |
 | MongoDB | 27017 | `mongo:7` | Users, auth tokens, collections (the only durable relational data) |
 | Redis | 6379 | `redis:7` | Job state (24h TTL hashes) + BullMQ work queues |
@@ -85,9 +85,15 @@ Four deployable surfaces around two data stores and one object-storage provider.
 - **Storage is pluggable.** Everything goes through a `StorageAdapter` interface
   (`backend/src/lib/storage/`). Set `STORAGE_PROVIDER=cloudinary` (default) or
   `imagekit` — the rest of the code never knows which is active.
+- **LLMs are pluggable too, and chained.** Same adapter shape, in two places:
+  `frontend/src/app/api/studio/_lib/llm/` (studio text/vision) and
+  `py_backend/app/services/llm/` (asset naming). Both put **Open Quota** first and
+  fall back to the original provider on any failure. With `OPENQUOTA_API_KEY`
+  unset, each chain collapses to exactly its previous behaviour. See
+  [`docs/llm_wiki/llm_providers.md`](docs/llm_wiki/llm_providers.md).
 - **The frontend owns box state.** Users edit bounding boxes client-side; the final
   edited list is sent once at crop time, not synced incrementally.
-- **Filename *is* the asset name.** Gemini's chosen name becomes the storage
+- **Filename *is* the asset name.** The LLM's chosen name becomes the storage
   `public_id`, so a crop downloads as `fire_sword.png` with no extra mapping.
 - **One worker per stage.** Three BullMQ workers (detection → crop → finalize) run
   inside the backend process and advance jobs asynchronously.
@@ -116,9 +122,10 @@ them top-to-bottom / left-to-right into `asset_001…N`.
 
 **2 — Name & Crop** (`crop.worker`)
 The user confirms/edits boxes in the canvas and calls `POST /api/crop`. The worker
-runs py_backend `/name-assets` (Gemini sees the whole annotated sheet and returns a
-`snake_case` name per box) and `/crop` (NumPy slices each box, uploads each PNG with
-its Gemini name as the `public_id`). Frontend auto-redirects to the export screen.
+runs py_backend `/name-assets` (an LLM sees the whole annotated sheet and returns a
+`snake_case` name per box — Open Quota first, then Gemini, then identity names) and
+`/crop` (NumPy slices each box, uploads each PNG with its returned name as the
+`public_id`). Frontend auto-redirects to the export screen.
 
 **3 — Export** (`finalize.worker`)
 `POST /api/finalize` with the selected asset IDs and a `skipUpscale` flag.
@@ -240,7 +247,9 @@ extension storage, and the extension sends it on every API call.
 - Node 20+ and `pnpm`
 - Python 3.11+
 - Docker (for MongoDB + Redis) — or your own local instances
-- A Cloudinary **or** ImageKit account, and a Gemini API key
+- A Cloudinary **or** ImageKit account, and at least one LLM key
+  (`OPENQUOTA_API_KEY` and/or `GEMINI_API_KEY` — with neither, naming degrades to
+  `asset_001…N`)
 
 ### 1. Data stores
 ```bash
@@ -255,7 +264,7 @@ have.)*
 cd py_backend
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env        # fill in CLOUDINARY_* and GEMINI_API_KEY
+cp .env.example .env        # fill in CLOUDINARY_* and an LLM key
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -317,6 +326,10 @@ GEMINI_API_KEY=
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
+# Asset naming: Open Quota → Gemini → identity names. Both keys optional.
+OPENQUOTA_API_KEY=                     # empty → Gemini only
+OPENQUOTA_BASE_URL=https://openquota.anands.dev/llm   # the /llm root, not /llm/v1
+OPENQUOTA_MODEL=auto                   # must not contain ':' on this surface
 GEMINI_API_KEY=                        # empty → falls back to identity names
 GEMINI_MODEL=gemini-2.0-flash
 INTERNAL_API_TOKEN=                    # shared secret the Node backend must send
@@ -327,6 +340,17 @@ ALLOWED_IMAGE_HOSTS=res.cloudinary.com,cloudinary.com
 **`frontend/.env.local`**
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:4000
+
+# Studio (server-only). Full list with comments in frontend/.env.example.
+EXPRESS_INTERNAL_URL=http://localhost:4000
+INTERNAL_SERVICE_TOKEN=change-me-service-token
+# Text/vision chain: Open Quota → OpenRouter. Empty key → OpenRouter only.
+OPENQUOTA_API_KEY=
+OPENQUOTA_BASE_URL=https://openquota.anands.dev/llm/v1
+OPENQUOTA_MODEL=auto
+# Fallback for text/vision, and the only provider for the image routes.
+OPENROUTER_API_KEY=
+OPENROUTER_MOCK=0
 ```
 
 ---
@@ -372,10 +396,11 @@ Per-service deep dives live in [`docs/llm_wiki/`](docs/llm_wiki/):
 [`py_backend.md`](docs/llm_wiki/py_backend.md) ·
 [`auth.md`](docs/llm_wiki/auth.md) ·
 [`storage.md`](docs/llm_wiki/storage.md) ·
+[`llm_providers.md`](docs/llm_wiki/llm_providers.md) ·
 [`env_vars.md`](docs/llm_wiki/env_vars.md)
 
 > Some wiki pages predate the pluggable-storage refactor and still say
 > "Cloudinary only" / "Google Vision" — the storage layer is now provider-agnostic
-> (`backend/src/lib/storage/`) and asset naming is done by **Gemini**. This README
-> reflects the current code.
+> (`backend/src/lib/storage/`) and asset naming goes through the LLM chain in
+> `py_backend/app/services/llm/`. This README reflects the current code.
 ```

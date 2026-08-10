@@ -6,6 +6,10 @@
 // mock mode for credit-free testing, and OpenRouter response parsing.
 import type { NextRequest } from 'next/server';
 import { deflateSync } from 'node:zlib';
+import type { LlmMessage } from './llm/interface';
+import { OpenRouterAdapter } from './llm/openrouter.adapter';
+
+const openrouterAdapter = new OpenRouterAdapter();
 
 export const DEFAULT_MODEL = 'google/gemini-3.1-flash-image-preview';
 
@@ -214,51 +218,34 @@ function crc32(buf: Buffer): number {
 // OpenRouter call + response parsing (shared by all routes)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type OpenRouterMessage = {
-  role: string;
-  content: Array<
-    | { type: 'image_url'; image_url: { url: string } }
-    | { type: 'text'; text: string }
-  > | string;
-};
+export type { LlmMessage as OpenRouterMessage } from './llm/interface';
 
+/**
+ * @deprecated Single-provider OpenRouter call, kept for the image routes
+ * (generate, extend) which are out of scope for the Open Quota fallback chain.
+ * New text/vision calls should use `callLlm` from `./llm`.
+ */
 export async function callOpenRouter(opts: {
   key: string;
   model: string;
-  messages: OpenRouterMessage[];
+  messages: LlmMessage[];
   maxTokens?: number;
   temperature?: number;
   referer?: string | null;
 }): Promise<{ ok: true; data: any } | { ok: false; status: number; error: string }> {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${opts.key}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': opts.referer || 'http://localhost:3000',
-      'X-Title': 'OpenAssets Studio',
-    },
-    body: JSON.stringify({
-      model: opts.model,
-      messages: opts.messages,
-      max_tokens: opts.maxTokens ?? 2000,
-      temperature: opts.temperature ?? 0.3,
-    }),
+  const result = await openrouterAdapter.chat({
+    key: opts.key,
+    model: opts.model,
+    messages: opts.messages,
+    maxTokens: opts.maxTokens ?? 2000,
+    temperature: opts.temperature ?? 0.3,
+    referer: opts.referer,
+    title: 'OpenAssets Studio',
   });
 
-  if (!response.ok) {
-    const errBody = await response.text();
-    let error = 'AI request failed';
-    try {
-      error = JSON.parse(errBody)?.error?.message || error;
-    } catch {
-      error = errBody.slice(0, 500) || error;
-    }
-    console.error('[studio] OpenRouter error:', response.status, error);
-    return { ok: false, status: response.status, error };
-  }
-
-  return { ok: true, data: await response.json() };
+  return result.ok
+    ? { ok: true, data: result.data }
+    : { ok: false, status: result.status, error: result.error };
 }
 
 /**

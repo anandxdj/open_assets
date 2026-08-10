@@ -2,6 +2,7 @@
 // Derives a shared parallax scene brief from the Near-layer anchor prompt.
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode, refundCredits, resolveKeyAndCredits } from '../_lib/openrouter'
+import { callLlm, providerHeaders } from '../_lib/llm'
 
 export const maxDuration = 60
 
@@ -68,35 +69,30 @@ Rules for your brief:
 
 Write the shared scene brief for all parallax layers.`
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${auth.key}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': request.headers.get('referer') || 'http://localhost:3000',
-        'X-Title': 'OpenAssets Studio - Scene Brief',
-      },
-      body: JSON.stringify({
-        model: modelId,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 400,
-        temperature: 0.4,
-      }),
+    const result = await callLlm({
+      byok: auth.byok,
+      key: auth.key,
+      model: modelId,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      maxTokens: 400,
+      temperature: 0.4,
+      title: 'OpenAssets Studio - Scene Brief',
+      referer: request.headers.get('referer'),
+      signal: request.signal,
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+    if (!result.ok) {
       if (!auth.byok && auth.eventId) await refundCredits(auth.eventId)
       return NextResponse.json(
-        { error: errorData.error?.message || 'Failed to generate scene brief' },
-        { status: response.status },
+        { error: result.error || 'Failed to generate scene brief' },
+        { status: result.status || 502 },
       )
     }
 
-    const data = await response.json()
+    const data = result.data
     const content = data.choices?.[0]?.message?.content
     const sceneBrief =
       typeof content === 'string'
@@ -115,7 +111,7 @@ Write the shared scene brief for all parallax layers.`
       return NextResponse.json({ error: 'No scene brief returned from model' }, { status: 500 })
     }
 
-    return NextResponse.json({ sceneBrief })
+    return NextResponse.json({ sceneBrief }, { headers: providerHeaders(result) })
   } catch (error) {
     console.error('Error in scene-brief route:', error)
     return NextResponse.json(
