@@ -17,7 +17,9 @@ export function costPerUnit(op: UsageOp, model: string): number {
     if (PRO_IMAGE_MODELS.some((re) => re.test(model))) return 4;
     return 1; // flash-class image models
   }
-  // scene-brief / prop-brief / tile-review / sprite-review (vision/text reasoning)
+  // scene-brief / prop-brief / tile-review / sprite-review / anibuddy-prompt /
+  // anibuddy-rig (vision/text reasoning). AniBuddy is non-generative, so its
+  // ops can never land in the image branch above.
   return 1;
 }
 

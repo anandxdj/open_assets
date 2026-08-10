@@ -4,6 +4,7 @@ import { ApiResponse } from '../../common/utils/ApiResponse';
 import { ApiError } from '../../common/utils/ApiError';
 import { verifyAccessToken } from '../../common/utils/jwt.utils';
 import type { AuthRequest } from './auth.middleware';
+import { ExtensionAuthService } from './extensionAuth.service';
 
 const sessionCookieOptions = {
   httpOnly: true,
@@ -151,5 +152,28 @@ export class AuthController {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(errorMessage)}`);
     }
+  }
+
+  static async extensionAuthorize(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) throw ApiError.unauthorized('Sign in to connect OpenAssets.');
+      const authorization = await ExtensionAuthService.authorize(req.user.id, req.body);
+      return ApiResponse.ok(res, 'Extension authorization created', authorization);
+    } catch (error) { next(error); }
+  }
+
+  static async extensionToken(req: Request, res: Response, next: NextFunction) {
+    try { return ApiResponse.ok(res, 'Extension connected', await ExtensionAuthService.exchange(req.body)); }
+    catch (error) { next(error); }
+  }
+
+  static async extensionRefresh(req: Request, res: Response, next: NextFunction) {
+    try { return ApiResponse.ok(res, 'Extension refreshed', await ExtensionAuthService.refresh(req.body?.deviceToken)); }
+    catch (error) { next(error); }
+  }
+
+  static async extensionLogout(req: Request, res: Response, next: NextFunction) {
+    try { await ExtensionAuthService.revoke(req.body?.deviceToken); return ApiResponse.ok(res, 'Extension disconnected'); }
+    catch (error) { next(error); }
   }
 }

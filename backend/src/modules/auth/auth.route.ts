@@ -21,6 +21,13 @@ router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), Aut
 router.put('/reset-password/:token', authLimiter, validate(resetPasswordSchema), AuthController.resetPassword as any);
 router.get('/me', authenticate() as any, AuthController.me as any);
 
+// Chrome extension device sessions. Browser login remains on the first-party web app;
+// the extension exchanges a short-lived, PKCE-bound code for a revocable device token.
+router.post('/extension/authorize', authenticate() as any, AuthController.extensionAuthorize as any);
+router.post('/extension/token', AuthController.extensionToken as any);
+router.post('/extension/refresh', AuthController.extensionRefresh as any);
+router.delete('/extension/session/current', AuthController.extensionLogout as any);
+
 // Google OAuth
 router.get('/google', AuthController.googleLogin);
 router.get('/google/callback', AuthController.googleCallback as any);

@@ -1,7 +1,16 @@
 import { z } from 'zod';
 
 export const consumeSchema = z.object({
-  op: z.enum(['extend', 'generate', 'scene-brief', 'prop-brief', 'tile-review', 'sprite-review']),
+  op: z.enum([
+    'extend',
+    'generate',
+    'scene-brief',
+    'prop-brief',
+    'tile-review',
+    'sprite-review',
+    'anibuddy-prompt',
+    'anibuddy-rig',
+  ]),
   model: z.string().min(1).max(120),
   units: z.number().int().min(1).max(20).optional().default(1),
 });

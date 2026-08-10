@@ -7,7 +7,9 @@ export type UsageOp =
   | 'scene-brief'
   | 'prop-brief'
   | 'tile-review'
-  | 'sprite-review';
+  | 'sprite-review'
+  | 'anibuddy-prompt'
+  | 'anibuddy-rig';
 
 export interface IUsageEvent extends Document {
   user: Types.ObjectId;
@@ -24,7 +26,16 @@ const UsageEventSchema = new Schema<IUsageEvent>({
   user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   op: {
     type: String,
-    enum: ['extend', 'generate', 'scene-brief', 'prop-brief', 'tile-review', 'sprite-review'],
+    enum: [
+      'extend',
+      'generate',
+      'scene-brief',
+      'prop-brief',
+      'tile-review',
+      'sprite-review',
+      'anibuddy-prompt',
+      'anibuddy-rig',
+    ],
     required: true,
   },
   modelId: { type: String, required: true },

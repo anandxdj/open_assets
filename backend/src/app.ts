@@ -25,6 +25,10 @@ export function createApp() {
     'https://openassets.anands.dev',
     'https://openasset.anands.dev'
   ].filter(Boolean) as string[];
+  const extensionOrigins = (process.env.EXTENSION_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
   app.use(cors({
     origin: (origin, callback) => {
@@ -32,10 +36,10 @@ export function createApp() {
         callback(null, true);
         return;
       }
-      const isAllowed = allowedOrigins.includes(origin) || 
-        origin.endsWith('.anands.dev') ||
-        /^http:\/\/localhost:\d+$/.test(origin) ||
-        origin.startsWith('chrome-extension://');
+      const isDevelopment = process.env.NODE_ENV !== 'production';
+      const isAllowed = allowedOrigins.includes(origin) ||
+        extensionOrigins.includes(origin) ||
+        (isDevelopment && (/^http:\/\/localhost:\d+$/.test(origin) || /^chrome-extension:\/\/[a-p]{32}$/.test(origin)));
       if (isAllowed) {
         callback(null, true);
       } else {

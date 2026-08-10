@@ -27,6 +27,22 @@ test('cost table: brief/review ops cost 1 regardless of model', () => {
   assert.equal(costPerUnit('prop-brief', 'google/gemini-2.0-flash'), 1);
 });
 
+// AniBuddy is non-generative: both of its ops call a text/vision reasoning
+// model, never an image model. Asserting the cost here pins that — if either op
+// ever reached the image branch it would price at 4 or 10 and this would fail.
+test('cost table: anibuddy ops cost 1 and never price as image ops', () => {
+  assert.equal(costPerUnit('anibuddy-prompt', 'google/gemini-2.0-flash-001'), 1);
+  assert.equal(costPerUnit('anibuddy-rig', 'google/gemini-2.0-flash-001'), 1);
+});
+
+// The op enum is duplicated across the frontend union, this zod schema, and the
+// mongoose enum. A missing entry here fails every request from that route with a
+// validation error, so both new ops are asserted at the boundary that rejects.
+test('consumeSchema accepts the anibuddy ops', () => {
+  assert.doesNotThrow(() => consumeSchema.parse({ op: 'anibuddy-prompt', model: 'x' }));
+  assert.doesNotThrow(() => consumeSchema.parse({ op: 'anibuddy-rig', model: 'x' }));
+});
+
 test('consumeSchema rejects unknown op and clamps units', () => {
   assert.throws(() => consumeSchema.parse({ op: 'mine-bitcoin', model: 'x' }));
   assert.throws(() => consumeSchema.parse({ op: 'extend', model: 'x', units: 999 }));
