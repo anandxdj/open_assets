@@ -36,3 +36,11 @@ Thumbs.db
 
 # Scratch
 scratch/
+
+# PNPM Store
+.pnpm-store/
+
+# WXT
+extension/.wxt/
+extension/.output/
+
