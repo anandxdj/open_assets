@@ -1,0 +1,36 @@
+{
+  "name": "openassets-extension",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "prepare": "wxt prepare",
+    "typecheck": "wxt prepare && tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@wxt-dev/module-react": "^1.2.1",
+    "lucide-react": "^0.468.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "wxt": "0.21.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.3.5",
+    "vitest": "^2.1.8"
+  },
+  "packageManager": "pnpm@10.33.2",
+  "pnpm": {
+    "overrides": {
+      "@vitejs/plugin-react": "5.0.4"
+    }
+  }
+}
