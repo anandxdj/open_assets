@@ -1,10 +1,9 @@
 # F9 — AniBuddy: Non-Generative Character Animation
-
-> **Theme D · Refine existing artwork.** AniBuddy is an Enhance workspace for
+> **Theme D · Refine existing artwork.** AniBuddy is a top-level workspace for
 > turning user-supplied character artwork into editable 2D puppet animation.
 >
-> **Priority:** P2 · **Effort:** XL, phased · **Depends on:** F8 Phase 1 for the
-> Enhance shell; benefits from F1 for later saved-project support.
+> **Priority:** P2 · **Effort:** XL, phased · **Depends on:** F8 only for shared
+> image-preparation primitives; benefits from F1 for later saved-project support.
 
 ---
 
@@ -44,7 +43,7 @@ generates image pixels or claims to create unseen views of a character.
 
 ## 3. User flow and boundaries
 
-1. A user opens **Enhance → AniBuddy — Animate your character**.
+1. A user opens **AniBuddy — Animate your character** at `/anibuddy`.
 2. Optional prompt assistant turns a short concept into a copyable prompt for an
    external image tool; it asks for one character, clean silhouette,
    consistent proportions, a transparent or removable background, and a chosen
@@ -64,7 +63,7 @@ stretch a silhouette or expose empty regions.
 
 ## 4. Interfaces and data
 
-AniBuddy has independent APIs under Enhance:
+AniBuddy has independent APIs:
 
 | Interface | Purpose |
 |---|---|
@@ -129,4 +128,3 @@ makes the project portable and reopening it restores the editable state.
   deformation renderer works with no image-generation endpoint call.
 - Large rotations and unsupported motions disclose visual limitations instead of
   implying that missing character views will be invented.
-

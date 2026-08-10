@@ -28,9 +28,8 @@ can preserve an existing design.
 
 - Add **Enhance** beside Upload, My Collections, Browse, and Studio in global
   navigation, with its own `/enhance` route group and shell.
-- Give users one landing page that clearly separates three jobs: deterministic
-  line-art enhancement, Cloudinary-backed AI enhancement, and AniBuddy
-  animation (specified separately in F9).
+- Give users one landing page that clearly separates the two enhancement jobs:
+  deterministic line-art enhancement and Cloudinary-backed AI enhancement.
 - Keep source pixels out of object storage on the Excalibur path and make every
   result reproducible from a transformation recipe.
 - Expose Cloudinary functionality only when it is both configured and enabled
@@ -48,17 +47,16 @@ can preserve an existing design.
 
 ### 3.1 Workspace and routes
 
-`/enhance` is a tool picker, not a Studio tab. It contains three cards:
+`/enhance` is a tool picker, not a Studio tab. It contains two cards:
 
 | Tool | User-facing promise | Route |
 |---|---|---|
 | **Excalibur Enhance** | Polish outline artwork | `/enhance/excalibur` |
 | **AI Enhance** | Improve with Cloudinary | `/enhance/ai` |
-| **AniBuddy** | Animate your character | `/enhance/anibuddy` |
 
-The first two tools share an input rail, before/after comparison, parameter
-panel, and export bar. AniBuddy owns a separate animation workspace under the
-same Enhance shell. Enhancing operations require sign-in, so uploads, provider
+The two tools share an input rail, before/after comparison, parameter panel,
+and export bar. AniBuddy is a separate top-level workspace at `/anibuddy`,
+specified in F9. Enhancement operations require sign-in, so uploads, provider
 work, usage tracking, and later collection saving have a consistent owner.
 
 ### 3.2 Excalibur Enhance — deterministic path
