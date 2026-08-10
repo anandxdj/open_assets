@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/context/AuthContext";
@@ -10,6 +10,7 @@ import { AuthPipelineSimulator } from "@/components/auth/AuthPipelineSimulator";
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,7 +20,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      router.push("/upload");
+      router.push(searchParams.get("next") || "/upload");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -47,7 +48,7 @@ export default function LoginPage() {
             [ SIGN_IN ]
           </div>
           <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono select-none">
-            // ENTER AUTHENTICATION CREDENTIALS
+            {'// ENTER AUTHENTICATION CREDENTIALS'}
           </p>
         </div>
 

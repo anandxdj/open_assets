@@ -1,4 +1,4 @@
-import { Sparkles, Swords, WandSparkles } from "lucide-react";
+import { Swords, WandSparkles } from "lucide-react";
 import { EnhanceToolCard } from "@/features/enhance/components/EnhanceToolCard";
 
 export default function EnhancePage() {
@@ -12,7 +12,7 @@ export default function EnhancePage() {
               Make the asset you already have work harder.
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-zinc-600 dark:text-zinc-300">
-              Clean linework, apply provider-backed improvements, or animate a character without sending it through an image-generation workflow.
+              Clean linework deterministically or apply the Cloudinary-backed improvements enabled for your account.
             </p>
           </div>
           <p className="border-l-2 border-zinc-950 pl-4 font-mono text-xs leading-5 text-zinc-600 dark:border-zinc-100 dark:text-zinc-300">
@@ -24,9 +24,9 @@ export default function EnhancePage() {
       <section aria-labelledby="enhance-tools" className="py-10 sm:py-14">
         <div className="mb-6 flex items-baseline justify-between gap-4">
           <h2 id="enhance-tools" className="text-lg font-black tracking-tight">Choose a job</h2>
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">3 focused tools</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">2 focused tools</span>
         </div>
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div className="grid gap-5 lg:grid-cols-2">
           <EnhanceToolCard
             href="/enhance/excalibur"
             icon={Swords}
@@ -44,15 +44,6 @@ export default function EnhancePage() {
             description="Use only the Cloudinary operations configured for this account, with clear availability and cost feedback."
             detail="Provider capability check"
             accentClassName="bg-sky-400"
-          />
-          <EnhanceToolCard
-            href="/enhance/anibuddy"
-            icon={Sparkles}
-            eyebrow="2D puppet animation"
-            title="AniBuddy"
-            description="Turn supplied character art into an editable rig and export motion made from the pixels you provide."
-            detail="No invented frames"
-            accentClassName="bg-fuchsia-400"
           />
         </div>
       </section>

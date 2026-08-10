@@ -23,6 +23,7 @@ export function Navbar() {
   const isBrowseActive = pathname === "/collections" || pathname.startsWith("/collections/");
   const isStudioActive = pathname.startsWith("/studio");
   const isEnhanceActive = pathname.startsWith("/enhance");
+  const isAniBuddyActive = pathname.startsWith("/anibuddy");
 
   return (
     <header className="border-b-2 border-zinc-950 dark:border-zinc-800 bg-background/95 backdrop-blur-sm sticky top-0 z-40 font-mono transition-colors duration-200">
@@ -102,6 +103,17 @@ export function Navbar() {
               )}
             >
               Enhance
+            </Link>
+            <Link
+              href="/anibuddy"
+              className={cn(
+                "text-xs px-4 py-2 border font-bold uppercase transition-all duration-150 rounded-none",
+                isAniBuddyActive
+                  ? "bg-zinc-950 text-white dark:bg-white dark:text-black border-zinc-950 dark:border-white font-black"
+                  : "text-zinc-500 hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-900 border-transparent hover:border-zinc-300 dark:hover:border-zinc-700"
+              )}
+            >
+              AniBuddy
             </Link>
           </nav>
         </div>
