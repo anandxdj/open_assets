@@ -83,7 +83,8 @@ async function createRunner(input: ExportInput, maxEdge: number | null): Promise
     ctx,
     canvas,
     drawFrame(index) {
-      deformer.render(ctx, frames[index], reference, { width, height, background });
+      // TODO(order-9): sample the active v3 clip instead of the legacy table.
+      deformer.render(ctx, {}, { width, height, background });
     },
   };
 }

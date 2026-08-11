@@ -14,6 +14,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.100.14
         version: 5.100.14(react@19.2.4)
+      cdt2d:
+        specifier: ^1.0.0
+        version: 1.0.0
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -2052,6 +2055,9 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
+  binary-search-bounds@2.0.5:
+    resolution: {integrity: sha512-H0ea4Fd3lS1+sTEB2TgcLoK21lLhwEJzlQv3IN47pJS976Gx4zoWe0ak3q+uYh60ppQxg9F16Ri4tS1sfD4+jA==}
+
   body-parser@2.2.2:
     resolution: {integrity: sha512-oP5VkATKlNwcgvxi0vM0p/D3n2C3EReYVX+DNYs5TjZFn/oQt2j+4sVJtSMr18pdRr8wjTcBl6LoV+FUwzPmNA==}
     engines: {node: '>=18'}
@@ -2098,6 +2104,9 @@ packages:
 
   caniuse-lite@1.0.30001793:
     resolution: {integrity: sha512-iwSsYWaCOoh26cV8NwNRViHlrfUvYsHDfRVcbtmw0Kg6PJIZZXwMkj1442FYLBGkeUf1juAsU3DTfxW579mrPA==}
+
+  cdt2d@1.0.0:
+    resolution: {integrity: sha512-pFKb7gVhpsI6onS5HUXRoqbBIJB4CJ+KPk8kgaIVcm0zFgOxIyBT5vzifZ4j1aoGVJS0U1A+S4oFDshuLAitlA==}
 
   chalk@4.1.2:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
@@ -3697,6 +3706,21 @@ packages:
     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
 
+  robust-in-sphere@1.2.1:
+    resolution: {integrity: sha512-3zJdcMIOP1gdwux93MKTS0RiMYEGwQBoE5R1IW/9ZQmGeZzP7f7i4+xdcK8ujJvF/dEOS1WPuI9IB1WNFbj3Cg==}
+
+  robust-orientation@1.2.1:
+    resolution: {integrity: sha512-FuTptgKwY6iNuU15nrIJDLjXzCChWB+T4AvksRtwPS/WZ3HuP1CElCm1t+OBfgQKfWbtZIawip+61k7+buRKAg==}
+
+  robust-scale@1.0.2:
+    resolution: {integrity: sha512-jBR91a/vomMAzazwpsPTPeuTPPmWBacwA+WYGNKcRGSh6xweuQ2ZbjRZ4v792/bZOhRKXRiQH0F48AvuajY0tQ==}
+
+  robust-subtract@1.0.0:
+    resolution: {integrity: sha512-xhKUno+Rl+trmxAIVwjQMiVdpF5llxytozXJOdoT4eTIqmqsndQqFb1A0oiW3sZGlhMRhOi6pAD4MF1YYW6o/A==}
+
+  robust-sum@1.0.0:
+    resolution: {integrity: sha512-AvLExwpaqUqD1uwLU6MwzzfRdaI6VEZsyvQ3IAQ0ZJ08v1H+DTyqskrf2ZJyh0BDduFVLN7H04Zmc+qTiahhAw==}
+
   router@2.2.0:
     resolution: {integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==}
     engines: {node: '>= 18'}
@@ -3985,6 +4009,12 @@ packages:
 
   tw-animate-css@1.4.0:
     resolution: {integrity: sha512-7bziOlRqH0hJx80h/3mbicLW7o8qLsH5+RaLR2t+OHM3D0JlWGODQKQ4cxbK7WlvmUxpcj6Kgu6EKqjrGFe3QQ==}
+
+  two-product@1.0.2:
+    resolution: {integrity: sha512-vOyrqmeYvzjToVM08iU52OFocWT6eB/I5LUWYnxeAPGXAhAxXYU/Yr/R2uY5/5n4bvJQL9AQulIuxpIsMoT8XQ==}
+
+  two-sum@1.0.0:
+    resolution: {integrity: sha512-phP48e8AawgsNUjEY2WvoIWqdie8PoiDZGxTDv70LDr01uX5wLEQbOgSP7Z/B6+SW5oLtbe8qaYX2fKJs3CGTw==}
 
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
@@ -6565,6 +6595,8 @@ snapshots:
 
   baseline-browser-mapping@2.10.32: {}
 
+  binary-search-bounds@2.0.5: {}
+
   body-parser@2.2.2:
     dependencies:
       bytes: 3.1.2
@@ -6626,6 +6658,12 @@ snapshots:
   callsites@3.1.0: {}
 
   caniuse-lite@1.0.30001793: {}
+
+  cdt2d@1.0.0:
+    dependencies:
+      binary-search-bounds: 2.0.5
+      robust-in-sphere: 1.2.1
+      robust-orientation: 1.2.1
 
   chalk@4.1.2:
     dependencies:
@@ -8360,6 +8398,29 @@ snapshots:
 
   reusify@1.1.0: {}
 
+  robust-in-sphere@1.2.1:
+    dependencies:
+      robust-scale: 1.0.2
+      robust-subtract: 1.0.0
+      robust-sum: 1.0.0
+      two-product: 1.0.2
+
+  robust-orientation@1.2.1:
+    dependencies:
+      robust-scale: 1.0.2
+      robust-subtract: 1.0.0
+      robust-sum: 1.0.0
+      two-product: 1.0.2
+
+  robust-scale@1.0.2:
+    dependencies:
+      two-product: 1.0.2
+      two-sum: 1.0.0
+
+  robust-subtract@1.0.0: {}
+
+  robust-sum@1.0.0: {}
+
   router@2.2.0:
     dependencies:
       debug: 4.4.3
@@ -8752,6 +8813,10 @@ snapshots:
   tslib@2.8.1: {}
 
   tw-animate-css@1.4.0: {}
+
+  two-product@1.0.2: {}
+
+  two-sum@1.0.0: {}
 
   type-check@0.4.0:
     dependencies:

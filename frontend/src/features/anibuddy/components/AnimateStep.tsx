@@ -98,7 +98,8 @@ export function AnimateStep({
     // A single render pass whether or not the loop is running, so pausing shows
     // the current frame rather than a blank canvas.
     const draw = () => {
-      const stats = deformer.render(ctx, frames[index], reference, {
+      // TODO(order-7): resolve the active v3 clip here instead of the legacy table.
+      const stats = deformer.render(ctx, {}, {
         width: previewWidth,
         height: previewHeight,
         showDistortion,
