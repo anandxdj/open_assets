@@ -20,6 +20,28 @@ import { buildMesh, buildWeights } from "@/features/anibuddy/lib/mesh";
 
 const ALPHA_FLOOR = 24;
 
+/** Shared editor palette. Roles describe a graph, so their colour must not
+ * depend on legacy joint ids or a particular body plan. */
+const ROLE_COLORS: Record<JointRole, string> = {
+  root: "#18181b",
+  spine: "#7c3aed",
+  head: "#ea580c",
+  eye: "#eab308",
+  jaw: "#f97316",
+  limbUpper: "#0d9488",
+  limbLower: "#0891b2",
+  limbTip: "#2563eb",
+  tail: "#db2777",
+  wing: "#9333ea",
+  ear: "#a16207",
+  prop: "#4f46e5",
+  other: "#71717a",
+};
+
+export function roleColor(role: JointRole): string {
+  return ROLE_COLORS[role];
+}
+
 export class JointGraphError extends Error {}
 
 /** Validate model-authored free-form joints. Structural errors are refused,
