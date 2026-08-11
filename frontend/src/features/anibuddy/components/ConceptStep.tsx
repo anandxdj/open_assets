@@ -44,13 +44,13 @@ export function ConceptStep({ idea, prompt, onIdea, onPrompt, onSkip }: ConceptS
   };
 
   return (
-    <section className="border-2 border-zinc-950 bg-white p-5 dark:border-zinc-100 dark:bg-zinc-900 sm:p-7">
+    <section className="border-2 border-zinc-950 bg-card text-card-foreground p-5 dark:border-zinc-100 sm:p-7">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
             00 / optional
           </p>
-          <h2 className="mt-1 text-xl font-black tracking-tight">Start from an idea</h2>
+          <h2 className="mt-1 text-xl font-black uppercase tracking-tight">Start from an idea</h2>
         </div>
         {prompt && (
           <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
@@ -59,10 +59,8 @@ export function ConceptStep({ idea, prompt, onIdea, onPrompt, onSkip }: ConceptS
         )}
       </div>
 
-      <p className="max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-        AniBuddy never generates artwork. If you do not have character art yet, describe the
-        character and we will write a prompt you can run in your own image tool. Then bring the
-        result back here.
+      <p className="max-w-2xl text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+        Describe your character to generate a structured image prompt for external art tools.
       </p>
 
       <div className="mt-5 space-y-4">

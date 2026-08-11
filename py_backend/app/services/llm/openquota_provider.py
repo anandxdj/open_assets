@@ -49,7 +49,7 @@ class OpenQuotaProvider:
 
         # A ':' in the model id would collide with the ':generateContent' method
         # suffix, so the auto:<strategy> forms are not usable on this path.
-        model = settings.OPENQUOTA_MODEL.split(":")[0] or "auto"
+        model = (settings.OPENQUOTA_VISION_MODEL or settings.OPENQUOTA_MODEL).split(":")[0] or "auto"
         url = f"{_base_url()}/v1beta/models/{model}:generateContent"
 
         try:

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode, refundCredits, resolveKeyAndCredits } from '../../../studio/_lib/openrouter'
 import { callLlm, providerHeaders, LLM_LONG_BUDGET_MS } from '../../../studio/_lib/llm'
+import { OPENROUTER_FALLBACK_MODEL } from '../../../studio/_lib/llm/config'
 
 export const maxDuration = 120
 
@@ -8,7 +9,7 @@ export const maxDuration = 120
 // text/vision reasoning model. It must never call an image model, and never
 // /api/studio/generate. All it produces is a string the user copies into a
 // third-party image tool of their own choosing.
-const DEFAULT_MODEL = 'google/gemini-2.0-flash-001'
+const DEFAULT_MODEL = OPENROUTER_FALLBACK_MODEL
 
 const VIEWS = { front: 'front-facing', 'three-quarter': 'three-quarter' } as const
 type View = keyof typeof VIEWS

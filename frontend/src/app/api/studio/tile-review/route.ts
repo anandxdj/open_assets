@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode, refundCredits, resolveKeyAndCredits } from '../_lib/openrouter'
 import { callLlm, providerHeaders, LLM_LONG_BUDGET_MS } from '../_lib/llm'
+import { OPENROUTER_FALLBACK_MODEL } from '../_lib/llm/config'
 import type { LlmContentPart } from '../_lib/llm'
 
 export const maxDuration = 120
@@ -17,7 +18,7 @@ export const maxDuration = 120
 // tiles? If it's clean it APPROVES; otherwise it returns a concise fix report
 // that the image model uses to repaint. This catches the cohesion problems a
 // single blind generation can't see.
-const DEFAULT_MODEL = 'google/gemini-2.0-flash-001'
+const DEFAULT_MODEL = OPENROUTER_FALLBACK_MODEL
 
 interface Review {
   ok: boolean

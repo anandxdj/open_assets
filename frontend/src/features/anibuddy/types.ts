@@ -14,6 +14,23 @@ import type {
 /** The v1 motion templates from F9 §3. Deliberately small and safe. */
 export type MotionId = "idle" | "bounce" | "wave" | "blink";
 
+/** Semantic joint categories used by the free-form v3 rig. */
+export type JointRole =
+  | "root" | "spine" | "head" | "eye" | "jaw"
+  | "limbUpper" | "limbLower" | "limbTip"
+  | "tail" | "wing" | "ear" | "prop" | "other";
+
+export const JOINT_ROLES: JointRole[] = [
+  "root", "spine", "head", "eye", "jaw", "limbUpper", "limbLower",
+  "limbTip", "tail", "wing", "ear", "prop", "other",
+];
+
+export const MAX_JOINTS = 48;
+export const MIN_JOINTS = 3;
+export const MAX_JOINT_DEPTH = 8;
+export const MAX_KEYFRAMES = 12;
+export const JOINT_ID_PATTERN = /^[A-Za-z0-9_-]{1,24}$/;
+
 export type StepId =
   | "concept"
   | "source"
@@ -37,12 +54,48 @@ export interface Joint {
   id: string;
   /** Human label shown in the editor, e.g. "Near elbow". */
   name: string;
+  /** What this joint represents; never inferred from its id. */
+  role: JointRole;
   /** Normalized 0..1 of the PREPARED asset width. */
   x: number;
   /** Normalized 0..1 of the PREPARED asset height. */
   y: number;
   /** Parent joint id, or null for the single root. */
   parent: string | null;
+}
+
+export interface CutLine {
+  id: string;
+  points: [number, number][];
+}
+
+export interface JointPose {
+  rot?: number;
+  tx?: number;
+  ty?: number;
+  scale?: number;
+}
+
+export type Pose = Record<string, JointPose>;
+
+export interface Keyframe {
+  t: number;
+  joints: Pose;
+  ease?: "linear" | "ease" | "hold";
+}
+
+export interface Clip {
+  id: string;
+  name: string;
+  request: string;
+  loop: boolean;
+  keyframes: Keyframe[];
+  source: "model" | "edited";
+}
+
+export interface QaTurn {
+  question: string;
+  answer: string;
 }
 
 /** A parent→child joint segment. Bones are derived, never stored. */
@@ -70,6 +123,7 @@ export interface Rig {
   joints: Joint[];
   mesh: Mesh;
   weights: Weights;
+  cuts: CutLine[];
   /** Model's judgement, already intersected with local structural checks. */
   supported: MotionId[];
   /** Shown verbatim beside disabled templates. */
@@ -130,12 +184,14 @@ export const PROJECT_SCHEMA_VERSION = 2;
 
 export interface AniBuddyProject {
   schemaVersion: typeof PROJECT_SCHEMA_VERSION;
-  concept: { idea: string; prompt: string | null };
+  concept: { idea: string; prompt: string | null; transcript: QaTurn[] };
   source: SourceAsset | null;
   rightsConfirmed: boolean;
   prepared: PreparedAsset | null;
   rig: Rig | null;
   motion: MotionId | null;
+  clips: Clip[];
+  activeClipId: string | null;
   fps: Fps;
   frameCount: number;
   background: BackgroundId;
@@ -159,12 +215,14 @@ export interface RigAnalysis {
 export function createEmptyProject(): AniBuddyProject {
   return {
     schemaVersion: PROJECT_SCHEMA_VERSION,
-    concept: { idea: "", prompt: null },
+    concept: { idea: "", prompt: null, transcript: [] },
     source: null,
     rightsConfirmed: false,
     prepared: null,
     rig: null,
     motion: null,
+    clips: [],
+    activeClipId: null,
     fps: 12,
     frameCount: 8,
     background: "transparent",
@@ -207,7 +265,15 @@ export function rigInvalidReason(rig: Rig | null): string | null {
   if (!rig) return "No rig yet.";
 
   const { joints, mesh, weights } = rig;
-  if (joints.length < 3) return "A rig needs at least three joints.";
+  if (joints.length < MIN_JOINTS) return "A rig needs at least three joints.";
+  if (joints.length > MAX_JOINTS) return "This rig has too many joints (max 48).";
+
+  const ids = new Set<string>();
+  for (const joint of joints) {
+    if (ids.has(joint.id)) return `Two joints share the id "${joint.id}".`;
+    ids.add(joint.id);
+    if (!JOINT_ID_PATTERN.test(joint.id)) return `Joint id "${joint.id}" is not a valid name.`;
+  }
 
   const roots = joints.filter((joint) => joint.parent === null);
   if (roots.length !== 1) {
@@ -237,6 +303,7 @@ export function rigInvalidReason(rig: Rig | null): string | null {
       cursor = byId.get(cursor.parent);
       if (++hops > joints.length) return "The joint tree contains a loop.";
     }
+    if (hops > MAX_JOINT_DEPTH) return "The joint tree is nested too deeply.";
   }
 
   if (mesh.verts.length < 6 || mesh.tris.length < 3) {

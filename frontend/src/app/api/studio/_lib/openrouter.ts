@@ -38,7 +38,8 @@ export type KeyResolution =
  *    no auth, no credits, key never persisted.
  * 2. Otherwise → free tier. Forward the Authorization header to Express,
  *    which verifies the JWT and atomically deducts credits (402 when broke).
- *    Then use the server's OPENROUTER_API_KEY.
+ *    Then use the configured provider chain. Open Quota can serve the primary
+ *    attempt without an OpenRouter key; that key is needed only for fallback.
  */
 export async function resolveKeyAndCredits(
   request: NextRequest,
@@ -88,20 +89,24 @@ export async function resolveKeyAndCredits(
   }
 
   const serverKey = process.env.OPENROUTER_API_KEY;
+  const hasOpenQuotaKey = Boolean(process.env.OPENQUOTA_API_KEY?.trim());
   const body = (await consumeRes.json()) as { data?: { eventId?: string; remaining?: number } };
   const eventId = body?.data?.eventId;
 
-  if (!serverKey && !isMockMode()) {
+  // Open Quota is the primary free-tier provider. The historical guard checked
+  // only OpenRouter, which made every request fail with 503 before callLlm()
+  // could use a valid OPENQUOTA_API_KEY.
+  if (!serverKey && !hasOpenQuotaKey && !isMockMode()) {
     // Don't strand the user's credits when the server is misconfigured.
     if (eventId) await refundCredits(eventId);
     return {
       ok: false,
       status: 503,
-      error: 'Free tier is not configured on this server. Add your own OpenRouter key in Settings.',
+      error: 'Free tier is not configured on this server. Add an Open Quota or OpenRouter key, or use your own OpenRouter key in Settings.',
     };
   }
 
-  return { ok: true, key: serverKey ?? 'mock', byok: false, eventId, remaining: body?.data?.remaining };
+  return { ok: true, key: serverKey ?? '', byok: false, eventId, remaining: body?.data?.remaining };
 }
 
 /**

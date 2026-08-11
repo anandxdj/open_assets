@@ -117,13 +117,13 @@ export function RigStep({
   const invalidReason = rigInvalidReason(rig);
 
   return (
-    <section className="border-2 border-zinc-950 bg-white p-5 dark:border-zinc-100 dark:bg-zinc-900 sm:p-7">
+    <section className="border-2 border-zinc-950 bg-card text-card-foreground p-5 dark:border-zinc-100 sm:p-7">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
             03 / rig
           </p>
-          <h2 className="mt-1 text-xl font-black tracking-tight">Place the joints</h2>
+          <h2 className="mt-1 text-xl font-black uppercase tracking-tight">Place the joints</h2>
         </div>
         {rig && (
           <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
@@ -134,10 +134,8 @@ export function RigStep({
 
       {!rig ? (
         <div className="space-y-4">
-          <p className="max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-            Rig analysis sends the prepared image to a vision model, which reports where the joints
-            appear. It reads the artwork and returns coordinates — it does not draw. Everything after
-            this point runs locally.
+          <p className="max-w-2xl text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+            Detect joint locations with vision analysis or place skeleton points manually.
           </p>
           <div className="flex flex-wrap gap-3">
             <button

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode, refundCredits, resolveKeyAndCredits } from '../_lib/openrouter'
 import { callLlm, providerHeaders, LLM_LONG_BUDGET_MS } from '../_lib/llm'
+import { OPENROUTER_FALLBACK_MODEL } from '../_lib/llm/config'
 import type { LlmContentPart } from '../_lib/llm'
 
 export const maxDuration = 120
@@ -16,7 +17,7 @@ export const maxDuration = 120
 // fringe, and whether they read as a coherent animation for the requested
 // action. If clean it approves; otherwise it returns a fix report the image
 // model uses to repaint the sheet (the locked anchor identity is preserved).
-const DEFAULT_MODEL = 'google/gemini-2.0-flash-001'
+const DEFAULT_MODEL = OPENROUTER_FALLBACK_MODEL
 
 // Per-body-plan animation expectations. The QA director judges the sheet
 // against the animation the user actually asked for, and the anatomy of the

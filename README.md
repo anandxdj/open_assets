@@ -331,7 +331,7 @@ OPENQUOTA_API_KEY=                     # empty → Gemini only
 OPENQUOTA_BASE_URL=https://openquota.anands.dev/llm   # the /llm root, not /llm/v1
 OPENQUOTA_MODEL=auto                   # must not contain ':' on this surface
 GEMINI_API_KEY=                        # empty → falls back to identity names
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-2.5-flash
 INTERNAL_API_TOKEN=                    # shared secret the Node backend must send
 ALLOWED_IMAGE_HOSTS=res.cloudinary.com,cloudinary.com
 # OpenCV detection tuning (optional): MIN_BOX_WIDTH / MIN_BOX_HEIGHT / MIN_BOX_AREA / BINARY_THRESH_VALUE

@@ -17,11 +17,8 @@ export function EnhancePlaceholder({
           <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">{eyebrow}</p>
           <Construction size={20} className="text-zinc-500" />
         </div>
-        <h1 className="mt-8 text-4xl font-black tracking-[-0.045em] sm:text-5xl">{title}</h1>
-        <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 dark:text-zinc-300">{description}</p>
-        <p className="mt-8 border-l-2 border-zinc-950 pl-4 font-mono text-xs leading-5 text-zinc-600 dark:border-zinc-100 dark:text-zinc-300">
-          This route is ready for its processing workspace. The next implementation slice adds its upload, progress, and export flow.
-        </p>
+        <h1 className="mt-4 text-2xl font-black uppercase tracking-tight">{title}</h1>
+        <p className="mt-2 max-w-2xl text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">{description}</p>
         <Link href="/enhance" className="mt-9 inline-flex items-center gap-2 border border-zinc-950 px-4 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] transition-colors hover:bg-zinc-950 hover:text-white dark:border-zinc-100 dark:hover:bg-zinc-100 dark:hover:text-zinc-950">
           <ArrowLeft size={15} /> Back to Enhance
         </Link>

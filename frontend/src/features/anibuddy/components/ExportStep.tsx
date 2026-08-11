@@ -112,12 +112,12 @@ export function ExportStep({ project, prepared, rig, motion, onBackground }: Exp
   const busy = job !== null;
 
   return (
-    <section className="border-2 border-zinc-950 bg-white p-5 dark:border-zinc-100 dark:bg-zinc-900 sm:p-7">
+    <section className="border-2 border-zinc-950 bg-card text-card-foreground p-5 dark:border-zinc-100 sm:p-7">
       <div className="mb-5">
         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
           05 / export
         </p>
-        <h2 className="mt-1 text-xl font-black tracking-tight">Take it with you</h2>
+        <h2 className="mt-1 text-xl font-black uppercase tracking-tight">Take it with you</h2>
       </div>
 
       <div>

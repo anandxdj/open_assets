@@ -9,11 +9,11 @@
 import { deg, projRight } from "@/features/studio/lib/rig/rigCore";
 import {
   type Joint,
+  type Pose,
   type PreparedAsset,
   type Rig,
   getBones,
 } from "@/features/anibuddy/types";
-import type { AniFrame } from "@/features/anibuddy/lib/motion";
 
 interface Point {
   x: number;
@@ -49,60 +49,9 @@ export interface Deformer {
   readonly sourceHeight: number;
   render(
     ctx: CanvasRenderingContext2D,
-    pose: AniFrame,
-    reference: AniFrame,
+    pose: Pose,
     options: RenderOptions,
   ): FrameStats;
-}
-
-/**
- * Per-bone rotation for one frame, in SCREEN convention (degrees, + = clockwise
- * on a +y-down canvas), expressed as a delta from the reference frame.
- *
- * Two sign conversions happen here, and both are load-bearing:
- *
- *  1. `biped.ts` measures limbs from straight DOWN (`projDown`) and the torso
- *     from straight UP (`projUp`). Screen rotation is measured from +x
- *     (`projRight`). A `projDown` angle maps to `90 - a`, so limb deltas invert;
- *     a `projUp` angle maps to `a - 90`, so torso deltas do not.
- *  2. The A side is mirrored. The studio rig is a side-view profile rig where A
- *     and B are the near and far limbs; AniBuddy art is front-facing, so they
- *     are the character's two sides. Mirroring across the vertical axis negates
- *     rotation, which turns one shared table value into a symmetric motion.
- */
-function localDelta(jointId: string, pose: AniFrame, reference: AniFrame): number {
-  switch (jointId) {
-    case "torso":
-      return pose.lean - reference.lean;
-    case "neck":
-      return (pose.headTilt ?? 0) - (reference.headTilt ?? 0);
-
-    // Arms. A: (-1 mirror)(-1 convention) = +1. B: (+1)(-1) = -1.
-    case "elbowA":
-      return pose.armA.base - reference.armA.base;
-    case "handA":
-      return pose.armA.flex - reference.armA.flex;
-    case "elbowB":
-      return -(pose.armB.base - reference.armB.base);
-    case "handB":
-      return -(pose.armB.flex - reference.armB.flex);
-
-    // Legs. The shin's local angle is `-flex` (biped.ts:245), so its delta
-    // carries the opposite sign to the thigh's on the same side.
-    case "kneeA":
-      return pose.legA.base - reference.legA.base;
-    case "footA":
-      return -(pose.legA.flex - reference.legA.flex);
-    case "kneeB":
-      return -(pose.legB.base - reference.legB.base);
-    case "footB":
-      return pose.legB.flex - reference.legB.flex;
-
-    // Shoulders are rigid offsets from the chest and the eyes are markers on
-    // the head; rotating either would slide a body part sideways.
-    default:
-      return 0;
-  }
 }
 
 export function createDeformer(
@@ -158,18 +107,18 @@ export function createDeformer(
   const cosine = new Float64Array(boneCount);
   const sine = new Float64Array(boneCount);
 
-  /** Walk the tree from the root, accumulating rotation down each chain. */
-  function solve(pose: AniFrame, reference: AniFrame): Map<string, Point> {
+  /** Walk the free-form tree, applying each joint's local delta. */
+  function solve(pose: Pose): Map<string, Point> {
     const positions = new Map<string, Point>();
     const accumulated = new Map<string, number>();
 
     const rootRest = restPos.get(root.id)!;
+    const rootPose = pose[root.id] ?? {};
     positions.set(root.id, {
-      x: rootRest.x,
-      // bodyY is + = up; canvas y grows downward.
-      y: rootRest.y - (pose.bodyY - reference.bodyY) * figureHeight,
+      x: rootRest.x + (rootPose.tx ?? 0) * figureHeight,
+      y: rootRest.y + (rootPose.ty ?? 0) * figureHeight,
     });
-    accumulated.set(root.id, 0);
+    accumulated.set(root.id, rootPose.rot ?? 0);
 
     const queue: Joint[] = [root];
     while (queue.length > 0) {
@@ -181,10 +130,16 @@ export function createDeformer(
         const index = boneOfChild.get(child.id);
         if (index === undefined) continue;
 
-        const chain = parentAccumulated + localDelta(child.id, pose, reference);
+        const local = pose[child.id] ?? {};
+        const chain = parentAccumulated + (local.rot ?? 0);
         const world = restAngle[index] + chain;
         posedAngle[index] = world;
-        positions.set(child.id, projRight(parentPos.x, parentPos.y, restLength[index], world));
+        const scaledLength = restLength[index] * (local.scale ?? 1);
+        const next = projRight(parentPos.x, parentPos.y, scaledLength, world);
+        positions.set(child.id, {
+          x: next.x + (local.tx ?? 0) * figureHeight,
+          y: next.y + (local.ty ?? 0) * figureHeight,
+        });
         accumulated.set(child.id, chain);
         queue.push(child);
       }
@@ -222,45 +177,13 @@ export function createDeformer(
     }
   }
 
-  /**
-   * Eyelids. A joint rig cannot close an eye — there is no lid bone — so the
-   * blink is a vertical squash of the vertices around each eye marker, applied
-   * after skinning and falling off smoothly so the face does not crease.
-   */
-  function applyEyelids(pose: AniFrame, positions: Map<string, Point>): void {
-    const open = pose.eyeOpen ?? 1;
-    if (open >= 0.999) return;
-
-    const eyes = [positions.get("eyeA"), positions.get("eyeB")].filter(
-      (eye): eye is Point => !!eye,
-    );
-    if (eyes.length === 0) return;
-
-    const separation =
-      eyes.length === 2 ? Math.hypot(eyes[1].x - eyes[0].x, eyes[1].y - eyes[0].y) : height * 0.1;
-    const radius = Math.max(height * 0.02, separation * 0.45);
-
-    for (const eye of eyes) {
-      for (let v = 0; v < vertCount; v++) {
-        const dx = posedVerts[v * 2] - eye.x;
-        const dy = posedVerts[v * 2 + 1] - eye.y;
-        const distance = Math.hypot(dx, dy);
-        if (distance >= radius) continue;
-        const falloff = 1 - distance / radius;
-        const scale = 1 - (1 - open) * falloff * falloff;
-        posedVerts[v * 2 + 1] = eye.y + dy * scale;
-      }
-    }
-  }
-
   return {
     sourceWidth: width,
     sourceHeight: height,
 
-    render(ctx, pose, reference, options) {
-      const positions = solve(pose, reference);
+    render(ctx, pose, options) {
+      const positions = solve(pose);
       skin(positions);
-      applyEyelids(pose, positions);
 
       const scaleX = options.width / width;
       const scaleY = options.height / height;

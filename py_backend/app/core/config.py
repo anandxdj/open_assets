@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     OPENQUOTA_BASE_URL: str = "https://openquota.anands.dev/llm"
     # Must not contain a ':' — it would collide with the ':generateContent'
     # method suffix, so the auto:<strategy> forms are unusable here.
+    # Legacy unified setting. New deployments should set OPENQUOTA_VISION_MODEL.
     OPENQUOTA_MODEL: str = "auto"
+    # Asset naming always includes an image, so it uses this vision profile.
+    OPENQUOTA_VISION_MODEL: str = ""
 
     # SECURITY (#9): only fetch images from these hosts (comma-separated). Empty
     # disables host allowlisting (private-IP blocking still applies).

@@ -35,8 +35,8 @@ export function EnhanceToolCard({
       </div>
       <div className="mt-auto pt-10">
         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">{eyebrow}</p>
-        <h2 className="mt-3 text-2xl font-black tracking-tight">{title}</h2>
-        <p className="mt-3 max-w-sm text-sm leading-6 text-zinc-600 dark:text-zinc-300">{description}</p>
+        <h2 className="mt-3 text-2xl font-black uppercase tracking-tight">{title}</h2>
+        <p className="mt-3 max-w-sm text-sm leading-6 text-zinc-600 dark:text-zinc-400">{description}</p>
         <p className="mt-6 border-t border-zinc-200 pt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500 dark:border-zinc-700">{detail}</p>
       </div>
     </Link>

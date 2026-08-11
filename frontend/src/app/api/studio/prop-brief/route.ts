@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode, refundCredits, resolveKeyAndCredits } from '../_lib/openrouter'
 import { callLlm, providerHeaders, LLM_LONG_BUDGET_MS } from '../_lib/llm'
+import { OPENROUTER_FALLBACK_MODEL } from '../_lib/llm/config'
 
 export const maxDuration = 120
 
@@ -15,7 +16,7 @@ export const maxDuration = 120
 // from rendering (image) is what stops the "same loop" of lanterns/nests/pots:
 // a reasoning model can deliberately reach for fresh kinds, an image model
 // cannot.
-const DEFAULT_MODEL = 'google/gemini-2.0-flash-001'
+const DEFAULT_MODEL = OPENROUTER_FALLBACK_MODEL
 
 const artStyleDescriptions: Record<string, string> = {
   cinematic: 'cinematic photography with dramatic lighting and film grain',

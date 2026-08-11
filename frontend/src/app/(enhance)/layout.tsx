@@ -3,9 +3,11 @@ import { EnhanceShell } from "@/features/enhance/components/EnhanceShell";
 
 export default function EnhanceLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
+    <div className="flex flex-col min-h-screen bg-background text-foreground font-mono transition-colors duration-200">
       <Navbar />
-      <EnhanceShell>{children}</EnhanceShell>
+      <EnhanceShell>
+        <main className="flex-1">{children}</main>
+      </EnhanceShell>
     </div>
   );
 }

@@ -150,13 +150,13 @@ export function SourceStep({
     source !== null && Math.max(source.width, source.height) > MAX_SOURCE_EDGE;
 
   return (
-    <section className="border-2 border-zinc-950 bg-white p-5 dark:border-zinc-100 dark:bg-zinc-900 sm:p-7">
+    <section className="border-2 border-zinc-950 bg-card text-card-foreground p-5 dark:border-zinc-100 sm:p-7">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
             01 / supplied artwork
           </p>
-          <h2 className="mt-1 text-xl font-black tracking-tight">
+          <h2 className="mt-1 text-xl font-black uppercase tracking-tight">
             {pending ? "Reopen a saved project" : "Add one character"}
           </h2>
         </div>

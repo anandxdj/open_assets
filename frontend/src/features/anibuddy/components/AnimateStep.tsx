@@ -139,17 +139,16 @@ export function AnimateStep({
   const distorted = worstStretch > STRETCH_WARNING || flipped > 0;
 
   return (
-    <section className="border-2 border-zinc-950 bg-white p-5 dark:border-zinc-100 dark:bg-zinc-900 sm:p-7">
+    <section className="border-2 border-zinc-950 bg-card text-card-foreground p-5 dark:border-zinc-100 sm:p-7">
       <div className="mb-5">
         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
           04 / motion
         </p>
-        <h2 className="mt-1 text-xl font-black tracking-tight">Pick a motion and watch it move</h2>
+        <h2 className="mt-1 text-xl font-black uppercase tracking-tight">Pick a motion and watch it move</h2>
       </div>
 
-      <p className="max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-        Every frame below is your own artwork, bent by the rig you just placed. Nothing is drawn or
-        invented — each pixel on screen came from the image you supplied.
+      <p className="max-w-2xl text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+        Select a motion preset to preview interactive 2D character animation loops.
       </p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">

@@ -39,14 +39,21 @@ is reused verbatim by both providers with no translation.
 `OpenQuotaProvider._base_url()` strips a trailing `/v1` so a copy-pasted frontend
 value still works.
 
-### `OPENQUOTA_MODEL` is a strategy, not a model id
+### Open Quota profiles are strategies, not model IDs
 
-Default `auto`, which follows the operator's dashboard fallback chain. The
-`auto:smart` / `auto:fast` / `auto:reliable` suffixes rank every enabled model
-and **ignore that configured chain**, so prefer plain `auto`.
+`OPENQUOTA_TEXT_MODEL` controls text-only studio calls (default `auto:smart`) and
+`OPENQUOTA_VISION_MODEL` controls calls that include an image (default `auto`).
+The legacy `OPENQUOTA_MODEL` remains a fallback for either value, so existing
+deployments continue to work unchanged. `auto` follows the operator's dashboard
+fallback chain; `auto:smart` / `auto:fast` / `auto:reliable` rank every enabled
+model and ignore that configured chain.
 
-On py_backend the value must not contain a `:` at all — it would collide with the
-`:generateContent` method suffix in the path.
+Asset naming always has an image and uses `OPENQUOTA_VISION_MODEL` (or the legacy
+value when it is unset). On py_backend the selected value must not contain a `:`
+— it would collide with the `:generateContent` method suffix in the path.
+
+`OPENROUTER_FALLBACK_MODEL` is an actual OpenRouter model ID used only after Open
+Quota fails. It is deliberately separate from Open Quota's routing profiles.
 
 A bad profile name returns `400`. The frontend adapter logs that case loudly,
 because it otherwise looks like "everything works" while every request silently

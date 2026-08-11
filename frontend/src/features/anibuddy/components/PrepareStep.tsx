@@ -51,13 +51,13 @@ export function PrepareStep({ source, prepared, onPrepared, onContinue }: Prepar
   }, [source.dataUrl, keepBackground, keepLooseParts, onPrepared]);
 
   return (
-    <section className="border-2 border-zinc-950 bg-white p-5 dark:border-zinc-100 dark:bg-zinc-900 sm:p-7">
+    <section className="border-2 border-zinc-950 bg-card text-card-foreground p-5 dark:border-zinc-100 sm:p-7">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
             02 / prepared asset
           </p>
-          <h2 className="mt-1 text-xl font-black tracking-tight">Cut the character out</h2>
+          <h2 className="mt-1 text-xl font-black uppercase tracking-tight">Cut the character out</h2>
         </div>
         {prepared && (
           <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
@@ -66,9 +66,8 @@ export function PrepareStep({ source, prepared, onPrepared, onContinue }: Prepar
         )}
       </div>
 
-      <p className="max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-        This removes a flat background, drops stray specks, and trims to the silhouette. It runs
-        entirely in your browser — nothing is uploaded and nothing is generated.
+      <p className="max-w-2xl text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+        Removes background, cleans stray specks, and trims asset to silhouette.
       </p>
 
       <div className="mt-5 grid gap-5 sm:grid-cols-2">

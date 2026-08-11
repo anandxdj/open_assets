@@ -5,7 +5,15 @@
 // `choices[0].message.content` parsing are identical to OpenRouter's. Only the
 // endpoint, the auth, and the model id differ.
 import type { ChatRequest, ChatResult, LlmAdapter } from './interface';
-import { OPENQUOTA_BASE_URL, OPENQUOTA_MODEL } from './config';
+import { OPENQUOTA_BASE_URL, OPENQUOTA_TEXT_MODEL, OPENQUOTA_VISION_MODEL } from './config';
+
+function hasVisionInput(req: ChatRequest): boolean {
+  return req.messages.some(
+    (message) =>
+      Array.isArray(message.content) &&
+      message.content.some((part) => part.type === 'image_url'),
+  );
+}
 
 export class OpenQuotaAdapter implements LlmAdapter {
   readonly name = 'openquota';
@@ -15,6 +23,7 @@ export class OpenQuotaAdapter implements LlmAdapter {
   }
 
   async chat(req: ChatRequest): Promise<ChatResult> {
+    const selectedModel = hasVisionInput(req) ? OPENQUOTA_VISION_MODEL : OPENQUOTA_TEXT_MODEL;
     const response = await fetch(`${OPENQUOTA_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -22,8 +31,8 @@ export class OpenQuotaAdapter implements LlmAdapter {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // Routed by strategy, not by id — see OPENQUOTA_MODEL in config.ts.
-        model: OPENQUOTA_MODEL,
+        // Select the specialized profile from the request content.
+        model: selectedModel,
         messages: req.messages,
         // Open Quota reads `max_tokens <= 0` as "no limit", which would let a
         // bad caller uncap spend. Clamp instead.
@@ -45,8 +54,8 @@ export class OpenQuotaAdapter implements LlmAdapter {
         // Almost always a bad OPENQUOTA_MODEL profile name, which means every
         // request is silently falling through to OpenRouter. Say so loudly.
         console.error(
-          `[studio] Open Quota rejected model "${OPENQUOTA_MODEL}" (400): ${error}. ` +
-            'Check OPENQUOTA_MODEL — the whole chain is falling back.',
+          `[studio] Open Quota rejected model "${selectedModel}" (400): ${error}. ` +
+            'Check OPENQUOTA_TEXT_MODEL / OPENQUOTA_VISION_MODEL — the whole chain is falling back.',
         );
       } else {
         console.error('[studio] Open Quota error:', response.status, error);

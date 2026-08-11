@@ -27,4 +27,16 @@ export const OPENQUOTA_BASE_URL =
  * when the request contains an image part. The `auto:<strategy>` suffixes ignore
  * that configured chain, so plain `auto` is the right default.
  */
-export const OPENQUOTA_MODEL = process.env.OPENQUOTA_MODEL || 'auto';
+export const OPENQUOTA_TEXT_MODEL =
+  process.env.OPENQUOTA_TEXT_MODEL || process.env.OPENQUOTA_MODEL || 'auto:smart';
+
+export const OPENQUOTA_VISION_MODEL =
+  process.env.OPENQUOTA_VISION_MODEL || process.env.OPENQUOTA_MODEL || 'auto';
+
+/**
+ * Only used when OpenQuota is unavailable or declines a request. Keep this
+ * separate from OPENQUOTA_MODEL: OpenQuota's `auto` is a routing profile, not
+ * a model id understood by OpenRouter.
+ */
+export const OPENROUTER_FALLBACK_MODEL =
+  process.env.OPENROUTER_FALLBACK_MODEL || 'google/gemini-2.5-flash';

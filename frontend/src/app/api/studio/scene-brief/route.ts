@@ -3,10 +3,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode, refundCredits, resolveKeyAndCredits } from '../_lib/openrouter'
 import { callLlm, providerHeaders } from '../_lib/llm'
+import { OPENROUTER_FALLBACK_MODEL } from '../_lib/llm/config'
 
 export const maxDuration = 60
 
-const DEFAULT_MODEL = 'google/gemini-2.0-flash-001'
+const DEFAULT_MODEL = OPENROUTER_FALLBACK_MODEL
 
 const artStyleDescriptions: Record<string, string> = {
   cinematic: 'cinematic photography with dramatic lighting and film grain',

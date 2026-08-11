@@ -140,6 +140,7 @@ export function defaultJoints(
   return EXPECTED_JOINT_IDS.map((id) => ({
     id,
     name: JOINT_LABELS[id] ?? id,
+    role: id === "hip" ? "root" : id === "torso" || id === "neck" ? "spine" : id === "head" ? "head" : id.startsWith("eye") ? "eye" : id.startsWith("shoulder") ? "limbUpper" : id.startsWith("elbow") || id.startsWith("knee") ? "limbLower" : id.startsWith("hand") || id.startsWith("foot") ? "limbTip" : "other",
     x: nx(positions[id].x),
     y: ny(positions[id].y),
     parent: PARENTS[id],
@@ -339,6 +340,7 @@ export function buildRig(
     joints,
     mesh,
     weights,
+    cuts: [],
     supported,
     warnings: [...local.warnings, ...modelWarnings],
     source: analysis ? "model" : "edited",

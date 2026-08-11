@@ -50,11 +50,14 @@ CLOUDINARY_API_SECRET=
 # we call the native Gemini surface at <root>/v1beta/models/<model>:generateContent.
 OPENQUOTA_API_KEY=
 OPENQUOTA_BASE_URL=https://openquota.anands.dev/llm
+# Asset naming is a vision task. This overrides the legacy unified value.
+OPENQUOTA_VISION_MODEL=auto
+# Legacy fallback used when the specialized setting is absent.
 OPENQUOTA_MODEL=auto
 
 # Gemini (fallback) — get key from https://aistudio.google.com/
 GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-2.5-flash
 
 # Shared secret the Node backend must send in X-Internal-Token (empty disables)
 INTERNAL_API_TOKEN=
@@ -82,10 +85,16 @@ INTERNAL_SERVICE_TOKEN=change-me-service-token
 # Empty = OpenRouter-only. BYOK requests never reach it.
 OPENQUOTA_API_KEY=
 OPENQUOTA_BASE_URL=https://openquota.anands.dev/llm/v1
+# Text-only routes use the smarter profile; image-bearing routes use the
+# dashboard fallback chain by default.
+OPENQUOTA_TEXT_MODEL=auto:smart
+OPENQUOTA_VISION_MODEL=auto
+# Legacy fallback used when a specialized setting is absent.
 OPENQUOTA_MODEL=auto
 
 # OpenRouter — fallback for text/vision, sole provider for the image routes
 OPENROUTER_API_KEY=
+OPENROUTER_FALLBACK_MODEL=google/gemini-2.5-flash
 OPENROUTER_MOCK=0
 ```
 
@@ -106,7 +115,9 @@ OPENROUTER_MOCK=0
 | FRONTEND_URL | backend | CORS allow-list |
 | OPENQUOTA_API_KEY | py_backend + frontend | primary LLM provider (optional — falls back) |
 | OPENQUOTA_BASE_URL | py_backend + frontend | proxy root; `/llm` for py_backend, `/llm/v1` for frontend |
-| OPENQUOTA_MODEL | py_backend + frontend | routing strategy, not a model id (default `auto`) |
+| OPENQUOTA_TEXT_MODEL | frontend | text-only routing strategy (default `auto:smart`) |
+| OPENQUOTA_VISION_MODEL | py_backend + frontend | image-bearing routing strategy (default `auto`) |
+| OPENQUOTA_MODEL | py_backend + frontend | legacy routing-strategy fallback, not a model ID |
 | GEMINI_API_KEY / GEMINI_MODEL | py_backend | asset-naming fallback (optional — degrades gracefully) |
 | INTERNAL_API_TOKEN | py_backend | shared secret for Node→FastAPI calls |
 | ALLOWED_IMAGE_HOSTS | py_backend | host allowlist for image fetches |
@@ -115,6 +126,7 @@ OPENROUTER_MOCK=0
 | EXPRESS_INTERNAL_URL | frontend | Express reachable from the Next server (credits) |
 | INTERNAL_SERVICE_TOKEN | frontend + backend | guards the credit-refund endpoint |
 | OPENROUTER_API_KEY | frontend | fallback text/vision provider; sole image provider |
+| OPENROUTER_FALLBACK_MODEL | frontend | OpenRouter model ID used after Open Quota fails |
 | OPENROUTER_MOCK | frontend | `1` returns fixtures, no provider call |
 
 ## Docker services (docker-compose.yml)

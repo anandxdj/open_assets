@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode, refundCredits, resolveKeyAndCredits } from '../../../studio/_lib/openrouter'
 import { callLlm, providerHeaders, LLM_LONG_BUDGET_MS } from '../../../studio/_lib/llm'
+import { OPENROUTER_FALLBACK_MODEL } from '../../../studio/_lib/llm/config'
 import type { LlmContentPart } from '../../../studio/_lib/llm'
 
 export const maxDuration = 120
@@ -9,7 +10,7 @@ export const maxDuration = 120
 // text/vision reasoning model. It must never call an image model, and never
 // /api/studio/generate. It READS the user's prepared artwork and returns
 // coordinates describing it. No pixels are produced anywhere in this file.
-const DEFAULT_MODEL = 'google/gemini-2.0-flash-001'
+const DEFAULT_MODEL = OPENROUTER_FALLBACK_MODEL
 
 // Deliberate narrowing of F9 §4, which describes this endpoint as returning
 // joints, mesh topology, weights and templates. Only joints and templates are
