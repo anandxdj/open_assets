@@ -13,6 +13,7 @@
 import type { BodyPlanId, SubjectBounds } from "@/features/studio/lib/rig/rigCore";
 import {
   type Joint,
+  type CutLine,
   type MotionId,
   type PreparedAsset,
   type Rig,
@@ -320,8 +321,9 @@ export function buildRig(
     prepared.width,
     prepared.height,
   );
-  const mesh = buildMesh(alpha, prepared.width, prepared.height);
-  const weights = buildWeights(mesh, joints);
+  const cuts: CutLine[] = [];
+  const mesh = buildMesh(alpha, prepared.width, prepared.height, cuts);
+  const weights = buildWeights(mesh, joints, cuts);
   const local = localSupport(joints, alpha, prepared.width, prepared.height);
 
   // Intersect: the model can veto a template, but it cannot grant one the
@@ -340,7 +342,7 @@ export function buildRig(
     joints,
     mesh,
     weights,
-    cuts: [],
+    cuts,
     supported,
     warnings: [...local.warnings, ...modelWarnings],
     source: analysis ? "model" : "edited",
@@ -349,5 +351,5 @@ export function buildRig(
 
 /** Recompute weights after joints move. Mesh topology is unaffected by drags. */
 export function rebindWeights(rig: Rig): Rig {
-  return { ...rig, weights: buildWeights(rig.mesh, rig.joints), source: "edited" };
+  return { ...rig, weights: buildWeights(rig.mesh, rig.joints, rig.cuts), source: "edited" };
 }

@@ -7,6 +7,7 @@
 // with no way for the user to diagnose it.
 import {
   type Joint,
+  type CutLine,
   type Mesh,
   type Weights,
   getBones,
@@ -19,7 +20,7 @@ const COLS = 20;
 /** Hard ceiling on vertices — the renderer redraws every triangle per frame. */
 const MAX_VERTS = 1200;
 /** Bones influencing any one vertex after pruning. */
-const TOP_K = 3;
+const TOP_K = 4;
 /** Falloff exponent. 4 keeps limbs independent instead of dragging the torso. */
 const FALLOFF = 4;
 const EPSILON = 1e-6;
@@ -40,7 +41,7 @@ export interface Point {
  * Coordinates are normalized 0..1 so the mesh survives the asset being
  * displayed at any size.
  */
-export function buildMesh(alpha: Uint8ClampedArray, width: number, height: number): Mesh {
+export function buildMesh(alpha: Uint8ClampedArray, width: number, height: number, _cuts: CutLine[] = []): Mesh {
   // Choose a grid whose cells stay roughly square, then shrink it if the
   // vertex budget would be blown.
   let cols = COLS;
@@ -204,7 +205,31 @@ function buildNeighbours(mesh: Mesh): number[][] {
  * weights jump across the midline between two bones, and that discontinuity
  * renders as a visible crease when the limbs move apart.
  */
-export function buildWeights(mesh: Mesh, joints: Joint[]): Weights {
+function orientation(a: Point, b: Point, c: Point): number {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+function segmentsCross(a: Point, b: Point, c: Point, d: Point): boolean {
+  const abC = orientation(a, b, c);
+  const abD = orientation(a, b, d);
+  const cdA = orientation(c, d, a);
+  const cdB = orientation(c, d, b);
+  return ((abC > EPSILON && abD < -EPSILON) || (abC < -EPSILON && abD > EPSILON)) &&
+    ((cdA > EPSILON && cdB < -EPSILON) || (cdA < -EPSILON && cdB > EPSILON));
+}
+
+function crossesCut(from: Point, to: Point, cuts: CutLine[]): boolean {
+  for (const cut of cuts) {
+    for (let index = 1; index < cut.points.length; index++) {
+      const [x1, y1] = cut.points[index - 1];
+      const [x2, y2] = cut.points[index];
+      if (segmentsCross(from, to, { x: x1, y: y1 }, { x: x2, y: y2 })) return true;
+    }
+  }
+  return false;
+}
+
+export function buildWeights(mesh: Mesh, joints: Joint[], cuts: CutLine[] = []): Weights {
   const bones = getBones(joints);
   const vertCount = mesh.verts.length / 2;
   const boneCount = bones.length;
@@ -216,12 +241,16 @@ export function buildWeights(mesh: Mesh, joints: Joint[]): Weights {
     const point = { x: mesh.verts[v * 2], y: mesh.verts[v * 2 + 1] };
 
     for (let b = 0; b < boneCount; b++) {
+      const start = { x: bones[b].parentJoint.x, y: bones[b].parentJoint.y };
+      const end = { x: bones[b].childJoint.x, y: bones[b].childJoint.y };
       const distance = distanceToSegment(
         point,
-        { x: bones[b].parentJoint.x, y: bones[b].parentJoint.y },
-        { x: bones[b].childJoint.x, y: bones[b].childJoint.y },
+        start,
+        end,
       );
-      scored[b] = 1 / (Math.pow(distance, FALLOFF) + EPSILON);
+      scored[b] = crossesCut(point, start, cuts) || crossesCut(point, end, cuts)
+        ? 0
+        : 1 / (Math.pow(distance, FALLOFF) + EPSILON);
     }
 
     // Keep the TOP_K strongest, zero the rest, then normalize.
