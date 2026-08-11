@@ -42,6 +42,9 @@ export interface Point {
  * displayed at any size.
  */
 export function buildMesh(alpha: Uint8ClampedArray, width: number, height: number, _cuts: CutLine[] = []): Mesh {
+  // Cut segments already affect weights; contour-constrained triangulation is
+  // layered on this same argument so callers never need a second mesh API.
+  void _cuts;
   // Choose a grid whose cells stay roughly square, then shrink it if the
   // vertex budget would be blown.
   let cols = COLS;

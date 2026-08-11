@@ -212,6 +212,16 @@ export interface RigAnalysis {
   warnings: string[];
 }
 
+/** Free-form analysis contract used by the v3 rig route. */
+export interface RigAnalysisV3 {
+  joints: Joint[];
+  warnings: string[];
+  /** @deprecated removed with legacy motion templates. */
+  bodyPlan: BodyPlanId;
+  /** @deprecated removed with legacy motion templates. */
+  supported: MotionId[];
+}
+
 export function createEmptyProject(): AniBuddyProject {
   return {
     schemaVersion: PROJECT_SCHEMA_VERSION,

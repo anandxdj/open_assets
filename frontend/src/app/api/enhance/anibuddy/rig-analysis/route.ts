@@ -42,6 +42,7 @@ const JOINT_IDS = [
 
 const BODY_PLANS = ['biped', 'quadruped', 'serpent', 'flyer', 'blob'] as const
 const MOTIONS = ['idle', 'bounce', 'wave', 'blink'] as const
+const ROLES = ['root', 'spine', 'head', 'eye', 'jaw', 'limbUpper', 'limbLower', 'limbTip', 'tail', 'wing', 'ear', 'prop', 'other'] as const
 
 /** Mock fixture: a plausible front-facing biped, so OPENROUTER_MOCK=1 exercises
  *  the whole client pipeline (harden → mesh → weights → deform) at zero spend. */
@@ -68,6 +69,9 @@ const MOCK_ANALYSIS = {
   supported: ['idle', 'bounce', 'wave', 'blink'],
   warnings: [],
 }
+// Kept temporarily as legacy prompt/context during the staged v3 migration.
+void JOINT_IDS
+void MOCK_ANALYSIS
 
 function extractText(content: unknown): string {
   if (typeof content === 'string') return content
@@ -108,21 +112,27 @@ function parseAnalysis(raw: string): Record<string, unknown> | null {
 /** Keep only recognised ids with finite, in-range coordinates. The client
  *  hardens again — this just avoids shipping obvious garbage over the wire. */
 function sanitizeJoints(value: unknown) {
-  if (!Array.isArray(value)) return []
+  if (!Array.isArray(value) || value.length < 3 || value.length > 48) return []
   const seen = new Set<string>()
-  const joints: Array<{ id: string; x: number; y: number }> = []
+  const joints: Array<{ id: string; name: string; role: string; x: number; y: number; parent: string | null }> = []
 
   for (const entry of value) {
     if (!entry || typeof entry !== 'object') continue
     const candidate = entry as Record<string, unknown>
     const id = typeof candidate.id === 'string' ? candidate.id.trim() : ''
-    if (!(JOINT_IDS as readonly string[]).includes(id) || seen.has(id)) continue
+    if (!/^[A-Za-z0-9_-]{1,24}$/.test(id) || seen.has(id)) return []
     const x = Number(candidate.x)
     const y = Number(candidate.y)
-    if (!Number.isFinite(x) || !Number.isFinite(y)) continue
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return []
+    const parent = candidate.parent === null ? null : typeof candidate.parent === 'string' ? candidate.parent.trim() : undefined
+    if (parent === undefined) return []
     seen.add(id)
-    joints.push({ id, x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) })
+    joints.push({ id, name: typeof candidate.name === 'string' ? candidate.name.slice(0, 80) : id, role: (ROLES as readonly string[]).includes(String(candidate.role)) ? String(candidate.role) : 'other', x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)), parent })
   }
+  if (joints.filter((joint) => joint.parent === null).length !== 1) return []
+  const ids = new Set(joints.map((joint) => joint.id))
+  if (joints.some((joint) => joint.parent !== null && !ids.has(joint.parent))) return []
+  for (const joint of joints) { let cursor: typeof joint | undefined = joint; let hops = 0; while (cursor?.parent) { cursor = joints.find((candidate) => candidate.id === cursor!.parent); if (++hops > joints.length) return []; } if (hops > 8) return [] }
   return joints
 }
 
@@ -147,7 +157,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (isMockMode()) {
-      return NextResponse.json(MOCK_ANALYSIS)
+      return NextResponse.json({
+        bodyPlan: 'biped', supported: ['idle'], warnings: [],
+        joints: [
+          { id: 'root', name: 'Root', role: 'root', x: 0.5, y: 0.62, parent: null },
+          { id: 'spine', name: 'Spine', role: 'spine', x: 0.5, y: 0.4, parent: 'root' },
+          { id: 'head', name: 'Head', role: 'head', x: 0.5, y: 0.2, parent: 'spine' },
+          { id: 'tail', name: 'Tail', role: 'tail', x: 0.7, y: 0.7, parent: 'root' },
+          { id: 'ear', name: 'Ear', role: 'ear', x: 0.42, y: 0.12, parent: 'head' },
+        ],
+      })
     }
 
     const systemPrompt = `You locate skeleton joints in a single piece of character artwork so it can be animated as a 2D puppet. You do not draw or modify the image.
@@ -175,8 +194,10 @@ Also judge which motion templates this artwork can support:
 
 Body plan is one of: ${BODY_PLANS.join(', ')}.
 
+Each joint must include id, name, role, x, y and parent. Roles are one of: ${ROLES.join(', ')}. Use exactly one parent:null root; parent values must reference another supplied id. Do not invent a fixed human body plan: include visible tails, ears, wings, fins and props when they articulate.
+
 Output STRICT JSON only — no prose, no markdown fences:
-{"bodyPlan":"biped","joints":[{"id":"hip","x":0.5,"y":0.55}],"supported":["idle","bounce"],"warnings":["one short sentence per limitation, addressed to the artist"]}`
+{"bodyPlan":"biped","joints":[{"id":"root","name":"Hips","role":"root","x":0.5,"y":0.55,"parent":null}],"supported":["idle"],"warnings":["one short sentence per limitation, addressed to the artist"]}`
 
     const content: LlmContentPart[] = [
       {

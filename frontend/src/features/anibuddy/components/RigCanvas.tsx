@@ -5,6 +5,7 @@ import { Circle, Image as KonvaImage, Layer, Line, Stage } from "react-konva";
 import type Konva from "konva";
 
 import {
+  type CutLine,
   type Joint,
   type PreparedAsset,
   type Rig,
@@ -27,7 +28,7 @@ const JOINT_RADIUS = 7;
 const HIT_RADIUS = 16;
 const MAX_STAGE_EDGE = 520;
 
-export type RigTool = "joints" | "weights";
+export type RigTool = "joints" | "cuts" | "weights";
 
 interface RigCanvasProps {
   prepared: PreparedAsset;
@@ -39,6 +40,7 @@ interface RigCanvasProps {
   brushStrength: number;
   onJointDrag: (jointId: string, x: number, y: number) => void;
   onWeights: (weights: Float32Array) => void;
+  onCuts: (cuts: CutLine[]) => void;
 }
 
 export function RigCanvas({
@@ -51,6 +53,7 @@ export function RigCanvas({
   brushStrength,
   onJointDrag,
   onWeights,
+  onCuts,
 }: RigCanvasProps) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);

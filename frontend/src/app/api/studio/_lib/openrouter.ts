@@ -26,7 +26,8 @@ export type UsageOp =
   | 'tile-review'
   | 'sprite-review'
   | 'anibuddy-prompt'
-  | 'anibuddy-rig';
+  | 'anibuddy-rig'
+  | 'anibuddy-animate';
 
 export type KeyResolution =
   | { ok: true; key: string; byok: boolean; eventId?: string; remaining?: number }

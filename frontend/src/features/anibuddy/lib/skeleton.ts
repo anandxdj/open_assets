@@ -14,14 +14,53 @@ import type { BodyPlanId, SubjectBounds } from "@/features/studio/lib/rig/rigCor
 import {
   type Joint,
   type CutLine,
+  type JointRole,
+  JOINT_ID_PATTERN,
+  JOINT_ROLES,
+  MAX_JOINT_DEPTH,
+  MAX_JOINTS,
+  MIN_JOINTS,
   type MotionId,
   type PreparedAsset,
   type Rig,
   type RigAnalysis,
+  type RigAnalysisV3,
 } from "@/features/anibuddy/types";
 import { buildMesh, buildWeights } from "@/features/anibuddy/lib/mesh";
 
 const ALPHA_FLOOR = 24;
+
+export class JointGraphError extends Error {}
+
+/** Validate model-authored free-form joints. Structural errors are refused,
+ * not repaired, because a plausible broken graph deforms silently. */
+export function sanitizeJointGraph(
+  proposed: Array<{ id: string; name?: string; role?: JointRole; x: number; y: number; parent: string | null }>,
+  bounds: SubjectBounds,
+  width: number,
+  height: number,
+): Joint[] {
+  if (proposed.length < MIN_JOINTS) throw new JointGraphError("A rig needs at least three joints.");
+  if (proposed.length > MAX_JOINTS) throw new JointGraphError("This rig has too many joints (max 48).");
+  const ids = new Set<string>();
+  for (const item of proposed) {
+    if (!JOINT_ID_PATTERN.test(item.id) || ids.has(item.id)) throw new JointGraphError(`Invalid or duplicate joint id "${item.id}".`);
+    if (!Number.isFinite(item.x) || !Number.isFinite(item.y) || item.x < 0 || item.x > 1 || item.y < 0 || item.y > 1) throw new JointGraphError(`Joint "${item.id}" is outside the artwork.`);
+    ids.add(item.id);
+  }
+  const roots = proposed.filter((item) => item.parent === null);
+  if (roots.length !== 1) throw new JointGraphError("The joint graph needs exactly one root.");
+  for (const item of proposed) if (item.parent && !ids.has(item.parent)) throw new JointGraphError(`Joint "${item.id}" points at a missing parent.`);
+  const byId = new Map(proposed.map((item) => [item.id, item]));
+  for (const item of proposed) {
+    let cursor: typeof item | undefined = item; let depth = 0;
+    while (cursor?.parent) { cursor = byId.get(cursor.parent); if (++depth > proposed.length) throw new JointGraphError("The joint graph contains a loop."); }
+    if (depth > MAX_JOINT_DEPTH) throw new JointGraphError("The joint tree is nested too deeply.");
+  }
+  const subjectTop = Math.max(0, (bounds.baseline - bounds.height) / height);
+  const subjectBottom = Math.min(1, bounds.baseline / height);
+  return proposed.map((item) => ({ id: item.id, name: item.name?.trim() || JOINT_LABELS[item.id] || item.id, role: JOINT_ROLES.includes(item.role ?? "other") ? item.role ?? "other" : "other", x: Math.min(1, Math.max(0, item.x)), y: Math.min(subjectBottom, Math.max(subjectTop, item.y)), parent: item.parent }));
+}
 
 /** Fractions of figure height H, from `biped.ts:40` unless noted. */
 const P = {
@@ -310,17 +349,15 @@ export function applyLocalSupport(
 
 /** Assemble a complete rig: hardened joints, derived mesh, derived weights. */
 export function buildRig(
-  analysis: RigAnalysis | null,
+  analysis: RigAnalysis | RigAnalysisV3 | null,
   prepared: PreparedAsset,
   alpha: Uint8ClampedArray,
   fallbackBodyPlan: BodyPlanId = "biped",
 ): Rig {
-  const joints = hardenJoints(
-    analysis?.joints,
-    prepared.bounds,
-    prepared.width,
-    prepared.height,
-  );
+  const proposed = analysis?.joints;
+  const joints = Array.isArray(proposed) && proposed.length > 0 && "parent" in proposed[0]
+    ? sanitizeJointGraph(proposed as RigAnalysisV3["joints"], prepared.bounds, prepared.width, prepared.height)
+    : hardenJoints(proposed, prepared.bounds, prepared.width, prepared.height);
   const cuts: CutLine[] = [];
   const mesh = buildMesh(alpha, prepared.width, prepared.height, cuts);
   const weights = buildWeights(mesh, joints, cuts);

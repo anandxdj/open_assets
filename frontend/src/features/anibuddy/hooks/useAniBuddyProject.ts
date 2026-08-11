@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import {
   type AniBuddyProject,
   type BackgroundId,
+  type CutLine,
   type Fps,
   type Joint,
   type MotionId,
@@ -82,6 +83,7 @@ type Action =
   | { type: "setRig"; rig: Rig | null }
   | { type: "editJoint"; jointId: string; x: number; y: number }
   | { type: "setWeights"; weights: Float32Array }
+  | { type: "setCuts"; cuts: CutLine[] }
   | { type: "setMotion"; motion: MotionId | null }
   | { type: "setFps"; fps: Fps }
   | { type: "setFrameCount"; frameCount: number }
@@ -157,6 +159,10 @@ function projectReducer(state: AniBuddyProject, action: Action): AniBuddyProject
         ...state,
         rig: { ...state.rig, weights: action.weights, source: "edited" },
       };
+
+    case "setCuts":
+      if (!state.rig) return state;
+      return { ...state, rig: { ...state.rig, cuts: action.cuts, source: "edited" } };
 
     case "setMotion":
       return { ...state, motion: action.motion };
@@ -296,6 +302,7 @@ export function useAniBuddyProject() {
       setMotion: (motion: MotionId | null) => dispatch({ type: "setMotion", motion }),
       setFps: (fps: Fps) => dispatch({ type: "setFps", fps }),
       setFrameCount: (frameCount: number) => dispatch({ type: "setFrameCount", frameCount }),
+      setCuts: (cuts: CutLine[]) => dispatch({ type: "setCuts", cuts }),
       setBackground: (background: BackgroundId) => dispatch({ type: "setBackground", background }),
       importProject: (imported: AniBuddyProject) =>
         dispatch({ type: "importProject", project: imported }),

@@ -173,6 +173,7 @@ export function RigStep({
               brushStrength={0.35}
               onJointDrag={onEditJoint}
               onWeights={onWeights}
+              onCuts={() => undefined}
             />
           </div>
 
