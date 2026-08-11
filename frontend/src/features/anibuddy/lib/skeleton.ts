@@ -1,15 +1,5 @@
-// Default joint layout, model-output hardening, and the local structural checks
-// that decide which motion templates are actually safe for a given rig.
-//
-// The joint tree matches the skeleton `features/studio/lib/rig/biped.ts` already
-// encodes, so its `FramePose` tables drive this rig with no retargeting.
-//
-// One deliberate divergence: the studio rig is a side-view profile rig, where
-// the near and far limbs nearly overlap (`shoulderSepX` 0.03). AniBuddy asks for
-// front-facing or three-quarter art, so limb A/B read as the character's two
-// sides rather than near/far, and they seed much further apart. The pose ANGLES
-// still apply — in a front view an arm swing reads as foreshortening rather than
-// rotation, which is honest for the small motions v1 ships.
+// Free-form joint graph validation and the local structural checks that decide
+// which motion templates are actually safe for a given rig.
 import type { BodyPlanId, SubjectBounds } from "@/features/studio/lib/rig/rigCore";
 import {
   type Joint,
@@ -42,44 +32,54 @@ export function sanitizeJointGraph(
 ): Joint[] {
   if (proposed.length < MIN_JOINTS) throw new JointGraphError("A rig needs at least three joints.");
   if (proposed.length > MAX_JOINTS) throw new JointGraphError("This rig has too many joints (max 48).");
+
   const ids = new Set<string>();
   for (const item of proposed) {
-    if (!JOINT_ID_PATTERN.test(item.id) || ids.has(item.id)) throw new JointGraphError(`Invalid or duplicate joint id "${item.id}".`);
-    if (!Number.isFinite(item.x) || !Number.isFinite(item.y) || item.x < 0 || item.x > 1 || item.y < 0 || item.y > 1) throw new JointGraphError(`Joint "${item.id}" is outside the artwork.`);
+    if (!JOINT_ID_PATTERN.test(item.id) || ids.has(item.id)) {
+      throw new JointGraphError(`Joint id "${item.id}" is invalid or duplicates another joint.`);
+    }
     ids.add(item.id);
   }
+  for (const item of proposed) {
+    if (item.parent !== null && !ids.has(item.parent)) {
+      throw new JointGraphError(`Joint "${item.id}" points at a missing parent.`);
+    }
+  }
+
   const roots = proposed.filter((item) => item.parent === null);
   if (roots.length !== 1) throw new JointGraphError("The joint graph needs exactly one root.");
-  for (const item of proposed) if (item.parent && !ids.has(item.parent)) throw new JointGraphError(`Joint "${item.id}" points at a missing parent.`);
+
   const byId = new Map(proposed.map((item) => [item.id, item]));
   for (const item of proposed) {
-    let cursor: typeof item | undefined = item; let depth = 0;
-    while (cursor?.parent) { cursor = byId.get(cursor.parent); if (++depth > proposed.length) throw new JointGraphError("The joint graph contains a loop."); }
-    if (depth > MAX_JOINT_DEPTH) throw new JointGraphError("The joint tree is nested too deeply.");
+    let cursor: typeof item | undefined = item;
+    let depth = 0;
+    while (cursor?.parent) {
+      cursor = byId.get(cursor.parent);
+      if (++depth > proposed.length) {
+        throw new JointGraphError(`Joint "${item.id}" is part of a loop.`);
+      }
+    }
+    if (depth > MAX_JOINT_DEPTH) throw new JointGraphError(`Joint "${item.id}" is nested too deeply.`);
   }
+  for (const item of proposed) {
+    if (!Number.isFinite(item.x) || !Number.isFinite(item.y) || item.x < 0 || item.x > 1 || item.y < 0 || item.y > 1) {
+      throw new JointGraphError(`Joint "${item.id}" is outside the artwork.`);
+    }
+  }
+
   const subjectTop = Math.max(0, (bounds.baseline - bounds.height) / height);
   const subjectBottom = Math.min(1, bounds.baseline / height);
-  return proposed.map((item) => ({ id: item.id, name: item.name?.trim() || JOINT_LABELS[item.id] || item.id, role: JOINT_ROLES.includes(item.role ?? "other") ? item.role ?? "other" : "other", x: Math.min(1, Math.max(0, item.x)), y: Math.min(subjectBottom, Math.max(subjectTop, item.y)), parent: item.parent }));
+  return proposed.map((item) => ({
+    id: item.id,
+    name: item.name?.trim() || JOINT_LABELS[item.id] || item.id,
+    role: JOINT_ROLES.includes(item.role ?? "other") ? item.role ?? "other" : "other",
+    x: Math.min(1, Math.max(0, item.x)),
+    y: Math.min(subjectBottom, Math.max(subjectTop, item.y)),
+    parent: item.parent,
+  }));
 }
 
-/** Fractions of figure height H, from `biped.ts:40` unless noted. */
-const P = {
-  thigh: 0.245,
-  shin: 0.245,
-  torso: 0.3,
-  neck: 0.05,
-  headR: 0.075,
-  upperArm: 0.16,
-  foreArm: 0.15,
-  /** Widened from the profile rig's 0.03 for front-facing art. */
-  shoulderSep: 0.13,
-  hipSep: 0.07,
-  /** Outward drift per arm segment, so hanging arms clear the torso. */
-  armSplay: 0.02,
-} as const;
-
-const LEG_LEN = P.thigh + P.shin;
-
+/** @deprecated fallback labels for legacy biped ids, not a graph whitelist. */
 export const JOINT_LABELS: Record<string, string> = {
   hip: "Hips",
   torso: "Chest",
@@ -98,127 +98,6 @@ export const JOINT_LABELS: Record<string, string> = {
   kneeB: "Right knee",
   footB: "Right foot",
 };
-
-/** Parent of every expected joint. Order is the canonical joint order, and
- *  weight-matrix columns follow it, so it must stay parent-before-child. */
-const PARENTS: Record<string, string | null> = {
-  hip: null,
-  torso: "hip",
-  neck: "torso",
-  head: "neck",
-  eyeA: "head",
-  eyeB: "head",
-  shoulderA: "torso",
-  elbowA: "shoulderA",
-  handA: "elbowA",
-  shoulderB: "torso",
-  elbowB: "shoulderB",
-  handB: "elbowB",
-  kneeA: "hip",
-  footA: "kneeA",
-  kneeB: "hip",
-  footB: "kneeB",
-};
-
-export const EXPECTED_JOINT_IDS = Object.keys(PARENTS);
-
-/**
- * Seed a rest pose from the figure proportions against the measured subject.
- * The model's estimates overwrite these; the user's drags overwrite those.
- */
-export function defaultJoints(
-  bounds: SubjectBounds,
-  width: number,
-  height: number,
-): Joint[] {
-  const H = bounds.height;
-  const nx = (px: number) => Math.min(1, Math.max(0, px / width));
-  const ny = (py: number) => Math.min(1, Math.max(0, py / height));
-
-  const cx = bounds.centerX;
-  const base = bounds.baseline;
-  const hipY = base - LEG_LEN * H;
-  const shoulderY = base - (LEG_LEN + P.torso) * H;
-  const neckY = shoulderY - P.neck * H;
-  const headY = neckY - P.headR * H;
-
-  // `sign` is -1 for the A side (screen left) and +1 for B (screen right).
-  const arm = (sign: number) => ({
-    shoulder: { x: cx + sign * P.shoulderSep * H, y: shoulderY },
-    elbow: {
-      x: cx + sign * (P.shoulderSep + P.armSplay) * H,
-      y: shoulderY + P.upperArm * H,
-    },
-    hand: {
-      x: cx + sign * (P.shoulderSep + P.armSplay * 2) * H,
-      y: shoulderY + (P.upperArm + P.foreArm) * H,
-    },
-  });
-
-  const armA = arm(-1);
-  const armB = arm(1);
-
-  const positions: Record<string, { x: number; y: number }> = {
-    hip: { x: cx, y: hipY },
-    torso: { x: cx, y: shoulderY },
-    neck: { x: cx, y: neckY },
-    head: { x: cx, y: headY },
-    eyeA: { x: cx - P.headR * 0.4 * H, y: headY - P.headR * 0.1 * H },
-    eyeB: { x: cx + P.headR * 0.4 * H, y: headY - P.headR * 0.1 * H },
-    shoulderA: armA.shoulder,
-    elbowA: armA.elbow,
-    handA: armA.hand,
-    shoulderB: armB.shoulder,
-    elbowB: armB.elbow,
-    handB: armB.hand,
-    kneeA: { x: cx - P.hipSep * H, y: base - P.shin * H },
-    footA: { x: cx - P.hipSep * H, y: base },
-    kneeB: { x: cx + P.hipSep * H, y: base - P.shin * H },
-    footB: { x: cx + P.hipSep * H, y: base },
-  };
-
-  return EXPECTED_JOINT_IDS.map((id) => ({
-    id,
-    name: JOINT_LABELS[id] ?? id,
-    role: id === "hip" ? "root" : id === "torso" || id === "neck" ? "spine" : id === "head" ? "head" : id.startsWith("eye") ? "eye" : id.startsWith("shoulder") ? "limbUpper" : id.startsWith("elbow") || id.startsWith("knee") ? "limbLower" : id.startsWith("hand") || id.startsWith("foot") ? "limbTip" : "other",
-    x: nx(positions[id].x),
-    y: ny(positions[id].y),
-    parent: PARENTS[id],
-  }));
-}
-
-/**
- * Reconcile a model's joint list with the expected tree. The response is never
- * trusted: positions are clamped, unknown ids dropped, missing joints filled
- * from defaults, and parentage forced to the canonical tree — which also makes
- * cycles and orphans structurally impossible rather than merely detected.
- */
-export function hardenJoints(
-  proposed: unknown,
-  bounds: SubjectBounds,
-  width: number,
-  height: number,
-): Joint[] {
-  const defaults = defaultJoints(bounds, width, height);
-  if (!Array.isArray(proposed)) return defaults;
-
-  const byId = new Map<string, { x: number; y: number }>();
-  for (const entry of proposed) {
-    if (!entry || typeof entry !== "object") continue;
-    const candidate = entry as Record<string, unknown>;
-    const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
-    if (!(id in PARENTS)) continue;
-    const x = Number(candidate.x);
-    const y = Number(candidate.y);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-    byId.set(id, { x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) });
-  }
-
-  return defaults.map((joint) => {
-    const override = byId.get(joint.id);
-    return override ? { ...joint, ...override } : joint;
-  });
-}
 
 interface Box {
   minX: number;
@@ -347,17 +226,20 @@ export function applyLocalSupport(
   };
 }
 
-/** Assemble a complete rig: hardened joints, derived mesh, derived weights. */
+/** Assemble a complete rig: validated joints, derived mesh, derived weights. */
 export function buildRig(
   analysis: RigAnalysis | RigAnalysisV3 | null,
   prepared: PreparedAsset,
   alpha: Uint8ClampedArray,
   fallbackBodyPlan: BodyPlanId = "biped",
 ): Rig {
-  const proposed = analysis?.joints;
-  const joints = Array.isArray(proposed) && proposed.length > 0 && "parent" in proposed[0]
-    ? sanitizeJointGraph(proposed as RigAnalysisV3["joints"], prepared.bounds, prepared.width, prepared.height)
-    : hardenJoints(proposed, prepared.bounds, prepared.width, prepared.height);
+  const proposed = Array.isArray(analysis?.joints) ? analysis.joints : [];
+  const joints = sanitizeJointGraph(
+    proposed as RigAnalysisV3["joints"],
+    prepared.bounds,
+    prepared.width,
+    prepared.height,
+  );
   const cuts: CutLine[] = [];
   const mesh = buildMesh(alpha, prepared.width, prepared.height, cuts);
   const weights = buildWeights(mesh, joints, cuts);
