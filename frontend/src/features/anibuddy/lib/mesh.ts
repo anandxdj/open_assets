@@ -12,13 +12,20 @@ import {
   type Weights,
   getBones,
 } from "@/features/anibuddy/types";
+import cdt2d from "cdt2d";
+import {
+  distanceTransform,
+  samplePoints,
+  simplify,
+  traceContours,
+} from "@/features/anibuddy/lib/contour";
 
 /** Alpha at or below this is background, matching prepare.ts and rigCore. */
 const ALPHA_FLOOR = 24;
-/** Lattice columns. Rows follow from the aspect ratio. */
-const COLS = 20;
 /** Hard ceiling on vertices — the renderer redraws every triangle per frame. */
 const MAX_VERTS = 1200;
+/** Reject near-zero area triangles before the affine renderer sees them. */
+const MIN_TRIANGLE_AREA = 1e-4;
 /** Bones influencing any one vertex after pruning. */
 const TOP_K = 4;
 /** Falloff exponent. 4 keeps limbs independent instead of dragging the torso. */
@@ -30,160 +37,97 @@ export interface Point {
   y: number;
 }
 
-/**
- * Build an alpha-clipped lattice over the prepared asset.
- *
- * A grid rather than a Delaunay triangulation: the vertex count is predictable,
- * the topology is stable across re-runs, and — the deciding factor — a lattice
- * produces no sliver triangles. Slivers are what make per-triangle affine
- * warping tear visibly.
- *
- * Coordinates are normalized 0..1 so the mesh survives the asset being
- * displayed at any size.
- */
-export function buildMesh(alpha: Uint8ClampedArray, width: number, height: number, _cuts: CutLine[] = []): Mesh {
-  // Cut segments already affect weights; contour-constrained triangulation is
-  // layered on this same argument so callers never need a second mesh API.
-  void _cuts;
-  // Choose a grid whose cells stay roughly square, then shrink it if the
-  // vertex budget would be blown.
-  let cols = COLS;
-  let rows = Math.max(3, Math.round((COLS * height) / Math.max(1, width)));
-  while ((cols + 1) * (rows + 1) > MAX_VERTS && cols > 3) {
-    cols -= 1;
-    rows = Math.max(3, Math.round((cols * height) / Math.max(1, width)));
-  }
+/** Build an artwork-following constrained Delaunay mesh in normalized space. */
+export function buildMesh(alpha: Uint8ClampedArray, width: number, height: number, cuts: CutLine[] = []): Mesh {
+  if (width <= 0 || height <= 0) return { verts: new Float32Array(), tris: new Uint32Array() };
+  const rings = traceContours(alpha, width, height)
+    .map((ring) => simplify(ring, Math.max(width, height) * 0.004))
+    .filter((ring) => ring.length >= 3);
+  if (rings.length === 0) return { verts: new Float32Array(), tris: new Uint32Array() };
 
-  const solid = (px: number, py: number): boolean => {
-    const x = Math.min(width - 1, Math.max(0, Math.round(px)));
-    const y = Math.min(height - 1, Math.max(0, Math.round(py)));
-    return alpha[(y * width + x) * 4 + 3] > ALPHA_FLOOR;
-  };
+  const dist = distanceTransform(alpha, width, height);
+  let solidPixels = 0;
+  for (let index = 0; index < width * height; index++) if (alpha[index * 4 + 3] > ALPHA_FLOOR) solidPixels++;
+  let spacing = Math.max(3, Math.sqrt(Math.max(1, solidPixels) / 520));
 
-  // A cell survives if any of its four corners covers artwork. Sampling corners
-  // only would drop thin limbs that pass between them, so also probe the centre.
-  const cellW = width / cols;
-  const cellH = height / rows;
-  const kept: boolean[] = [];
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const x0 = col * cellW;
-      const y0 = row * cellH;
-      kept[row * cols + col] =
-        solid(x0, y0) ||
-        solid(x0 + cellW, y0) ||
-        solid(x0, y0 + cellH) ||
-        solid(x0 + cellW, y0 + cellH) ||
-        solid(x0 + cellW / 2, y0 + cellH / 2);
+  for (let pass = 0; pass < 12; pass++) {
+    const points: number[][] = [];
+    const pointIndex = new Map<string, number>();
+    const edges: number[][] = [];
+    const addPoint = (x: number, y: number): number => {
+      const key = `${Math.round(x * 1e5)},${Math.round(y * 1e5)}`;
+      const existing = pointIndex.get(key);
+      if (existing !== undefined) return existing;
+      const index = points.length;
+      points.push([x, y]);
+      pointIndex.set(key, index);
+      return index;
+    };
+    const addEdge = (a: number, b: number) => {
+      if (a !== b) edges.push([a, b]);
+    };
+
+    for (const ring of rings) {
+      const indices = ring.map(([x, y]) => addPoint(x, y));
+      for (let index = 0; index < indices.length; index++) addEdge(indices[index], indices[(index + 1) % indices.length]);
     }
-  }
-
-  // Emit only vertices a kept cell actually references, so the weight matrix
-  // has no dead rows.
-  const vertIndex = new Map<number, number>();
-  const verts: number[] = [];
-  const vertexFor = (col: number, row: number): number => {
-    const key = row * (cols + 1) + col;
-    const existing = vertIndex.get(key);
-    if (existing !== undefined) return existing;
-
-    const index = verts.length / 2;
-    vertIndex.set(key, index);
-    verts.push(Math.min(1, (col * cellW) / width), Math.min(1, (row * cellH) / height));
-    return index;
-  };
-
-  const tris: number[] = [];
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      if (!kept[row * cols + col]) continue;
-      const tl = vertexFor(col, row);
-      const tr = vertexFor(col + 1, row);
-      const bl = vertexFor(col, row + 1);
-      const br = vertexFor(col + 1, row + 1);
-      tris.push(tl, tr, bl, tr, br, bl);
+    for (const cut of cuts) {
+      const indices = cut.points.map(([x, y]) => addPoint(
+        Math.max(0, Math.min(width, x * width)),
+        Math.max(0, Math.min(height, y * height)),
+      ));
+      for (let index = 1; index < indices.length; index++) addEdge(indices[index - 1], indices[index]);
     }
-  }
+    for (const [x, y] of samplePoints(rings, dist, width, height, spacing)) addPoint(x, y);
 
-  return snapToSilhouette(
-    { verts: Float32Array.from(verts), tris: Uint32Array.from(tris) },
-    alpha,
-    width,
-    height,
-    cellW,
-    cellH,
-  );
+    // Raise the local sampling pitch and rebuild the PSLG instead of slicing
+    // points off the end: truncation silently leaves invalid triangle indices.
+    if (points.length > MAX_VERTS && pass < 11) {
+      spacing *= 1.35;
+      continue;
+    }
+
+    let cells: number[][];
+    try {
+      cells = cdt2d(points, edges, { exterior: false, interior: true });
+    } catch {
+      return { verts: new Float32Array(), tris: new Uint32Array() };
+    }
+
+    const used = new Map<number, number>();
+    const verts: number[] = [];
+    const tris: number[] = [];
+    const vertexFor = (index: number): number => {
+      const existing = used.get(index);
+      if (existing !== undefined) return existing;
+      const vertex = verts.length / 2;
+      used.set(index, vertex);
+      verts.push(points[index][0] / width, points[index][1] / height);
+      return vertex;
+    };
+    for (const cell of cells) {
+      const [a, b, c] = cell;
+      const area = Math.abs(
+        (points[b][0] - points[a][0]) * (points[c][1] - points[a][1]) -
+        (points[b][1] - points[a][1]) * (points[c][0] - points[a][0]),
+      ) / (width * height);
+      if (area < MIN_TRIANGLE_AREA) continue;
+      tris.push(vertexFor(a), vertexFor(b), vertexFor(c));
+    }
+    return { verts: Float32Array.from(verts), tris: Uint32Array.from(tris) };
+  }
+  return { verts: new Float32Array(), tris: new Uint32Array() };
 }
-
-/**
- * Pull background vertices onto the nearest artwork pixel so the mesh boundary
- * hugs the silhouette instead of stair-stepping along cell edges.
- *
- * Movement is capped at half a cell in each axis. Snapping further would let a
- * vertex cross its neighbours and invert the triangles that share it, which
- * renders as a folded-over patch of the character.
- */
-function snapToSilhouette(
-  mesh: Mesh,
-  alpha: Uint8ClampedArray,
-  width: number,
-  height: number,
-  cellW: number,
-  cellH: number,
-): Mesh {
-  const solidAt = (x: number, y: number): boolean =>
-    x >= 0 &&
-    y >= 0 &&
-    x < width &&
-    y < height &&
-    alpha[(y * width + x) * 4 + 3] > ALPHA_FLOOR;
-
-  const limitX = Math.floor(cellW / 2);
-  const limitY = Math.floor(cellH / 2);
-
-  for (let v = 0; v < mesh.verts.length / 2; v++) {
-    const px = Math.min(width - 1, Math.round(mesh.verts[v * 2] * width));
-    const py = Math.min(height - 1, Math.round(mesh.verts[v * 2 + 1] * height));
-    if (solidAt(px, py)) continue;
-
-    // Expanding square search, so the first hit is the nearest in Chebyshev
-    // distance — close enough to Euclidean at this radius, and far cheaper.
-    let best: Point | null = null;
-    const maxRadius = Math.max(limitX, limitY);
-    for (let radius = 1; radius <= maxRadius && !best; radius++) {
-      for (let dy = -radius; dy <= radius && !best; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
-          if (Math.abs(dx) > limitX || Math.abs(dy) > limitY) continue;
-          if (solidAt(px + dx, py + dy)) {
-            best = { x: px + dx, y: py + dy };
-            break;
-          }
-        }
-      }
-    }
-
-    if (best) {
-      mesh.verts[v * 2] = best.x / width;
-      mesh.verts[v * 2 + 1] = best.y / height;
-    }
-  }
-
-  return mesh;
-}
-
-/** Squared distance from `p` to segment `a`–`b`, plus the clamped parameter. */
-function distanceToSegment(p: Point, a: Point, b: Point): number {
+/** Nearest point and distance from `p` to segment `a`–`b`. */
+function nearestPointOnSegment(p: Point, a: Point, b: Point): { point: Point; distance: number } {
   const abx = b.x - a.x;
   const aby = b.y - a.y;
   const lengthSq = abx * abx + aby * aby;
-  if (lengthSq < EPSILON) return Math.hypot(p.x - a.x, p.y - a.y);
-
-  let t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / lengthSq;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(p.x - (a.x + abx * t), p.y - (a.y + aby * t));
+  if (lengthSq < EPSILON) return { point: a, distance: Math.hypot(p.x - a.x, p.y - a.y) };
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / lengthSq));
+  const point = { x: a.x + abx * t, y: a.y + aby * t };
+  return { point, distance: Math.hypot(p.x - point.x, p.y - point.y) };
 }
-
 /** Vertices sharing a triangle edge with each vertex — used for smoothing. */
 function buildNeighbours(mesh: Mesh): number[][] {
   const neighbours: Set<number>[] = Array.from(
@@ -240,28 +184,29 @@ export function buildWeights(mesh: Mesh, joints: Joint[], cuts: CutLine[] = []):
   if (boneCount === 0) return weights;
 
   const scored = new Float64Array(boneCount);
+  let isolatedVertices = 0;
   for (let v = 0; v < vertCount; v++) {
     const point = { x: mesh.verts[v * 2], y: mesh.verts[v * 2 + 1] };
+    let fallbackBone = 0;
+    let fallbackDistance = Infinity;
 
     for (let b = 0; b < boneCount; b++) {
       const start = { x: bones[b].parentJoint.x, y: bones[b].parentJoint.y };
       const end = { x: bones[b].childJoint.x, y: bones[b].childJoint.y };
-      const distance = distanceToSegment(
-        point,
-        start,
-        end,
-      );
-      scored[b] = crossesCut(point, start, cuts) || crossesCut(point, end, cuts)
+      const nearest = nearestPointOnSegment(point, start, end);
+      if (nearest.distance < fallbackDistance) {
+        fallbackDistance = nearest.distance;
+        fallbackBone = b;
+      }
+      // Test the path to the actual nearest point, not both bone endpoints:
+      // one endpoint can be beyond a cut even while the closest part is visible.
+      scored[b] = crossesCut(point, nearest.point, cuts)
         ? 0
-        : 1 / (Math.pow(distance, FALLOFF) + EPSILON);
+        : 1 / (Math.pow(nearest.distance, FALLOFF) + EPSILON);
     }
 
     // Keep the TOP_K strongest, zero the rest, then normalize.
-    const cutoff =
-      boneCount <= TOP_K
-        ? 0
-        : Array.from(scored).sort((a, b) => b - a)[TOP_K - 1];
-
+    const cutoff = boneCount <= TOP_K ? 0 : Array.from(scored).sort((a, b) => b - a)[TOP_K - 1];
     let sum = 0;
     for (let b = 0; b < boneCount; b++) {
       if (scored[b] < cutoff) scored[b] = 0;
@@ -270,17 +215,22 @@ export function buildWeights(mesh: Mesh, joints: Joint[], cuts: CutLine[] = []):
 
     const base = v * boneCount;
     if (sum <= 0) {
-      // Degenerate (every bone infinitely far): pin to the first bone rather
-      // than emit a zero row, which would fail the normalization check.
-      weights[base] = 1;
+      // A cut can legitimately isolate a pocket from every bone. Pin it to the
+      // geometrically nearest bone, ignoring cuts, rather than propagate NaN.
+      weights[base + fallbackBone] = 1;
+      isolatedVertices++;
       continue;
     }
     for (let b = 0; b < boneCount; b++) weights[base + b] = scored[b] / sum;
   }
 
+  if (isolatedVertices > 0) {
+    // buildWeights is deliberately pure at its call sites, so Order 4 can fold
+    // this diagnostic into Rig.warnings without changing its result shape.
+    console.warn(`AniBuddy: ${isolatedVertices} mesh vertices were cut off from every bone; nearest-bone fallback was used.`);
+  }
   return smoothWeights(mesh, weights, boneCount);
 }
-
 /** One Laplacian smoothing pass, re-normalized. */
 function smoothWeights(mesh: Mesh, weights: Weights, boneCount: number): Weights {
   const neighbours = buildNeighbours(mesh);
