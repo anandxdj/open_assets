@@ -10,6 +10,7 @@ export const consumeSchema = z.object({
     'sprite-review',
     'anibuddy-prompt',
     'anibuddy-rig',
+    'anibuddy-animate',
   ]),
   model: z.string().min(1).max(120),
   units: z.number().int().min(1).max(20).optional().default(1),

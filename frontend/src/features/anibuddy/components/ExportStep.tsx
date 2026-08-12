@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   type AniBuddyProject,
   type BackgroundId,
-  type MotionId,
+  type Clip,
   type PreparedAsset,
   type Rig,
   MAX_GIF_EDGE,
@@ -31,21 +31,21 @@ interface ExportStepProps {
   project: AniBuddyProject;
   prepared: PreparedAsset;
   rig: Rig;
-  motion: MotionId;
+  clip: Clip;
   onBackground: (background: BackgroundId) => void;
 }
 
-export function ExportStep({ project, prepared, rig, motion, onBackground }: ExportStepProps) {
+export function ExportStep({ project, prepared, rig, clip, onBackground }: ExportStepProps) {
   const [job, setJob] = useState<Job>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
-  const name = exportBaseName(project.source?.name, motion);
+  const name = exportBaseName(project.source?.name, clip);
   const input: ExportInput = {
     prepared,
     rig,
-    motion,
+    clip,
     frameCount: project.frameCount,
     fps: project.fps,
     background: project.background,
@@ -72,7 +72,7 @@ export function ExportStep({ project, prepared, rig, motion, onBackground }: Exp
     // `input` is rebuilt every render from project state; depending on it would
     // recreate this callback constantly for no benefit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prepared, rig, motion, project.frameCount, project.fps, project.background, name]);
+  }, [prepared, rig, clip, project.frameCount, project.fps, project.background, name]);
 
   const runGif = useCallback(async () => {
     setJob("gif");
@@ -97,7 +97,7 @@ export function ExportStep({ project, prepared, rig, motion, onBackground }: Exp
       setJob(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prepared, rig, motion, project.frameCount, project.fps, project.background, name]);
+  }, [prepared, rig, clip, project.frameCount, project.fps, project.background, name]);
 
   const runManifest = useCallback(() => {
     setError(null);
@@ -192,8 +192,8 @@ export function ExportStep({ project, prepared, rig, motion, onBackground }: Exp
 
       <dl className="mt-5 grid gap-x-6 gap-y-2 border-t border-zinc-200 pt-5 font-mono text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-300 sm:grid-cols-2">
         <div className="flex justify-between gap-4">
-          <dt>Motion</dt>
-          <dd>{motion}</dd>
+          <dt>Clip</dt>
+          <dd>{clip.name}</dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt>Frames</dt>

@@ -1,5 +1,5 @@
-import { AniBuddyWorkspace } from "@/features/anibuddy/components/AniBuddyWorkspace";
+import { AtlasWorkspace } from "@/features/anibuddy/components/AtlasWorkspace";
 
 export default function AniBuddyPage() {
-  return <AniBuddyWorkspace />;
+  return <AtlasWorkspace />;
 }

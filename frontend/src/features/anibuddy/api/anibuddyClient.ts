@@ -5,21 +5,18 @@
 // are identical to the studio routes, so this reuses `studioPost` rather than
 // re-deriving that handling. The name is historical; the helper is path-agnostic.
 import { studioPost, StudioApiError } from "@/features/studio/api/studioClient";
-import type { Clip, Rig, RigAnalysisV3 } from "@/features/anibuddy/types";
+import type { Clip, QaTurn, Rig, RigAnalysis } from "@/features/anibuddy/types";
 
 export { StudioApiError as AniBuddyApiError };
 
-export function requestPrompt(input: {
-  idea: string;
-  view: "front" | "three-quarter";
-}): Promise<{ prompt: string }> {
-  return studioPost<{ prompt: string }>("/api/enhance/anibuddy/prompt", input);
+export function requestPromptTurn(input: { action: "ask" | "write"; idea: string; transcript: QaTurn[] }): Promise<{ questions?: Array<{ id: string; question: string; options: string[]; allowFree: boolean; multi: boolean }>; done?: boolean; prompt?: string }> {
+  return studioPost("/api/enhance/anibuddy/prompt", input);
 }
 
 export function requestRigAnalysis(input: {
   image: string;
-}): Promise<RigAnalysisV3> {
-  return studioPost<RigAnalysisV3>("/api/enhance/anibuddy/rig-analysis", input);
+}): Promise<RigAnalysis> {
+  return studioPost<RigAnalysis>("/api/enhance/anibuddy/rig-analysis", input);
 }
 
 export function requestAnimation(input: { image: string; rig: Rig; request: string }): Promise<{ clip: Clip; warnings: string[] }> {

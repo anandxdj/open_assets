@@ -8,13 +8,13 @@ import { GIFEncoder, applyPalette, quantize } from "gifenc";
 
 import {
   type BackgroundId,
-  type MotionId,
+  type Clip,
   type PreparedAsset,
   type Rig,
   MAX_GIF_EDGE,
 } from "@/features/anibuddy/types";
 import { createDeformer } from "@/features/anibuddy/lib/deform";
-import { getFramePoses, referencePose } from "@/features/anibuddy/lib/motion";
+import { sampleClip } from "@/features/anibuddy/lib/clip";
 import { loadImageElement } from "@/features/anibuddy/lib/raster";
 
 /** GIF carries a single fully-transparent palette entry, not an alpha channel,
@@ -36,7 +36,7 @@ export class ExportError extends Error {}
 export interface ExportInput {
   prepared: PreparedAsset;
   rig: Rig;
-  motion: MotionId;
+  clip: Clip;
   frameCount: number;
   fps: number;
   background: BackgroundId;
@@ -56,7 +56,7 @@ interface FrameRunner {
 }
 
 async function createRunner(input: ExportInput, maxEdge: number | null): Promise<FrameRunner> {
-  const { prepared, rig, motion, frameCount } = input;
+  const { prepared, rig, clip, frameCount } = input;
   const image = await loadImageElement(prepared.dataUrl);
   const deformer = createDeformer(rig, prepared, image);
 
@@ -72,8 +72,7 @@ async function createRunner(input: ExportInput, maxEdge: number | null): Promise
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new ExportError("This browser refused a 2D canvas, so nothing can be exported.");
 
-  const frames = getFramePoses(rig.bodyPlan, motion, frameCount);
-  const reference = referencePose(rig.bodyPlan, motion);
+  const frames = sampleClip(clip, frameCount);
   const background = BACKGROUND_CSS[input.background];
 
   return {
@@ -83,8 +82,7 @@ async function createRunner(input: ExportInput, maxEdge: number | null): Promise
     ctx,
     canvas,
     drawFrame(index) {
-      // TODO(order-9): sample the active v3 clip instead of the legacy table.
-      deformer.render(ctx, {}, { width, height, background });
+      deformer.render(ctx, frames[index] ?? {}, { width, height, background });
     },
   };
 }
@@ -119,7 +117,7 @@ export async function exportPngFrames(
   folder.file(
     "README.txt",
     [
-      `${input.name} — ${runner.frameCount} frames at ${input.fps}fps, motion "${input.motion}".`,
+      `${input.name} — ${runner.frameCount} frames at ${input.fps}fps, clip "${input.clip.name}".`,
       "",
       "Every frame is the artwork you supplied, deformed by the rig you placed.",
       "No image generation was used at any point in producing these files.",
@@ -186,11 +184,11 @@ export function downloadBlob(blob: Blob, filename: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function exportBaseName(sourceName: string | null | undefined, motion: MotionId): string {
+export function exportBaseName(sourceName: string | null | undefined, clip: Clip): string {
   const stem = (sourceName ?? "anibuddy")
     .replace(/\.[a-z0-9]+$/i, "")
     .replace(/[^a-z0-9-_]+/gi, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
-  return `${stem || "anibuddy"}-${motion}`;
+  return `${stem || "anibuddy"}-${clip.name.replace(/[^a-z0-9-_]+/gi, "-").slice(0, 32) || "clip"}`;
 }

@@ -6,13 +6,7 @@
 // pose-maps for conditioning an image model; AniBuddy consumes the same
 // `FramePose` tables as SKELETON DRIVE DATA and deforms the user's own pixels
 // with them. Nothing here generates image pixels.
-import type {
-  BodyPlanId,
-  SubjectBounds,
-} from "@/features/studio/lib/rig/rigCore";
-
-/** The v1 motion templates from F9 §3. Deliberately small and safe. */
-export type MotionId = "idle" | "bounce" | "wave" | "blink";
+import type { SubjectBounds } from "@/features/studio/lib/rig/rigCore";
 
 /** Semantic joint categories used by the free-form v3 rig. */
 export type JointRole =
@@ -119,14 +113,10 @@ export interface Mesh {
 export type Weights = Float32Array;
 
 export interface Rig {
-  bodyPlan: BodyPlanId;
   joints: Joint[];
   mesh: Mesh;
   weights: Weights;
   cuts: CutLine[];
-  /** Model's judgement, already intersected with local structural checks. */
-  supported: MotionId[];
-  /** Shown verbatim beside disabled templates. */
   warnings: string[];
   /** Flips to `edited` on any user change, so the UI can say so. */
   source: "model" | "edited";
@@ -180,7 +170,7 @@ export const MAX_SOURCE_EDGE = 2048;
 export const MAX_FRAMES = 24;
 export const MAX_GIF_EDGE = 512;
 
-export const PROJECT_SCHEMA_VERSION = 2;
+export const PROJECT_SCHEMA_VERSION = 3;
 
 export interface AniBuddyProject {
   schemaVersion: typeof PROJECT_SCHEMA_VERSION;
@@ -189,7 +179,6 @@ export interface AniBuddyProject {
   rightsConfirmed: boolean;
   prepared: PreparedAsset | null;
   rig: Rig | null;
-  motion: MotionId | null;
   clips: Clip[];
   activeClipId: string | null;
   fps: Fps;
@@ -197,29 +186,10 @@ export interface AniBuddyProject {
   background: BackgroundId;
 }
 
-/** Shape returned by POST /api/enhance/anibuddy/rig-analysis. Joints only —
- *  mesh and weights are derived deterministically on the client. */
+/** Free-form analysis contract returned by the rig-analysis route. */
 export interface RigAnalysis {
-  bodyPlan: BodyPlanId;
-  /**
-   * Positions only. `name` and `parent` are deliberately absent: the route sends
-   * neither, and `hardenJoints` supplies both from the canonical tree so a model
-   * cannot reparent a joint. Typing this as `Joint[]` would advertise fields that
-   * never arrive over the wire.
-   */
-  joints: Pick<Joint, "id" | "x" | "y">[];
-  supported: MotionId[];
-  warnings: string[];
-}
-
-/** Free-form analysis contract used by the v3 rig route. */
-export interface RigAnalysisV3 {
   joints: Joint[];
   warnings: string[];
-  /** @deprecated removed with legacy motion templates. */
-  bodyPlan: BodyPlanId;
-  /** @deprecated removed with legacy motion templates. */
-  supported: MotionId[];
 }
 
 export function createEmptyProject(): AniBuddyProject {
@@ -230,7 +200,6 @@ export function createEmptyProject(): AniBuddyProject {
     rightsConfirmed: false,
     prepared: null,
     rig: null,
-    motion: null,
     clips: [],
     activeClipId: null,
     fps: 12,

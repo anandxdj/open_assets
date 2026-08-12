@@ -30,13 +30,34 @@ export type CallLlmRequest = ChatRequest & {
    * a third-party host would be credential disclosure, not just a wasted call.
    */
   byok: boolean;
+  /** Do not fall back to OpenRouter. Used where a route is OpenQuota-only. */
+  openQuotaOnly?: boolean;
+  /** A second Open Quota model/profile to try before OpenRouter. */
+  openQuotaFallbackModel?: string;
   /** Total wall-clock the chain may spend. Defaults to the 60s-route budget. */
   budgetMs?: number;
 };
 
-function buildChain(byok: boolean): LlmAdapter[] {
-  if (byok || !openquota.isConfigured()) return [openrouter];
-  return [openquota, openrouter];
+interface LlmAttempt {
+  adapter: LlmAdapter;
+  openQuotaModel?: string;
+}
+
+function buildChain(request: CallLlmRequest): LlmAttempt[] {
+  const quotaAttempts: LlmAttempt[] = [];
+  if (openquota.isConfigured()) {
+    quotaAttempts.push({ adapter: openquota, openQuotaModel: request.openQuotaModel });
+    if (
+      request.openQuotaFallbackModel &&
+      request.openQuotaFallbackModel !== request.openQuotaModel
+    ) {
+      quotaAttempts.push({ adapter: openquota, openQuotaModel: request.openQuotaFallbackModel });
+    }
+  }
+
+  if (request.openQuotaOnly) return quotaAttempts;
+  if (request.byok || !openquota.isConfigured()) return [{ adapter: openrouter }];
+  return [...quotaAttempts, { adapter: openrouter }];
 }
 
 /**
@@ -48,7 +69,7 @@ function buildChain(byok: boolean): LlmAdapter[] {
  * both fine.
  */
 export async function callLlm(req: CallLlmRequest): Promise<ChatResult> {
-  const chain = buildChain(req.byok);
+  const chain = buildChain(req);
   const budgetMs = req.budgetMs ?? LLM_DEFAULT_BUDGET_MS;
   const started = Date.now();
 
@@ -60,7 +81,8 @@ export async function callLlm(req: CallLlmRequest): Promise<ChatResult> {
   };
 
   for (let i = 0; i < chain.length; i++) {
-    const adapter = chain[i];
+    const attempt = chain[i];
+    const adapter = attempt.adapter;
     const isLast = i === chain.length - 1;
     const remaining = budgetMs - (Date.now() - started);
 
@@ -83,7 +105,11 @@ export async function callLlm(req: CallLlmRequest): Promise<ChatResult> {
     else req.signal?.addEventListener('abort', onCallerAbort, { once: true });
 
     try {
-      last = await adapter.chat({ ...req, signal: controller.signal });
+      last = await adapter.chat({
+        ...req,
+        openQuotaModel: attempt.openQuotaModel,
+        signal: controller.signal,
+      });
     } catch (err) {
       // Network error or abort — never let one provider throw out of the chain.
       const aborted = controller.signal.aborted;

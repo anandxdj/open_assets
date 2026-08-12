@@ -1,6 +1,6 @@
 // Free-form joint graph validation and the local structural checks that decide
 // which motion templates are actually safe for a given rig.
-import type { BodyPlanId, SubjectBounds } from "@/features/studio/lib/rig/rigCore";
+import type { SubjectBounds } from "@/features/studio/lib/rig/rigCore";
 import {
   type Joint,
   type CutLine,
@@ -10,15 +10,11 @@ import {
   MAX_JOINT_DEPTH,
   MAX_JOINTS,
   MIN_JOINTS,
-  type MotionId,
   type PreparedAsset,
   type Rig,
   type RigAnalysis,
-  type RigAnalysisV3,
 } from "@/features/anibuddy/types";
 import { buildMesh, buildWeights } from "@/features/anibuddy/lib/mesh";
-
-const ALPHA_FLOOR = 24;
 
 /** Shared editor palette. Roles describe a graph, so their colour must not
  * depend on legacy joint ids or a particular body plan. */
@@ -121,143 +117,15 @@ export const JOINT_LABELS: Record<string, string> = {
   footB: "Right foot",
 };
 
-interface Box {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-}
-
-function alphaBox(alpha: Uint8ClampedArray, width: number, height: number, box: Box) {
-  let found = false;
-  for (let y = Math.max(0, box.minY); y <= Math.min(height - 1, box.maxY) && !found; y++) {
-    for (let x = Math.max(0, box.minX); x <= Math.min(width - 1, box.maxX); x++) {
-      if (alpha[(y * width + x) * 4 + 3] > ALPHA_FLOOR) {
-        found = true;
-        break;
-      }
-    }
-  }
-  return found;
-}
-
-/**
- * Which templates this artwork can actually support, independent of what the
- * model claimed. A bad `supported` list must not be able to enable a motion the
- * pixels cannot carry — F9 §7 requires unsupported motions to be disclosed, not
- * silently attempted.
- */
-export function localSupport(
-  joints: Joint[],
-  alpha: Uint8ClampedArray,
-  width: number,
-  height: number,
-): { supported: MotionId[]; warnings: string[] } {
-  const byId = new Map(joints.map((joint) => [joint.id, joint]));
-  const warnings: string[] = [];
-
-  // idle and bounce move the whole figure, so they need nothing beyond a rig.
-  const supported: MotionId[] = ["idle", "bounce"];
-
-  // wave needs arm pixels that are separable from the torso. Sample a band just
-  // outside the shoulder: if it is empty, the arm is drawn merged into the body
-  // and rotating it would tear the torso.
-  const shoulder = byId.get("shoulderA");
-  const hand = byId.get("handA");
-  const torso = byId.get("torso");
-  if (shoulder && hand && torso) {
-    const armSpan = Math.abs(hand.x - shoulder.x) + Math.abs(hand.y - shoulder.y);
-    const outward = shoulder.x <= torso.x ? -1 : 1;
-    const probeX = Math.round((shoulder.x + outward * 0.04) * width);
-    const bandHalf = Math.round(0.05 * height);
-    const centreY = Math.round(((shoulder.y + hand.y) / 2) * height);
-    const hasArmPixels = alphaBox(alpha, width, height, {
-      minX: probeX - 2,
-      maxX: probeX + 2,
-      minY: centreY - bandHalf,
-      maxY: centreY + bandHalf,
-    });
-
-    if (hasArmPixels && armSpan > 0.08) {
-      supported.push("wave");
-    } else {
-      warnings.push(
-        "Wave is unavailable: this artwork has no arm that reads separately from the body. Move the shoulder, elbow and hand joints onto a visible arm to enable it.",
-      );
-    }
-  } else {
-    warnings.push("Wave is unavailable: this rig has no arm joints.");
-  }
-
-  // blink needs eye joints sitting on head pixels.
-  const head = byId.get("head");
-  const eyeA = byId.get("eyeA");
-  const eyeB = byId.get("eyeB");
-  if (head && eyeA && eyeB) {
-    const radius = Math.hypot(eyeA.x - head.x, eyeA.y - head.y);
-    const eyeOnPixels = [eyeA, eyeB].every((eye) => {
-      const px = Math.round(eye.x * width);
-      const py = Math.round(eye.y * height);
-      return alphaBox(alpha, width, height, {
-        minX: px - 1,
-        maxX: px + 1,
-        minY: py - 1,
-        maxY: py + 1,
-      });
-    });
-
-    if (eyeOnPixels && radius < 0.25) {
-      supported.push("blink");
-    } else {
-      warnings.push(
-        "Blink is unavailable: the eye markers are not sitting on the character's face. Drag them onto the eyes to enable it.",
-      );
-    }
-  } else {
-    warnings.push("Blink is unavailable: this rig has no eye markers.");
-  }
-
-  return { supported, warnings };
-}
-
-/** Openers of the warnings `localSupport` writes, so a re-derive can replace its
- *  own stale text without discarding what the model reported. */
-const LOCAL_WARNING_PREFIXES = ["Wave is unavailable", "Blink is unavailable"];
-
-/**
- * Re-derive template support from the joints as they now stand.
- *
- * Joint drags change the answer: dragging the eye markers onto the face should
- * enable blink, and moving them off it should take blink away again. The model's
- * own warnings are preserved — only the locally-generated ones are refreshed.
- */
-export function applyLocalSupport(
-  rig: Rig,
-  alpha: Uint8ClampedArray,
-  width: number,
-  height: number,
-): Rig {
-  const local = localSupport(rig.joints, alpha, width, height);
-  const kept = rig.warnings.filter(
-    (warning) => !LOCAL_WARNING_PREFIXES.some((prefix) => warning.startsWith(prefix)),
-  );
-  return {
-    ...rig,
-    supported: local.supported,
-    warnings: [...local.warnings, ...kept],
-  };
-}
-
 /** Assemble a complete rig: validated joints, derived mesh, derived weights. */
 export function buildRig(
-  analysis: RigAnalysis | RigAnalysisV3 | null,
+  analysis: RigAnalysis | null,
   prepared: PreparedAsset,
   alpha: Uint8ClampedArray,
-  fallbackBodyPlan: BodyPlanId = "biped",
 ): Rig {
   const proposed = Array.isArray(analysis?.joints) ? analysis.joints : [];
   const joints = sanitizeJointGraph(
-    proposed as RigAnalysisV3["joints"],
+    proposed as RigAnalysis["joints"],
     prepared.bounds,
     prepared.width,
     prepared.height,
@@ -265,27 +133,18 @@ export function buildRig(
   const cuts: CutLine[] = [];
   const mesh = buildMesh(alpha, prepared.width, prepared.height, cuts);
   const weights = buildWeights(mesh, joints, cuts);
-  const local = localSupport(joints, alpha, prepared.width, prepared.height);
 
-  // Intersect: the model can veto a template, but it cannot grant one the
-  // pixels do not support.
-  const claimed = analysis?.supported;
-  const supported = Array.isArray(claimed)
-    ? local.supported.filter((motion) => claimed.includes(motion))
-    : local.supported;
 
   const modelWarnings = Array.isArray(analysis?.warnings)
     ? analysis.warnings.filter((warning): warning is string => typeof warning === "string")
     : [];
 
   return {
-    bodyPlan: analysis?.bodyPlan ?? fallbackBodyPlan,
     joints,
     mesh,
     weights,
     cuts,
-    supported,
-    warnings: [...local.warnings, ...modelWarnings],
+    warnings: modelWarnings,
     source: analysis ? "model" : "edited",
   };
 }

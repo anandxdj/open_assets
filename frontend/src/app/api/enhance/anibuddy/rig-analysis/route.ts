@@ -1,277 +1,241 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { isMockMode, refundCredits, resolveKeyAndCredits } from '../../../studio/_lib/openrouter'
-import { callLlm, providerHeaders, LLM_LONG_BUDGET_MS } from '../../../studio/_lib/llm'
-import { OPENROUTER_FALLBACK_MODEL } from '../../../studio/_lib/llm/config'
-import type { LlmContentPart } from '../../../studio/_lib/llm'
+import { NextRequest, NextResponse } from "next/server";
 
-export const maxDuration = 120
+import { isMockMode, refundCredits, resolveKeyAndCredits } from "../../../studio/_lib/openrouter";
+import { callLlm, providerHeaders, LLM_LONG_BUDGET_MS } from "../../../studio/_lib/llm";
+import type { LlmContentPart } from "../../../studio/_lib/llm";
 
-// AniBuddy is a NON-GENERATIVE feature (F9 §2). This route may only call a
-// text/vision reasoning model. It must never call an image model, and never
-// /api/studio/generate. It READS the user's prepared artwork and returns
-// coordinates describing it. No pixels are produced anywhere in this file.
-const DEFAULT_MODEL = OPENROUTER_FALLBACK_MODEL
+export const maxDuration = 120;
 
-// Deliberate narrowing of F9 §4, which describes this endpoint as returning
-// joints, mesh topology, weights and templates. Only joints and templates are
-// asked for here; mesh and weights are derived deterministically on the client
-// (features/anibuddy/lib/mesh.ts).
-//
-// A few hundred triangles plus a full weight matrix is a large, error-prone
-// payload, and a hallucinated triangle produces deformation that is visibly
-// broken with no way for the user to diagnose it. Joints are ~32 numbers a
-// vision model estimates well, and they are directly draggable.
-const JOINT_IDS = [
-  'hip',
-  'torso',
-  'neck',
-  'head',
-  'eyeA',
-  'eyeB',
-  'shoulderA',
-  'elbowA',
-  'handA',
-  'shoulderB',
-  'elbowB',
-  'handB',
-  'kneeA',
-  'footA',
-  'kneeB',
-  'footB',
-] as const
+// AniBuddy only describes the user's supplied image; it never generates pixels.
+// The first Open Quota attempt is an explicitly configured Gemini vision model.
+// `auto` is retained as a provider fallback for deployments where that model is
+// temporarily unavailable or exhausted.
+const RIG_OPENQUOTA_GEMINI_MODEL =
+  process.env.ANIBUDDY_RIG_OPENQUOTA_MODEL || "google/gemini-2.5-flash";
+const RIG_OPENQUOTA_AUTO_MODEL = process.env.ANIBUDDY_RIG_OPENQUOTA_FALLBACK_MODEL || "auto";
+const ROLES = [
+  "root", "spine", "head", "eye", "jaw", "limbUpper", "limbLower",
+  "limbTip", "tail", "wing", "ear", "prop", "other",
+] as const;
 
-const BODY_PLANS = ['biped', 'quadruped', 'serpent', 'flyer', 'blob'] as const
-const MOTIONS = ['idle', 'bounce', 'wave', 'blink'] as const
-const ROLES = ['root', 'spine', 'head', 'eye', 'jaw', 'limbUpper', 'limbLower', 'limbTip', 'tail', 'wing', 'ear', 'prop', 'other'] as const
-
-/** Mock fixture: a plausible front-facing biped, so OPENROUTER_MOCK=1 exercises
- *  the whole client pipeline (harden → mesh → weights → deform) at zero spend. */
-const MOCK_ANALYSIS = {
-  bodyPlan: 'biped',
-  joints: [
-    { id: 'hip', x: 0.5, y: 0.56 },
-    { id: 'torso', x: 0.5, y: 0.34 },
-    { id: 'neck', x: 0.5, y: 0.28 },
-    { id: 'head', x: 0.5, y: 0.16 },
-    { id: 'eyeA', x: 0.44, y: 0.14 },
-    { id: 'eyeB', x: 0.56, y: 0.14 },
-    { id: 'shoulderA', x: 0.38, y: 0.33 },
-    { id: 'elbowA', x: 0.33, y: 0.45 },
-    { id: 'handA', x: 0.3, y: 0.57 },
-    { id: 'shoulderB', x: 0.62, y: 0.33 },
-    { id: 'elbowB', x: 0.67, y: 0.45 },
-    { id: 'handB', x: 0.7, y: 0.57 },
-    { id: 'kneeA', x: 0.44, y: 0.78 },
-    { id: 'footA', x: 0.44, y: 0.98 },
-    { id: 'kneeB', x: 0.56, y: 0.78 },
-    { id: 'footB', x: 0.56, y: 0.98 },
-  ],
-  supported: ['idle', 'bounce', 'wave', 'blink'],
-  warnings: [],
+interface RigJoint {
+  id: string;
+  name: string;
+  role: (typeof ROLES)[number];
+  x: number;
+  y: number;
+  parent: string | null;
 }
-// Kept temporarily as legacy prompt/context during the staged v3 migration.
-void JOINT_IDS
-void MOCK_ANALYSIS
+
+interface ValidAnalysis {
+  joints: RigJoint[];
+  warnings: string[];
+}
+
+type Validation = { ok: true; value: ValidAnalysis } | { ok: false; error: string };
+
+const RIG_ANALYSIS_RESPONSE_FORMAT = {
+  type: "json_schema",
+  json_schema: {
+    name: "anibuddy_rig_analysis",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        joints: {
+          type: "array",
+          minItems: 3,
+          maxItems: 48,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              id: { type: "string", pattern: "^[A-Za-z0-9_-]{1,24}$" },
+              name: { type: "string", minLength: 1, maxLength: 80 },
+              role: { type: "string", enum: ROLES },
+              x: { type: "number", minimum: 0, maximum: 1 },
+              y: { type: "number", minimum: 0, maximum: 1 },
+              parent: { type: ["string", "null"] },
+            },
+            required: ["id", "name", "role", "x", "y", "parent"],
+          },
+        },
+        warnings: {
+          type: "array",
+          maxItems: 6,
+          items: { type: "string", minLength: 1, maxLength: 240 },
+        },
+      },
+      required: ["joints", "warnings"],
+    },
+  },
+} as const;
 
 function extractText(content: unknown): string {
-  if (typeof content === 'string') return content
+  if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content
-      .map((part: { text?: string }) => (typeof part?.text === 'string' ? part.text : ''))
-      .join('')
+      .map((part: { text?: string }) => (typeof part?.text === "string" ? part.text : ""))
+      .join("");
   }
-  return ''
+  return "";
 }
 
-/** Loose JSON extraction, same approach as sprite-review: strip fences, then
- *  fall back to the outermost {...} slice. */
 function parseAnalysis(raw: string): Record<string, unknown> | null {
-  if (!raw) return null
-  const text = raw
-    .trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/i, '')
-
-  const tryParse = (value: string): unknown => {
+  const text = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  if (!text) return null;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+  } catch {
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start < 0 || end <= start) return null;
     try {
-      return JSON.parse(value)
+      const parsed: unknown = JSON.parse(text.slice(start, end + 1));
+      return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
     } catch {
-      return null
+      return null;
     }
   }
-
-  let data = tryParse(text)
-  if (!data) {
-    const start = text.indexOf('{')
-    const end = text.lastIndexOf('}')
-    if (start !== -1 && end > start) data = tryParse(text.slice(start, end + 1))
-  }
-  return data && typeof data === 'object' ? (data as Record<string, unknown>) : null
 }
 
-/** Keep only recognised ids with finite, in-range coordinates. The client
- *  hardens again — this just avoids shipping obvious garbage over the wire. */
-function sanitizeJoints(value: unknown) {
-  if (!Array.isArray(value) || value.length < 3 || value.length > 48) return []
-  const seen = new Set<string>()
-  const joints: Array<{ id: string; name: string; role: string; x: number; y: number; parent: string | null }> = []
-
-  for (const entry of value) {
-    if (!entry || typeof entry !== 'object') continue
-    const candidate = entry as Record<string, unknown>
-    const id = typeof candidate.id === 'string' ? candidate.id.trim() : ''
-    if (!/^[A-Za-z0-9_-]{1,24}$/.test(id) || seen.has(id)) return []
-    const x = Number(candidate.x)
-    const y = Number(candidate.y)
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return []
-    const parent = candidate.parent === null ? null : typeof candidate.parent === 'string' ? candidate.parent.trim() : undefined
-    if (parent === undefined) return []
-    seen.add(id)
-    joints.push({ id, name: typeof candidate.name === 'string' ? candidate.name.slice(0, 80) : id, role: (ROLES as readonly string[]).includes(String(candidate.role)) ? String(candidate.role) : 'other', x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)), parent })
+function validateAnalysis(value: Record<string, unknown> | null): Validation {
+  if (!value || !Array.isArray(value.joints)) {
+    return { ok: false, error: "Response must contain a joints array." };
   }
-  if (joints.filter((joint) => joint.parent === null).length !== 1) return []
-  const ids = new Set(joints.map((joint) => joint.id))
-  if (joints.some((joint) => joint.parent !== null && !ids.has(joint.parent))) return []
-  for (const joint of joints) { let cursor: typeof joint | undefined = joint; let hops = 0; while (cursor?.parent) { cursor = joints.find((candidate) => candidate.id === cursor!.parent); if (++hops > joints.length) return []; } if (hops > 8) return [] }
-  return joints
+  if (value.joints.length < 3 || value.joints.length > 48) {
+    return { ok: false, error: "A rig must contain between 3 and 48 joints." };
+  }
+  if (!Array.isArray(value.warnings) || value.warnings.some((warning) => typeof warning !== "string")) {
+    return { ok: false, error: "Warnings must be an array of strings." };
+  }
+
+  const ids = new Set<string>();
+  const joints: RigJoint[] = [];
+  for (const entry of value.joints) {
+    if (!entry || typeof entry !== "object") return { ok: false, error: "Every joint must be an object." };
+    const joint = entry as Record<string, unknown>;
+    const id = typeof joint.id === "string" ? joint.id.trim() : "";
+    if (!/^[A-Za-z0-9_-]{1,24}$/.test(id)) return { ok: false, error: "Every joint id must use only letters, numbers, underscores, or hyphens." };
+    if (ids.has(id)) return { ok: false, error: `Joint id "${id}" is duplicated.` };
+    if (typeof joint.name !== "string" || !joint.name.trim() || joint.name.length > 80) return { ok: false, error: `Joint "${id}" needs a short name.` };
+    if (!(ROLES as readonly string[]).includes(String(joint.role))) return { ok: false, error: `Joint "${id}" has an unknown role.` };
+    if (!Number.isFinite(joint.x) || !Number.isFinite(joint.y) || Number(joint.x) < 0 || Number(joint.x) > 1 || Number(joint.y) < 0 || Number(joint.y) > 1) {
+      return { ok: false, error: `Joint "${id}" must use normalized x and y coordinates between 0 and 1.` };
+    }
+    if (joint.parent !== null && (typeof joint.parent !== "string" || !joint.parent.trim())) return { ok: false, error: `Joint "${id}" needs a parent id or null.` };
+    ids.add(id);
+    joints.push({ id, name: joint.name.trim(), role: joint.role as RigJoint["role"], x: Number(joint.x), y: Number(joint.y), parent: joint.parent === null ? null : joint.parent.trim() });
+  }
+
+  const roots = joints.filter((joint) => joint.parent === null);
+  if (roots.length !== 1) return { ok: false, error: "The graph must have exactly one parent:null root." };
+  const byId = new Map(joints.map((joint) => [joint.id, joint]));
+  for (const joint of joints) {
+    if (joint.parent !== null && !byId.has(joint.parent)) return { ok: false, error: `Joint "${joint.id}" references a missing parent.` };
+    let cursor: RigJoint | undefined = joint;
+    let depth = 0;
+    while (cursor?.parent !== null) {
+      cursor = byId.get(cursor.parent);
+      if (!cursor || ++depth > joints.length) return { ok: false, error: "The joint graph contains a parent cycle." };
+    }
+    if (depth > 8) return { ok: false, error: "The joint graph is deeper than eight parent links." };
+  }
+  return {
+    ok: true,
+    value: { joints, warnings: value.warnings.map((warning) => warning.trim()).filter(Boolean).slice(0, 6) },
+  };
+}
+
+const SYSTEM_PROMPT = `You locate visible articulation joints in a single piece of character artwork so it can be animated as a 2D puppet. You do not draw or modify the image.
+
+The artwork can be any creature, not just a human. Return only the 3–48 visible joints that meaningfully articulate: a root, spine/body, head, limbs, tail segments, wings, ears, jaws, or props where visible. Omit hidden parts and do not invent anatomy. Use one connected tree with exactly one parent:null root. A child parent must be the id of another returned joint; do not make cycles or chains deeper than eight links.
+
+Coordinates are normalized against this image: x=0 left, x=1 right, y=0 top, y=1 bottom. Put each point on the body part it controls. Use short unique ids such as root, spine, tail_1, wing_left, or leg_front; ids may contain only letters, numbers, underscores, and hyphens. Roles must be one of: ${ROLES.join(", ")}.
+
+Return the schema exactly. Warnings are short limitations for the artist, such as an overlapped limb or an indistinct feature.`;
+
+function contentFor(image: string, instruction: string): LlmContentPart[] {
+  return [
+    { type: "text", text: instruction },
+    { type: "image_url", image_url: { url: image } },
+  ];
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { image, model } = await request.json()
-
-    // Mirrors sprite-review's guard: only accept an inline data URL, never a
-    // remote reference this server would then go and fetch.
-    if (typeof image !== 'string' || !image.startsWith('data:image/')) {
-      return NextResponse.json(
-        { error: 'A prepared image data URL is required' },
-        { status: 400 }
-      )
+    const { image } = await request.json();
+    if (typeof image !== "string" || !image.startsWith("data:image/")) {
+      return NextResponse.json({ error: "A prepared image data URL is required" }, { status: 400 });
     }
 
-    const modelId = typeof model === 'string' && model.trim() ? model.trim() : DEFAULT_MODEL
-
-    const auth = await resolveKeyAndCredits(request, 'anibuddy-rig', modelId, 1)
-    if (!auth.ok) {
-      return NextResponse.json({ error: auth.error, code: auth.code }, { status: auth.status })
-    }
+    const auth = await resolveKeyAndCredits(request, "anibuddy-rig", RIG_OPENQUOTA_GEMINI_MODEL, 1, { allowByok: false });
+    if (!auth.ok) return NextResponse.json({ error: auth.error, code: auth.code }, { status: auth.status });
 
     if (isMockMode()) {
       return NextResponse.json({
-        bodyPlan: 'biped', supported: ['idle'], warnings: [],
         joints: [
-          { id: 'root', name: 'Root', role: 'root', x: 0.5, y: 0.62, parent: null },
-          { id: 'spine', name: 'Spine', role: 'spine', x: 0.5, y: 0.4, parent: 'root' },
-          { id: 'head', name: 'Head', role: 'head', x: 0.5, y: 0.2, parent: 'spine' },
-          { id: 'tail', name: 'Tail', role: 'tail', x: 0.7, y: 0.7, parent: 'root' },
-          { id: 'ear', name: 'Ear', role: 'ear', x: 0.42, y: 0.12, parent: 'head' },
+          { id: "root", name: "Root", role: "root", x: 0.5, y: 0.62, parent: null },
+          { id: "spine", name: "Spine", role: "spine", x: 0.5, y: 0.4, parent: "root" },
+          { id: "head", name: "Head", role: "head", x: 0.5, y: 0.2, parent: "spine" },
+          { id: "tail", name: "Tail", role: "tail", x: 0.7, y: 0.7, parent: "root" },
+          { id: "ear", name: "Ear", role: "ear", x: 0.42, y: 0.12, parent: "head" },
         ],
-      })
+        warnings: [],
+      });
     }
 
-    const systemPrompt = `You locate skeleton joints in a single piece of character artwork so it can be animated as a 2D puppet. You do not draw or modify the image.
-
-Coordinates are NORMALIZED: x = 0 at the left edge, 1 at the right edge; y = 0 at the top edge, 1 at the bottom edge. Report where each joint appears IN THIS IMAGE. Precision matters more than completeness — a joint placed on the wrong body part bends the artwork incorrectly.
-
-Joint ids, and where each belongs:
-- hip: pelvis centre
-- torso: chest centre, at the shoulder line
-- neck: base of the neck
-- head: centre of the head
-- eyeA / eyeB: the two eyes (A = the one further LEFT in the image)
-- shoulderA / elbowA / handA: the arm further LEFT in the image
-- shoulderB / elbowB / handB: the arm further RIGHT in the image
-- kneeA / footA: the leg further LEFT in the image
-- kneeB / footB: the leg further RIGHT in the image
-
-Omit any joint whose body part is not visible — do NOT guess a position for a hidden or absent limb.
-
-Also judge which motion templates this artwork can support:
-- idle: always supported
-- bounce: always supported
-- wave: only if an arm is drawn clear of the torso, so it can rotate without tearing the body
-- blink: only if the eyes are visible
-
-Body plan is one of: ${BODY_PLANS.join(', ')}.
-
-Each joint must include id, name, role, x, y and parent. Roles are one of: ${ROLES.join(', ')}. Use exactly one parent:null root; parent values must reference another supplied id. Do not invent a fixed human body plan: include visible tails, ears, wings, fins and props when they articulate.
-
-Output STRICT JSON only — no prose, no markdown fences:
-{"bodyPlan":"biped","joints":[{"id":"root","name":"Hips","role":"root","x":0.5,"y":0.55,"parent":null}],"supported":["idle"],"warnings":["one short sentence per limitation, addressed to the artist"]}`
-
-    const content: LlmContentPart[] = [
-      {
-        type: 'text',
-        text: 'Locate the joints in this character artwork and judge which motions it supports. Strict JSON only.',
-      },
-      { type: 'image_url', image_url: { url: image } },
-    ]
-
-    const result = await callLlm({
-      byok: auth.byok,
+    const callAnalysis = (instruction: string) => callLlm({
+      byok: false,
       key: auth.key,
-      model: modelId,
+      model: RIG_OPENQUOTA_GEMINI_MODEL,
+      openQuotaOnly: true,
+      openQuotaModel: RIG_OPENQUOTA_GEMINI_MODEL,
+      openQuotaFallbackModel: RIG_OPENQUOTA_AUTO_MODEL,
+      responseFormat: RIG_ANALYSIS_RESPONSE_FORMAT,
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content },
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: contentFor(image, instruction) },
       ],
       maxTokens: 1200,
-      // Low: this is measurement, not invention.
-      temperature: 0.2,
-      title: 'AniBuddy - Rig Analysis',
-      referer: request.headers.get('referer'),
+      temperature: 0.1,
+      title: "AniBuddy - Rig Analysis",
+      referer: request.headers.get("referer"),
       signal: request.signal,
       budgetMs: LLM_LONG_BUDGET_MS,
-    })
+    });
 
+    let result = await callAnalysis("Locate a safe free-form joint graph in this artwork. Return schema-valid JSON only.");
     if (!result.ok) {
-      if (!auth.byok && auth.eventId) await refundCredits(auth.eventId)
-      return NextResponse.json(
-        { error: result.error || 'Rig analysis failed' },
-        { status: result.status || 502 }
-      )
+      if (!auth.byok && auth.eventId) await refundCredits(auth.eventId);
+      return NextResponse.json({ error: result.error || "Rig analysis failed" }, { status: result.status || 502 });
     }
 
-    const parsed = parseAnalysis(extractText(result.data.choices?.[0]?.message?.content))
-    const joints = sanitizeJoints(parsed?.joints)
-
-    // Fail loudly rather than defaulting, unlike sprite-review's "treat as
-    // approved" fallback. A silently empty rig would strand the user on the rig
-    // step with nothing to edit and no explanation.
-    if (joints.length < 3) {
-      if (!auth.byok && auth.eventId) await refundCredits(auth.eventId)
-      return NextResponse.json(
-        { error: 'The model could not locate joints in this artwork. Try clearer, full-body art.' },
-        { status: 502 }
-      )
+    let validation = validateAnalysis(parseAnalysis(extractText(result.data.choices?.[0]?.message?.content)));
+    if (!validation.ok) {
+      console.warn("[anibuddy][rig-analysis] retrying invalid graph", { provider: result.provider, reason: validation.error });
+      result = await callAnalysis(`Your prior graph was rejected: ${validation.error} Return a complete corrected replacement, not an explanation.`);
+      if (!result.ok) {
+        if (!auth.byok && auth.eventId) await refundCredits(auth.eventId);
+        return NextResponse.json({ error: result.error || "Rig analysis failed" }, { status: result.status || 502 });
+      }
+      validation = validateAnalysis(parseAnalysis(extractText(result.data.choices?.[0]?.message?.content)));
     }
 
-    const bodyPlan = (BODY_PLANS as readonly string[]).includes(String(parsed?.bodyPlan))
-      ? String(parsed?.bodyPlan)
-      : 'biped'
+    if (!validation.ok) {
+      console.warn("[anibuddy][rig-analysis] rejected graph after correction", { provider: result.provider, reason: validation.error });
+      if (!auth.byok && auth.eventId) await refundCredits(auth.eventId);
+      return NextResponse.json(
+        { error: "Automatic analysis could not produce a safe joint graph. A manual starter rig is ready instead.", code: "RIG_ANALYSIS_INVALID" },
+        { status: 422 },
+      );
+    }
 
-    const supported = Array.isArray(parsed?.supported)
-      ? (parsed.supported as unknown[])
-          .map((entry) => String(entry))
-          .filter((entry) => (MOTIONS as readonly string[]).includes(entry))
-      : ['idle', 'bounce']
-
-    const warnings = Array.isArray(parsed?.warnings)
-      ? (parsed.warnings as unknown[])
-          .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
-          .map((entry) => entry.trim())
-          .slice(0, 6)
-      : []
-
-    return NextResponse.json(
-      { bodyPlan, joints, supported, warnings },
-      { headers: providerHeaders(result) }
-    )
+    return NextResponse.json(validation.value, { headers: providerHeaders(result) });
   } catch (error) {
-    console.error('Error in anibuddy/rig-analysis route:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
-    )
+    console.error("Error in anibuddy/rig-analysis route:", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 });
   }
 }

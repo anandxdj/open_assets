@@ -17,7 +17,7 @@ export const STEP_META: Record<StepId, { label: string; blurb: string }> = {
   source: { label: "Your artwork", blurb: "Upload one character, confirm rights" },
   prepare: { label: "Prepare", blurb: "Transparent, isolated, trimmed" },
   rig: { label: "Rig", blurb: "Joints and mesh weights you can edit" },
-  animate: { label: "Animate", blurb: "Pick a motion, preview the loop" },
+  animate: { label: "Animate", blurb: "Give it something to do — or animate it by hand" },
   export: { label: "Export", blurb: "GIF, PNG frames, project manifest" },
 };
 
@@ -33,7 +33,7 @@ function isStepDone(project: AniBuddyProject, step: StepId): boolean {
     case "rig":
       return isRigValid(project.rig);
     case "animate":
-      return project.motion !== null;
+      return project.clips.length > 0;
     case "export":
       return false; // Terminal: nothing downstream depends on it.
     default:

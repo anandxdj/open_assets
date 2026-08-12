@@ -1,0 +1,9 @@
+"use client";
+import { useRef } from "react";
+import type { Clip } from "@/features/anibuddy/types";
+interface Props { clip: Clip; frameCount: number; currentFrame: number; onScrub: (frame: number) => void; onMove: (from: number, to: number) => void; onRemove: (t: number) => void; }
+export function Timeline({ clip, frameCount, currentFrame, onScrub, onMove, onRemove }: Props) {
+  const drag = useRef<number | null>(null);
+  const timeFor = (frame: number) => frame / frameCount;
+  return <div className="mt-5 border-2 border-zinc-950 p-3 dark:border-zinc-100"><div className="mb-2 flex items-center justify-between font-mono text-[10px] font-bold uppercase tracking-wider text-zinc-500"><span>Timeline</span><span>Frame {currentFrame + 1} / {frameCount}</span></div><div className="grid gap-px bg-zinc-300 dark:bg-zinc-700" style={{ gridTemplateColumns: `repeat(${frameCount}, minmax(0, 1fr))` }}>{Array.from({ length: frameCount }, (_, frame) => { const t = timeFor(frame); const key = clip.keyframes.find((item) => Math.abs(item.t - t) < 1 / (frameCount * 2)); return <button key={frame} type="button" onClick={() => onScrub(frame)} onDragOver={(event) => event.preventDefault()} onDrop={() => { if (drag.current !== null) onMove(drag.current, t); drag.current = null; }} className={`relative h-9 bg-card hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/30 ${frame === currentFrame ? "ring-2 ring-inset ring-fuchsia-700" : ""}`} aria-label={`Frame ${frame + 1}`}>{key && <span draggable onDragStart={() => { drag.current = key.t; }} onContextMenu={(event) => { event.preventDefault(); onRemove(key.t); }} className="absolute inset-0 grid cursor-grab place-items-center text-fuchsia-700" title="Drag to move; right-click to remove">◆</span>}</button>; })}</div><p className="mt-2 text-xs text-zinc-500">Drag diamonds to move them. Right-click a diamond to remove it.</p></div>;
+}

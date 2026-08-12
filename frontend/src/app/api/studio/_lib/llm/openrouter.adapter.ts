@@ -27,6 +27,8 @@ export class OpenRouterAdapter implements LlmAdapter {
         messages: req.messages,
         max_tokens: req.maxTokens,
         temperature: req.temperature,
+        // Keep schema-bound routes reliable if Open Quota falls back here.
+        ...(req.responseFormat ? { response_format: req.responseFormat } : {}),
       }),
       signal: req.signal,
     });

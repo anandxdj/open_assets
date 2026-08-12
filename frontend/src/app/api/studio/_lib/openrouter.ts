@@ -47,10 +47,18 @@ export async function resolveKeyAndCredits(
   op: UsageOp,
   model: string,
   units = 1,
+  options: { allowByok?: boolean } = {},
 ): Promise<KeyResolution> {
   const byokKey = request.headers.get('x-openrouter-key')?.trim();
-  if (byokKey) {
+  if (options.allowByok !== false && byokKey) {
     return { ok: true, key: byokKey, byok: true };
+  }
+
+  // Local development should not depend on the Express usage service or
+  // consume a developer's free-tier balance. Provider configuration still
+  // applies when a real LLM call is made.
+  if (process.env.NODE_ENV === 'development') {
+    return { ok: true, key: process.env.OPENROUTER_API_KEY ?? '', byok: false };
   }
 
   const auth = request.headers.get('authorization');

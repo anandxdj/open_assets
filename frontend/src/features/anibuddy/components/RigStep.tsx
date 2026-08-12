@@ -18,7 +18,7 @@ import {
 } from "@/features/anibuddy/types";
 import { type Raster, loadRaster } from "@/features/anibuddy/lib/raster";
 import { buildMesh, buildWeights } from "@/features/anibuddy/lib/mesh";
-import { applyLocalSupport, buildRig, rebindWeights, roleColor } from "@/features/anibuddy/lib/skeleton";
+import { buildRig, rebindWeights, roleColor } from "@/features/anibuddy/lib/skeleton";
 import { requestRigAnalysis, AniBuddyApiError } from "@/features/anibuddy/api/anibuddyClient";
 import type { RigTool } from "@/features/anibuddy/components/RigCanvas";
 
@@ -37,11 +37,17 @@ interface RigStepProps {
   onContinue: () => void;
 }
 
-const MANUAL_JOINTS: Joint[] = [
-  { id: "root", name: "Root", role: "root", x: 0.5, y: 0.68, parent: null },
-  { id: "spine", name: "Spine", role: "spine", x: 0.5, y: 0.48, parent: "root" },
-  { id: "head", name: "Head", role: "head", x: 0.5, y: 0.28, parent: "spine" },
-];
+function manualJoints(prepared: PreparedAsset): Joint[] {
+  const top = Math.max(0, (prepared.bounds.baseline - prepared.bounds.height) / prepared.height);
+  const bottom = Math.min(1, prepared.bounds.baseline / prepared.height);
+  const centerX = Math.max(0, Math.min(1, prepared.bounds.centerX / prepared.width));
+  const at = (progress: number) => top + (bottom - top) * progress;
+  return [
+    { id: "root", name: "Root", role: "root", x: centerX, y: at(0.72), parent: null },
+    { id: "spine", name: "Spine", role: "spine", x: centerX, y: at(0.43), parent: "root" },
+    { id: "head", name: "Head", role: "head", x: centerX, y: at(0.18), parent: "spine" },
+  ];
+}
 
 export function RigStep({ prepared, rig, onRig, onContinue }: RigStepProps) {
   const [loaded, setLoaded] = useState<{ url: string; raster: Raster } | null>(null);
@@ -68,27 +74,36 @@ export function RigStep({ prepared, rig, onRig, onContinue }: RigStepProps) {
   const activeSelectedJointId = selectedJoint?.id ?? null;
   const activeSelectedCutId = rig?.cuts.some((cut) => cut.id === selectedCutId) ? selectedCutId : null;
 
+  const startManual = useCallback((message?: string) => {
+    if (!raster) return;
+    setError(message ?? null);
+    const seeded = buildRig({ joints: manualJoints(prepared), warnings: [] }, prepared, raster.data);
+    onRig({ ...seeded, source: "edited" });
+    setSelectedJointId("root");
+  }, [raster, prepared, onRig]);
+
   const analyze = useCallback(async () => {
     if (!raster || busy) return;
     setBusy(true);
     setError(null);
     try {
       const analysis = await requestRigAnalysis({ image: prepared.dataUrl });
-      onRig(buildRig(analysis, prepared, raster.data));
+      try {
+        onRig(buildRig(analysis, prepared, raster.data));
+      } catch (cause) {
+        console.warn("[anibuddy][rig] could not build the returned rig", cause);
+        setError("Joint analysis succeeded, but its mesh could not be built. Place the starter joints yourself instead.");
+      }
     } catch (cause) {
-      setError(cause instanceof AniBuddyApiError ? cause.message : "Rig analysis failed. You can still place the joints yourself.");
+      if (cause instanceof AniBuddyApiError && cause.code === "RIG_ANALYSIS_INVALID") {
+        startManual("Automatic analysis could not produce a safe joint graph. A starter rig is open for you to place and edit.");
+      } else {
+        setError(cause instanceof AniBuddyApiError ? cause.message : "Rig analysis failed. You can still place the joints yourself.");
+      }
     } finally {
       setBusy(false);
     }
-  }, [raster, busy, prepared, onRig]);
-
-  const startManual = useCallback(() => {
-    if (!raster) return;
-    setError(null);
-    const seeded = buildRig({ joints: MANUAL_JOINTS, warnings: [], bodyPlan: "biped", supported: [] }, prepared, raster.data);
-    onRig({ ...seeded, source: "edited" });
-    setSelectedJointId("root");
-  }, [raster, prepared, onRig]);
+  }, [raster, busy, prepared, onRig, startManual]);
 
   const updateJoints = useCallback((joints: Joint[], rebind = true) => {
     if (!rig) return;
@@ -188,14 +203,13 @@ export function RigStep({ prepared, rig, onRig, onContinue }: RigStepProps) {
     return () => window.removeEventListener("keydown", keydown);
   }, [tool, activeSelectedCutId, deleteCut]);
 
-  const refreshSupport = useCallback(() => !rig || !raster ? null : applyLocalSupport(rig, raster.data, prepared.width, prepared.height), [rig, raster, prepared]);
   const invalidReason = rigInvalidReason(rig);
 
   return (
     <section className="border-2 border-zinc-950 bg-card p-5 text-card-foreground dark:border-zinc-100 sm:p-7">
       <div className="mb-5 flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">03 / rig</p><h2 className="mt-1 text-xl font-black uppercase tracking-tight">Edit the rig</h2></div>{rig && <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">{rig.source === "model" ? "Model draft" : "Edited by you"}</span>}</div>
 
-      {!rig ? <div className="space-y-4"><p className="max-w-2xl text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Detect joint locations with vision analysis or start with a three-joint spine.</p><div className="flex flex-wrap gap-3"><button type="button" onClick={() => void analyze()} disabled={!raster || busy} className="flex items-center gap-2 bg-fuchsia-700 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-white disabled:opacity-40">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}Analyse rig</button><button type="button" onClick={startManual} disabled={!raster} className="border-2 border-zinc-950 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider disabled:opacity-40 dark:border-zinc-100">Place joints myself</button></div></div> : (
+      {!rig ? <div className="space-y-4"><p className="max-w-2xl text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Detect joint locations with vision analysis or start with a three-joint spine.</p><div className="flex flex-wrap gap-3"><button type="button" onClick={() => void analyze()} disabled={!raster || busy} className="flex items-center gap-2 bg-fuchsia-700 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-white disabled:opacity-40">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}Analyse rig</button><button type="button" onClick={() => startManual()} disabled={!raster} className="border-2 border-zinc-950 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider disabled:opacity-40 dark:border-zinc-100">Place joints myself</button></div></div> : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
           <div className="justify-self-center border border-zinc-300 dark:border-zinc-700" onPointerUp={tool === "joints" ? rebind : undefined}>
             <RigCanvas prepared={prepared} rig={rig} tool={tool} selectedBone={selectedBone} selectedJointId={activeSelectedJointId} selectedCutId={activeSelectedCutId} showMesh={showMesh} brushRadius={0.08} brushStrength={0.35} onJointDrag={moveJoint} onJointSelect={setSelectedJointId} onAddJoint={addJoint} onWeights={(weights) => onRig({ ...rig, weights, source: "edited" })} onAddCut={addCut} onCutSelect={setSelectedCutId} />
@@ -218,7 +232,7 @@ export function RigStep({ prepared, rig, onRig, onContinue }: RigStepProps) {
 
       {error && <p className="mt-4 border border-red-500 bg-red-50 px-3 py-2 text-sm leading-6 dark:bg-red-950/30">{error}</p>}
       {rig && rig.warnings.length > 0 && <ul className="mt-5 space-y-2 border-l-2 border-amber-500 pl-4">{rig.warnings.map((warning) => <li key={warning} className="flex gap-2 text-sm leading-6 text-zinc-700 dark:text-zinc-200"><TriangleAlert className="mt-1 h-3.5 w-3.5 shrink-0 text-amber-600" />{warning}</li>)}</ul>}
-      {rig && <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-700"><button type="button" onClick={() => { const refreshed = refreshSupport(); if (refreshed) onRig(rebindWeights(refreshed)); onContinue(); }} disabled={invalidReason !== null} className="bg-fuchsia-700 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-40">Continue to animation</button>{invalidReason && <span className="font-mono text-[10px] uppercase tracking-wider text-red-600 dark:text-red-400">{invalidReason}</span>}</div>}
+      {rig && <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-700"><button type="button" onClick={() => { onRig(rebindWeights(rig)); onContinue(); }} disabled={invalidReason !== null} className="bg-fuchsia-700 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-40">Continue to animation</button>{invalidReason && <span className="font-mono text-[10px] uppercase tracking-wider text-red-600 dark:text-red-400">{invalidReason}</span>}</div>}
     </section>
   );
 }

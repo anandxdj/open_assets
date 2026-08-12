@@ -82,6 +82,11 @@ export function parseManifest(raw: unknown): AniBuddyManifest {
       "This project was created by an earlier preview of AniBuddy and cannot be reopened. Its rig was stored in a format that no longer round-trips.",
     );
   }
+  if (candidate.schemaVersion === 2) {
+    throw new ManifestError(
+      "This project was saved before AniBuddy's rig became free-form. Its fixed-skeleton rig and motion preset do not round-trip into the new format. Re-rig the artwork to carry on.",
+    );
+  }
   if (candidate.schemaVersion !== PROJECT_SCHEMA_VERSION) {
     throw new ManifestError(
       `This project uses schema version ${String(candidate.schemaVersion)}, which this build does not understand.`,

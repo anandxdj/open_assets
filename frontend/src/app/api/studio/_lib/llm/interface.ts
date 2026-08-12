@@ -25,6 +25,13 @@ export type ChatRequest = {
   model: string;
   messages: LlmMessage[];
   maxTokens: number;
+  /**
+   * Overrides the Open Quota routing profile for a call that requires one
+   * specific upstream model. This is never sent to OpenRouter.
+   */
+  openQuotaModel?: string;
+  /** OpenAI-compatible structured-output request, when the provider supports it. */
+  responseFormat?: Record<string, unknown>;
   temperature: number;
   /** Per-route X-Title. Differs across routes, so it is not a constant. */
   title: string;

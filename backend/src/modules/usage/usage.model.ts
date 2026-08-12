@@ -9,7 +9,8 @@ export type UsageOp =
   | 'tile-review'
   | 'sprite-review'
   | 'anibuddy-prompt'
-  | 'anibuddy-rig';
+  | 'anibuddy-rig'
+  | 'anibuddy-animate';
 
 export interface IUsageEvent extends Document {
   user: Types.ObjectId;
@@ -35,6 +36,7 @@ const UsageEventSchema = new Schema<IUsageEvent>({
       'sprite-review',
       'anibuddy-prompt',
       'anibuddy-rig',
+      'anibuddy-animate',
     ],
     required: true,
   },

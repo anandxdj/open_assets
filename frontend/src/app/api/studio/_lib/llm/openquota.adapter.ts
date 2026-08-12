@@ -23,7 +23,8 @@ export class OpenQuotaAdapter implements LlmAdapter {
   }
 
   async chat(req: ChatRequest): Promise<ChatResult> {
-    const selectedModel = hasVisionInput(req) ? OPENQUOTA_VISION_MODEL : OPENQUOTA_TEXT_MODEL;
+    const selectedModel =
+      req.openQuotaModel ?? (hasVisionInput(req) ? OPENQUOTA_VISION_MODEL : OPENQUOTA_TEXT_MODEL);
     const response = await fetch(`${OPENQUOTA_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -38,6 +39,7 @@ export class OpenQuotaAdapter implements LlmAdapter {
         // bad caller uncap spend. Clamp instead.
         max_tokens: Math.max(1, req.maxTokens),
         temperature: req.temperature,
+        ...(req.responseFormat ? { response_format: req.responseFormat } : {}),
       }),
       signal: req.signal,
     });
