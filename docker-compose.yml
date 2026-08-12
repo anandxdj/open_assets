@@ -3,26 +3,24 @@ version: '3.8'
 services:
   # 🐍 Python Vision Service: Processes OpenCV and Gemini tasks
   openasset-py-backend:
-    build:
-      context: ./py_backend
-      dockerfile: Dockerfile
+    image: anando1/openasset-py-backend:1.0.0
     container_name: openasset-py-backend
     restart: unless-stopped
+    mem_limit: 512m
     env_file:
       - ./py_backend/.env
     environment:
       - PORT=8000
       - REDIS_URL=redis://openpoll-redis:6379
     networks:
-      - traefik
+      - proxy
 
   # 🚀 Node.js Backend: Handled by Traefik and serves the Frontend
   openasset-backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: anando1/openasset-backend:1.0.0
     container_name: openasset-backend
     restart: unless-stopped
+    mem_limit: 512m
     env_file:
       - ./backend/.env
     environment:
@@ -35,17 +33,16 @@ services:
       openasset-py-backend:
         condition: service_started
     networks:
-      - traefik
+      - proxy
     labels:
       - "traefik.enable=true"
       # Securely handles the router & dynamic sub-domain routing
       - "traefik.http.routers.openasset-backend.rule=Host(`openasset-backend.anands.dev`)"
-      - "traefik.http.routers.openasset-backend.entrypoints=websecure"
-      - "traefik.http.routers.openasset-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.openasset-backend.entrypoints=web"
       # Point to container port 4000 where our backend listens
       - "traefik.http.services.openasset-backend.loadbalancer.server.port=4000"
-      - "traefik.docker.network=traefik"
+      - "traefik.docker.network=proxy"
 
 networks:
-  traefik:
+  proxy:
     external: true
