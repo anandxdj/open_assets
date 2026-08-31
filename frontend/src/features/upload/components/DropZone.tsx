@@ -8,25 +8,28 @@ import { useFileUpload } from "@/features/upload/hooks/useFileUpload";
 import { UploadProgress } from "./UploadProgress";
 
 export function DropZone() {
-  const { upload, status, progress, error } = useFileUpload();
-  const uploading = status === "uploading" || status === "success";
+  const { uploadMany, status, progress, error, completed, total } = useFileUpload();
+  const uploading = status === "uploading";
 
   const onDrop = useCallback(
     (accepted: File[]) => {
-      if (accepted[0]) upload(accepted[0]);
+      if (accepted.length > 0) void uploadMany(accepted);
     },
-    [upload]
+    [uploadMany]
   );
 
   const { getRootProps, getInputProps, isDragActive, acceptedFiles } = useDropzone({
     onDrop,
     accept: { "image/*": [] },
-    maxSize: 20 * 1024 * 1024,
-    multiple: false,
+    maxSize: 10 * 1024 * 1024,
+    multiple: true,
+    maxFiles: 20,
     disabled: uploading,
   });
 
-  const file = acceptedFiles[0];
+  const selectionLabel = acceptedFiles.length === 1
+    ? acceptedFiles[0].name
+    : `${acceptedFiles.length} images selected`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -45,28 +48,35 @@ export function DropZone() {
           <UploadCloud className="h-6 w-6 text-muted-foreground" />
         </div>
         {isDragActive ? (
-          <p className="text-sm font-medium">Drop it here</p>
+            <p className="text-sm font-medium">Drop your images here</p>
         ) : (
           <>
             <div className="space-y-1">
               <p className="text-sm font-medium">
-                Drop your image here, or{" "}
+                Drop images here, or{" "}
                 <span className="text-primary underline underline-offset-2">browse</span>
               </p>
-              <p className="text-xs text-muted-foreground">PNG, JPG, WebP · max 20 MB</p>
+              <p className="text-xs text-muted-foreground">PNG, JPG, WebP · up to 20 images · 10 MB each</p>
             </div>
           </>
         )}
-        {file && !uploading && (
+        {acceptedFiles.length > 0 && !uploading && status === "idle" && (
           <p className="absolute bottom-3 text-xs text-muted-foreground">
-            {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
+            {selectionLabel}
           </p>
         )}
       </div>
 
-      {(uploading || error) && (
-        <UploadProgress status={status} progress={progress} error={error} />
+      {(status !== "idle" || error) && (
+        <UploadProgress
+          status={status}
+          progress={progress}
+          error={error}
+          completed={completed}
+          total={total}
+        />
       )}
+
     </div>
   );
 }
