@@ -1,5 +1,6 @@
 import { redis } from '../../common/config/redis';
 import type { JobHash, JobStatus, BoundingBox, Asset } from './job.types';
+import { JobArchiveModel } from './job-archive.model';
 
 const JOB_TTL = 86400; // 24 hours
 
@@ -42,13 +43,33 @@ export async function updateJob(
   const key = jobKey(jobId);
   await redis.hset(key, patch as Record<string, string>);
   await redis.expire(key, JOB_TTL);
+  await JobArchiveModel.updateOne({ jobId }, { $set: patch }).catch(() => undefined);
 }
 
 export async function getJob(jobId: string): Promise<(JobHash & { id: string }) | null> {
   const key = jobKey(jobId);
   const data = await redis.hgetall(key);
-  if (!data || Object.keys(data).length === 0) return null;
-  return { id: jobId, ...data } as JobHash & { id: string };
+  if (data && Object.keys(data).length > 0) return { id: jobId, ...data } as JobHash & { id: string };
+  const archived = await JobArchiveModel.findOne({ jobId }).lean();
+  if (!archived) return null;
+  const restored = { ...archived } as unknown as JobHash;
+  delete (restored as unknown as Record<string, unknown>)['_id'];
+  delete (restored as unknown as Record<string, unknown>)['__v'];
+  delete (restored as unknown as Record<string, unknown>)['updatedAt'];
+  await redis.hset(key, restored as unknown as Record<string, string>);
+  await redis.expire(key, JOB_TTL);
+  return { id: jobId, ...restored };
+}
+
+export async function archiveJob(jobId: string, projectId: string): Promise<void> {
+  const job = await getJob(jobId);
+  if (!job) throw new Error(`Job ${jobId} not found`);
+  const { id: _id, ...data } = job;
+  await JobArchiveModel.updateOne(
+    { jobId },
+    { $set: { ...data, projectId } },
+    { upsert: true },
+  );
 }
 
 export function parseBoxes(raw: string): BoundingBox[] {

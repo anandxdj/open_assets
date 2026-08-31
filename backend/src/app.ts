@@ -10,6 +10,7 @@ import { finalizeRouter } from './modules/finalize/finalize.routes';
 import { collectionRouter } from './modules/collections/collection.routes';
 import { usageRouter } from './modules/usage/index.usage';
 import { enhanceRouter } from './modules/enhance/enhance.routes';
+import { editorProjectRouter } from './modules/editor-projects/editor-project.routes';
 import {
   anibuddyRouter,
   ANIBUDDY_ANNOTATE_BODY_LIMIT,
@@ -69,7 +70,7 @@ export function createApp() {
     express.json({ limit: ANIBUDDY_ANNOTATE_BODY_LIMIT }),
   );
 
-  // SECURITY (#16): bound JSON payloads. Uploads go through Multer (20 MB), not here.
+  // SECURITY (#16): bound JSON payloads. Image uploads go through Multer (10 MB), not here.
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
 
@@ -100,6 +101,7 @@ export function createApp() {
   app.use('/api', collectionRouter);
   app.use('/api', usageRouter);
   app.use('/api', enhanceRouter);
+  app.use('/api', editorProjectRouter);
   app.use('/api', anibuddyRouter);
 
   app.use(errorHandler);
