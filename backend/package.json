@@ -6,7 +6,9 @@
     "dev": "tsx watch index.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test src/__tests__/**/*.test.ts",
-    "start": "tsx index.ts"
+    "start": "tsx index.ts",
+    "schema:anibuddy": "node ../scripts/anibuddy/generate-bindings.mjs",
+    "schema:anibuddy:check": "node ../scripts/anibuddy/generate-bindings.mjs --check"
   },
   "dependencies": {
     "@imagekit/nodejs": "^7.6.3",

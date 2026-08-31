@@ -8,8 +8,15 @@ import { jobRouter } from './modules/jobs/job.routes';
 import { cropRouter } from './modules/crop/crop.routes';
 import { finalizeRouter } from './modules/finalize/finalize.routes';
 import { collectionRouter } from './modules/collections/collection.routes';
-import { usageRouter } from './modules/usage/usage.routes';
+import { usageRouter } from './modules/usage/index.usage';
 import { enhanceRouter } from './modules/enhance/enhance.routes';
+import {
+  anibuddyRouter,
+  ANIBUDDY_ANNOTATE_BODY_LIMIT,
+  ANIBUDDY_ANNOTATE_BODY_MOUNT,
+  ANIBUDDY_CLIP_BODY_LIMIT,
+  ANIBUDDY_CLIP_BODY_MOUNT,
+} from './modules/anibuddy/index.anibuddy';
 import { errorHandler } from './common/middlewares/errorHandler';
 import { apiLimiter } from './common/middlewares/rateLimit';
 
@@ -48,6 +55,20 @@ export function createApp() {
     },
     credentials: true,
   }));
+  // A single AniBuddy clip may carry 32 keyframes across 96 joints and 64 parts,
+  // which does not fit the bound below. Mounted first on purpose: express.json
+  // skips a request whose body has already been parsed, so the wider limit
+  // applies to exactly this path and the global one still guards everything else.
+  app.use(ANIBUDDY_CLIP_BODY_MOUNT, express.json({ limit: ANIBUDDY_CLIP_BODY_LIMIT }));
+  // The internal annotate route carries a whole source sheet as base64 plus the
+  // document its outlines are traced from. Mounted first for the same reason, and
+  // reachable only with the service token — the route itself is what bounds who may
+  // post a body this size.
+  app.use(
+    ANIBUDDY_ANNOTATE_BODY_MOUNT,
+    express.json({ limit: ANIBUDDY_ANNOTATE_BODY_LIMIT }),
+  );
+
   // SECURITY (#16): bound JSON payloads. Uploads go through Multer (20 MB), not here.
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
@@ -79,6 +100,7 @@ export function createApp() {
   app.use('/api', collectionRouter);
   app.use('/api', usageRouter);
   app.use('/api', enhanceRouter);
+  app.use('/api', anibuddyRouter);
 
   app.use(errorHandler);
 

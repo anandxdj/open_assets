@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import { ImageKit } from '@imagekit/nodejs';
 import axios from 'axios';
 import { toFile } from '@imagekit/nodejs';
@@ -8,7 +9,10 @@ const FOLDER: Record<string, string> = {
   collections: '/open_assets/collections',
   exports: '/open_assets/exports',
   enhance: '/open_assets/enhance',
+  anibuddy: '/open_assets/anibuddy',
 };
+
+const DOWNLOAD_TIMEOUT_MS = 60_000;
 
 // publicId encoding: "fileId::filePath"
 // fileId   — used for deletion (ik.files.delete)
@@ -33,7 +37,22 @@ export class ImageKitAdapter implements StorageAdapter {
   }
 
   async upload(buffer: Buffer, options: UploadOptions): Promise<UploadResult> {
-    const file = await toFile(buffer, options.publicId);
+    return this.send(await toFile(buffer, options.publicId), options);
+  }
+
+  /**
+   * Store an object from a stream.
+   *
+   * A Node `Readable` is an async iterable of chunks, which is one of the shapes
+   * `toFile` accepts, so the SDK consumes it directly. ImageKit's upload endpoint
+   * needs a sized file, so the bytes are still assembled once before the request —
+   * what this avoids is the base64 hop and its 4/3 inflation, not every copy.
+   */
+  async uploadStream(stream: Readable, options: UploadOptions): Promise<UploadResult> {
+    return this.send(await toFile(stream, options.publicId), options);
+  }
+
+  private async send(file: File, options: UploadOptions): Promise<UploadResult> {
     const result = await this.ik.files.upload({
       file,
       fileName: options.publicId,
@@ -50,6 +69,18 @@ export class ImageKitAdapter implements StorageAdapter {
       height: result.height,
       bytes: result.size,
     };
+  }
+
+  async download(publicId: string): Promise<Buffer> {
+    // Untransformed src: ImageKit then streams the original file, which is what
+    // keeps a re-read hashing to the `contentHash` it was stored under.
+    const { filePath } = decode(publicId);
+    const url = this.ik.helper.buildSrc({ src: filePath, urlEndpoint: this.urlEndpoint });
+    const res = await axios.get<ArrayBuffer>(url, {
+      responseType: 'arraybuffer',
+      timeout: DOWNLOAD_TIMEOUT_MS,
+    });
+    return Buffer.from(res.data);
   }
 
   async delete(publicId: string): Promise<void> {

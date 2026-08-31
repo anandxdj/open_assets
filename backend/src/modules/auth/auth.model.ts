@@ -1,6 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 import type { Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { Config } from '../../common/config/config';
 
 export interface IUser extends Document {
   email: string;
@@ -35,7 +36,7 @@ const UserSchema = new Schema<IUser>({
   resetPasswordExpires: { type: Date, select: false },
   lastLogin: { type: Date, default: Date.now },
   // Studio generation credits — monthly free grant, lazily reset by usage.service.
-  credits: { type: Number, default: 150 },
+  credits: { type: Number, default: Config.credits.signupGrant },
   creditsGrantedAt: { type: Date, default: Date.now },
   plan: { type: String, enum: ['free', 'byok', 'pro'], default: 'free' },
 }, {

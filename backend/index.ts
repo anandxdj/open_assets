@@ -5,6 +5,7 @@ import { redis } from './src/common/config/redis';
 import { startDetectionWorker } from './src/modules/workers/detection.worker';
 import { startCropWorker } from './src/modules/workers/crop.worker';
 import { startFinalizeWorker } from './src/modules/workers/finalize.worker';
+import { startAniBuddyWorkers } from './src/modules/workers/anibuddy.worker';
 
 async function main() {
   await connectDB();
@@ -14,6 +15,7 @@ async function main() {
   startDetectionWorker();
   startCropWorker();
   startFinalizeWorker();
+  startAniBuddyWorkers();
 
   const app = createApp();
   const port = process.env.PORT ?? 4000;

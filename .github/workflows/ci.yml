@@ -6,6 +6,20 @@ on:
   pull_request:
 
 jobs:
+  # The RigDocument v5 bindings for TypeScript, zod, Mongoose and Pydantic are
+  # generated from one JSON Schema. This job is what makes "generated" true:
+  # a hand edit to any binding, or a schema change without a regeneration,
+  # fails here before the three services can drift apart.
+  schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # No install step on purpose — the generator has zero dependencies.
+      - run: node scripts/anibuddy/generate-bindings.mjs --check
+
   backend:
     runs-on: ubuntu-latest
     defaults:
@@ -46,8 +60,93 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec tsc --noEmit
+      # The browser half of the pipeline is not only UI. This suite carries the
+      # R3 "no proposal schema has a geometry channel" assertions and the whole
+      # proposal revalidator corpus -- the structural guards that stop a vision
+      # model authoring vertices -- plus the browser side of both parity
+      # harnesses. An invariant nobody runs on a pull request is a comment.
+      - run: pnpm test
       - run: pnpm audit --audit-level=high
         continue-on-error: true
+
+  # The AniBuddy deformation math exists twice -- NumPy for the server render
+  # worker, TypeScript for interactive posing in the browser -- with no shared
+  # compiled kernel to make them agree by construction. This job is what makes
+  # them agree by enforcement: both implementations run the same committed
+  # fixture corpus and must land within 4 float32 ULP of each other.
+  #
+  # A failure here means a user can pose something, like it, export it, and get
+  # something different, with nothing else failing anywhere. Treat it as a
+  # release blocker; do not widen the tolerance to clear it.
+  anibuddy_kernel_parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      # The kernel itself needs only NumPy; the rest of requirements.txt is for
+      # the service around it and is not installed here on purpose, so this job
+      # fails if the kernel ever grows a dependency it should not have.
+      - run: pip install "numpy==2.2.1"
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      # Invoked through `bash` rather than as `./scripts/...` on purpose: the
+      # harness is authored on Windows, where git cannot record an executable
+      # bit, so a direct invocation fails on this runner with "Permission
+      # denied" -- a red build with no defect behind it, on the one job whose
+      # failures must always mean something.
+      - run: bash ./scripts/test-anibuddy-kernel.sh
+
+  # The job above compares VERTICES, and a PartPose's four compositing channels
+  # -- visible, opacity, zIndex, swapTo -- move none. So the browser and the
+  # server can disagree about which layers draw, in what order, how strongly and
+  # out of whose pixels, while anibuddy_kernel_parity reports 0 ULP across all
+  # seventeen fixtures. They did, on two counts, for months: the server
+  # multiplied resolved opacity by Part.opacity where the browser used it as a
+  # fallback, and the server substituted a swapTo target's whole posed part where
+  # the browser substituted only its pixels.
+  #
+  # This job is the harness that can see that class of divergence. Same standing
+  # as the one above: a failure means the preview and the export disagree with
+  # nothing else failing anywhere.
+  anibuddy_compositing_parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      # NumPy only, and only because the Python test reuses the ULP helper the
+      # kernel harness uses. The resolver itself needs nothing, and the fixture
+      # adapter rounds to float32 through `struct` on purpose so this job fails
+      # if the compositing layer ever grows a dependency it should not have.
+      - run: pip install "numpy==2.2.1"
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      # Through `bash` for the same reason as the kernel job above.
+      - run: bash ./scripts/test-anibuddy-compositing.sh
+      # The goldens are committed, so a semantics change that forgot to
+      # regenerate them would otherwise land as a green build against a stale
+      # contract.
+      - run: python -m tools.gen_compositing_goldens --check
+        working-directory: py_backend
 
   py_backend:
     runs-on: ubuntu-latest
@@ -61,5 +160,13 @@ jobs:
           python-version: "3.11"
       - run: pip install -r requirements.txt
       - run: python -c "import compileall, sys; sys.exit(0 if compileall.compile_dir('app', quiet=1) else 1)"
+      # compileall only proves the modules parse. Everything the Python side
+      # actually promises -- decompose, the rig builders, the render path, the
+      # vision revalidator, the buffer sidecar -- is asserted here and was, until
+      # now, never run on a pull request. The two parity suites are discovered
+      # too; that is redundant with the parity jobs by design, since those jobs
+      # exist to compare the two targets and this one exists to catch a Python
+      # regression even if the TypeScript side regressed to match it.
+      - run: python -m unittest discover tests
       - run: pip install pip-audit && pip-audit
         continue-on-error: true

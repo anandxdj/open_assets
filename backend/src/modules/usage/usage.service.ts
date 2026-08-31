@@ -1,109 +1,157 @@
 import { UserModel } from '../auth/auth.model';
 import { UsageEventModel } from './usage.model';
 import type { UsageOp } from './usage.model';
+import { UsageConstants } from './usage.constants';
+import type { ImageOutputOp, PricedUsageOp } from './usage.constants';
+import { Config } from '../../common/config/config';
 import { ApiError } from '../../common/utils/ApiError';
 
-export const MONTHLY_GRANT = 150;
+export const UsageService = {
+  // Internal method — image ops price by model, everything else by op.
+  _isImageOutputOp(op: PricedUsageOp): op is ImageOutputOp {
+    return (UsageConstants.imageOutputOps as readonly string[]).includes(op);
+  },
 
-// Server-authoritative cost table. The client's `units` is advisory only —
-// cost is always derived from (op, model) here so a tampered client cannot
-// underpay. Image-output models are priced by relative API cost.
-const PRO_IMAGE_MODELS = [/gemini-3-pro-image/i];
-const OPENAI_IMAGE_MODELS = [/gpt-image/i, /openai\//i];
+  // Internal method
+  _startOfMonth(d = new Date()): Date {
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  },
 
-export function costPerUnit(op: UsageOp, model: string): number {
-  if (op === 'extend' || op === 'generate') {
-    if (OPENAI_IMAGE_MODELS.some((re) => re.test(model))) return 10;
-    if (PRO_IMAGE_MODELS.some((re) => re.test(model))) return 4;
-    return 1; // flash-class image models
-  }
-  // scene-brief / prop-brief / tile-review / sprite-review / anibuddy-prompt /
-  // anibuddy-rig (vision/text reasoning). AniBuddy is non-generative, so its
-  // ops can never land in the image branch above.
-  return 1;
-}
+  // Internal method — lazy monthly reset. Cheap no-op once granted this month.
+  async _grantMonthlyCredits(userId: string): Promise<void> {
+    await UserModel.updateOne(
+      { _id: userId, creditsGrantedAt: { $lt: this._startOfMonth() } },
+      { $set: { credits: Config.credits.monthlyGrant, creditsGrantedAt: new Date() } },
+    );
+  },
 
-function startOfMonth(d = new Date()): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
+  /**
+   * Server-authoritative credit rate for one unit of work.
+   *
+   * The client's `units` is advisory only — the rate is always derived from
+   * (op, model) here, so a tampered client cannot underpay. Rates may be
+   * fractional; `costFor` does the rounding.
+   */
+  costPerUnit(op: PricedUsageOp, model: string): number {
+    if (this._isImageOutputOp(op)) {
+      const match = UsageConstants.imageModelCreditRates.find((rate) => rate.pattern.test(model));
+      return match ? match.credits : UsageConstants.flashImageCredits;
+    }
+    return UsageConstants.opCreditRates[op];
+  },
 
-/**
- * Lazily reset the monthly grant, then atomically deduct credits.
- * Throws 402 when the balance is insufficient.
- */
-export async function consume(userId: string, op: UsageOp, model: string, units = 1) {
-  const safeUnits = Math.max(1, Math.min(20, Math.floor(units)));
-  const cost = costPerUnit(op, model) * safeUnits;
+  /** Total credits for `units` of work, clamped and rounded up. */
+  costFor(op: PricedUsageOp, model: string, units: number): number {
+    const safeUnits = this.clampUnits(units);
+    return Math.max(UsageConstants.minCost, Math.ceil(this.costPerUnit(op, model) * safeUnits));
+  },
 
-  // Lazy monthly reset — cheap no-op when already granted this month.
-  await UserModel.updateOne(
-    { _id: userId, creditsGrantedAt: { $lt: startOfMonth() } },
-    { $set: { credits: MONTHLY_GRANT, creditsGrantedAt: new Date() } },
-  );
+  clampUnits(units: number): number {
+    return Math.max(
+      UsageConstants.minUnits,
+      Math.min(UsageConstants.maxUnits, Math.floor(units) || UsageConstants.minUnits),
+    );
+  },
 
-  // Atomic check-and-deduct: matches only when balance covers the cost.
-  const user = await UserModel.findOneAndUpdate(
-    { _id: userId, credits: { $gte: cost } },
-    { $inc: { credits: -cost } },
-    { new: true },
-  );
+  /**
+   * Pre-authorize the work: reset the monthly grant if due, then atomically
+   * deduct. Throws 402 when the balance is insufficient.
+   *
+   * `model` is the model the caller intends to use. The provider chain may
+   * serve a different one, which is why the event also carries
+   * `requestedModelId` and is corrected later by `reconcile`.
+   */
+  async consume(userId: string, op: UsageOp, model: string, units = 1) {
+    const safeUnits = this.clampUnits(units);
+    const cost = this.costFor(op, model, safeUnits);
 
-  if (!user) {
-    const exists = await UserModel.exists({ _id: userId });
-    if (!exists) throw ApiError.unauthorized('User no longer exists');
-    throw new ApiError(402, 'Insufficient credits');
-  }
+    await this._grantMonthlyCredits(userId);
 
-  const event = await UsageEventModel.create({
-    user: userId,
-    op,
-    modelId: model,
-    units: safeUnits,
-    cost,
-  });
+    // Atomic check-and-deduct: matches only when balance covers the cost.
+    const user = await UserModel.findOneAndUpdate(
+      { _id: userId, credits: { $gte: cost } },
+      { $inc: { credits: -cost } },
+      { new: true },
+    );
 
-  return { eventId: (event._id as any).toString(), cost, remaining: user.credits };
-}
+    if (!user) {
+      const exists = await UserModel.exists({ _id: userId });
+      if (!exists) throw ApiError.unauthorized('User no longer exists');
+      throw new ApiError(402, 'Insufficient credits');
+    }
 
-/**
- * Idempotent refund: flips the event to 'refunded' exactly once and returns
- * the credits. Safe to call multiple times for the same event.
- */
-export async function refund(eventId: string) {
-  const event = await UsageEventModel.findOneAndUpdate(
-    { _id: eventId, status: 'consumed' },
-    { $set: { status: 'refunded' } },
-    { new: true },
-  );
+    const event = await UsageEventModel.create({
+      user: userId,
+      op,
+      modelId: model,
+      requestedModelId: model,
+      units: safeUnits,
+      cost,
+    });
 
-  if (!event) {
-    // Already refunded or unknown — idempotent success either way, but report it.
-    const exists = await UsageEventModel.exists({ _id: eventId });
-    if (!exists) throw ApiError.notFound('Usage event not found');
-    return { refunded: false };
-  }
+    return { eventId: (event._id as any).toString(), cost, remaining: user.credits };
+  },
 
-  await UserModel.updateOne({ _id: event.user }, { $inc: { credits: event.cost } });
-  return { refunded: true, cost: event.cost };
-}
+  /**
+   * Record which model actually served a pre-authorized call.
+   *
+   * Deliberately does NOT touch `cost`: the charge was authorized before the
+   * call, and re-pricing here would turn pre-authorization into post-payment.
+   * Refunded events are left alone — their audit trail is already closed.
+   */
+  async reconcile(eventId: string, model: string, provider: string) {
+    const event = await UsageEventModel.findOneAndUpdate(
+      { _id: eventId, status: 'consumed' },
+      { $set: { modelId: model, provider, reconciledAt: new Date() } },
+      { new: true },
+    );
 
-/** Current balance + plan, applying the lazy monthly reset first. */
-export async function getUsage(userId: string) {
-  await UserModel.updateOne(
-    { _id: userId, creditsGrantedAt: { $lt: startOfMonth() } },
-    { $set: { credits: MONTHLY_GRANT, creditsGrantedAt: new Date() } },
-  );
+    if (!event) {
+      const exists = await UsageEventModel.exists({ _id: eventId });
+      if (!exists) throw ApiError.notFound('Usage event not found');
+      return { reconciled: false };
+    }
 
-  const user = await UserModel.findById(userId).select('credits plan creditsGrantedAt');
-  if (!user) throw ApiError.notFound('User not found');
+    return { reconciled: true, modelId: event.modelId, requestedModelId: event.requestedModelId };
+  },
 
-  const now = new Date();
-  const resetAt = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  /**
+   * Idempotent refund: flips the event to 'refunded' exactly once and returns
+   * the credits. Safe to call multiple times for the same event.
+   */
+  async refund(eventId: string) {
+    const event = await UsageEventModel.findOneAndUpdate(
+      { _id: eventId, status: 'consumed' },
+      { $set: { status: 'refunded' } },
+      { new: true },
+    );
 
-  return {
-    credits: user.credits,
-    plan: user.plan,
-    monthlyGrant: MONTHLY_GRANT,
-    resetAt: resetAt.toISOString(),
-  };
-}
+    if (!event) {
+      // Already refunded or unknown — idempotent success either way, but report it.
+      const exists = await UsageEventModel.exists({ _id: eventId });
+      if (!exists) throw ApiError.notFound('Usage event not found');
+      return { refunded: false };
+    }
+
+    await UserModel.updateOne({ _id: event.user }, { $inc: { credits: event.cost } });
+    return { refunded: true, cost: event.cost };
+  },
+
+  /** Current balance + plan, applying the lazy monthly reset first. */
+  async getUsage(userId: string) {
+    await this._grantMonthlyCredits(userId);
+
+    const user = await UserModel.findById(userId).select('credits plan creditsGrantedAt');
+    if (!user) throw ApiError.notFound('User not found');
+
+    const now = new Date();
+    const resetAt = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    return {
+      credits: user.credits,
+      plan: user.plan,
+      monthlyGrant: Config.credits.monthlyGrant,
+      resetAt: resetAt.toISOString(),
+    };
+  },
+};

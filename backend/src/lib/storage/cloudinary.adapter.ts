@@ -1,9 +1,11 @@
+import type { Readable, Writable } from 'node:stream';
 import { v2 as cloudinary } from 'cloudinary';
 import axios from 'axios';
 import type { StorageAdapter, UploadOptions, UploadResult, ResourceType } from './interface';
 
 const POLL_TIMEOUT_MS = 120_000;
 const POLL_INTERVAL_MS = 2_000;
+const DOWNLOAD_TIMEOUT_MS = 60_000;
 // Cloudinary returns these while an AI add-on is still processing.
 const PROCESSING_STATUSES = new Set([202, 420, 423, 425]);
 
@@ -12,6 +14,7 @@ const FOLDER: Record<string, string> = {
   collections: 'open_assets/collections',
   exports: 'open_assets/exports',
   enhance: 'open_assets/enhance',
+  anibuddy: 'open_assets/anibuddy',
 };
 
 export class CloudinaryAdapter implements StorageAdapter {
@@ -25,27 +28,56 @@ export class CloudinaryAdapter implements StorageAdapter {
 
   upload(buffer: Buffer, options: UploadOptions): Promise<UploadResult> {
     return new Promise((resolve, reject) => {
-      cloudinary.uploader
-        .upload_stream(
-          {
-            folder: FOLDER[options.folder],
-            resource_type: options.resourceType ?? 'image',
-            public_id: options.publicId,
-          },
-          (err, result) => {
-            if (err || !result) return reject(err ?? new Error('Cloudinary upload failed'));
-            resolve({
-              url: result.secure_url,
-              publicId: result.public_id,
-              format: result.format,
-              width: result.width,
-              height: result.height,
-              bytes: result.bytes,
-            });
-          },
-        )
-        .end(buffer);
+      this.openUpload(options, resolve, reject).end(buffer);
     });
+  }
+
+  // Cloudinary's upload API is stream-native, so this is the same call as `upload`
+  // with the source piped in rather than handed over whole — no buffering step
+  // between the wire and the provider.
+  uploadStream(stream: Readable, options: UploadOptions): Promise<UploadResult> {
+    return new Promise((resolve, reject) => {
+      const target = this.openUpload(options, resolve, reject);
+      stream.on('error', reject);
+      stream.pipe(target);
+    });
+  }
+
+  private openUpload(
+    options: UploadOptions,
+    resolve: (result: UploadResult) => void,
+    reject: (error: unknown) => void,
+  ): Writable {
+    return cloudinary.uploader.upload_stream(
+      {
+        folder: FOLDER[options.folder],
+        resource_type: options.resourceType ?? 'image',
+        public_id: options.publicId,
+      },
+      (err, result) => {
+        if (err || !result) return reject(err ?? new Error('Cloudinary upload failed'));
+        resolve({
+          url: result.secure_url,
+          publicId: result.public_id,
+          format: result.format,
+          width: result.width,
+          height: result.height,
+          bytes: result.bytes,
+        });
+      },
+    );
+  }
+
+  async download(publicId: string, resourceType: ResourceType = 'image'): Promise<Buffer> {
+    // No transformation and no format extension: Cloudinary then serves the
+    // asset exactly as uploaded, which is what keeps a re-read hashing to the
+    // same `contentHash` it was stored under.
+    const url = cloudinary.url(publicId, { resource_type: resourceType, secure: true });
+    const res = await axios.get<ArrayBuffer>(url, {
+      responseType: 'arraybuffer',
+      timeout: DOWNLOAD_TIMEOUT_MS,
+    });
+    return Buffer.from(res.data);
   }
 
   async delete(publicId: string, resourceType: ResourceType = 'image'): Promise<void> {
