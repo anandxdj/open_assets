@@ -152,3 +152,40 @@ export async function exportBoxesAsZip(
 
   return count;
 }
+
+/** Export every page into its own ZIP folder while cropping at source resolution. */
+export async function exportProjectBoxesAsZip(
+  pages: { name: string; imageUrl: string; boxes: BoundingBox[] }[],
+  zipName = "project-assets.zip",
+): Promise<number> {
+  const zip = new JSZip();
+  let count = 0;
+
+  for (const page of pages) {
+    const img = await loadImage(page.imageUrl);
+    const folder = zip.folder(sanitize(page.name));
+    if (!folder) continue;
+    const used = new Set<string>();
+    for (const box of page.boxes) {
+      const x = Math.max(0, Math.round(box.x));
+      const y = Math.max(0, Math.round(box.y));
+      const width = Math.min(img.naturalWidth - x, Math.round(box.width));
+      const height = Math.min(img.naturalHeight - y, Math.round(box.height));
+      if (width <= 0 || height <= 0) continue;
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Canvas 2D context unavailable");
+      context.drawImage(img, x, y, width, height, 0, 0, width, height);
+      const blob = await canvasToPngBlob(canvas);
+      const base = sanitize(box.label || box.id);
+      let name = `${base}.png`; let suffix = 2;
+      while (used.has(name)) name = `${base}_${suffix++}.png`;
+      used.add(name); folder.file(name, blob); count += 1;
+    }
+  }
+
+  if (count === 0) throw new Error("No detected assets are ready to export");
+  triggerDownload(await zip.generateAsync({ type: "blob" }), zipName);
+  return count;
+}

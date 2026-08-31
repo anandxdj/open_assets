@@ -6,6 +6,7 @@ import { useAuth } from "@/features/auth/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/unlumen-ui/theme-switch";
 import UserAccountAvatar from "@/components/ui/smoothui/user-account-avatar";
+import { AniBuddyClientConfig } from "@/features/anibuddy/config/index.config";
 
 export function Navbar() {
   const { user, logout, loading } = useAuth();
@@ -22,6 +23,9 @@ export function Navbar() {
   const isCollectionActive = pathname.startsWith("/dashboard/collections");
   const isBrowseActive = pathname === "/collections" || pathname.startsWith("/collections/");
   const isEnhanceActive = pathname.startsWith("/enhance");
+  const isStudioActive = pathname.startsWith("/studio");
+  const isAniBuddyActive = pathname === "/anibuddy";
+  const studioEnabled = process.env.NODE_ENV === "development";
 
   return (
     <header className="border-b-2 border-zinc-950 dark:border-zinc-800 bg-background/95 backdrop-blur-sm sticky top-0 z-40 font-mono transition-colors duration-200">
@@ -80,13 +84,27 @@ export function Navbar() {
             >
               Browse
             </Link>
-            <span
-              aria-label="Studio — coming soon"
-              className="inline-flex cursor-not-allowed items-center gap-1.5 border border-transparent px-4 py-2 text-xs font-bold uppercase text-zinc-400 dark:text-zinc-600"
-            >
-              Studio
-              <span className="bg-amber-300 px-1 py-0.5 text-[8px] font-black leading-none text-zinc-950">Soon</span>
-            </span>
+            {studioEnabled ? (
+              <Link
+                href="/studio"
+                className={cn(
+                  "text-xs px-4 py-2 border font-bold uppercase transition-all duration-150 rounded-none",
+                  isStudioActive
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-black border-zinc-950 dark:border-white font-black"
+                    : "text-zinc-500 hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-900 border-transparent hover:border-zinc-300 dark:hover:border-zinc-700",
+                )}
+              >
+                Studio
+              </Link>
+            ) : (
+              <span
+                aria-label="Studio — coming soon"
+                className="inline-flex cursor-not-allowed items-center gap-1.5 border border-transparent px-4 py-2 text-xs font-bold uppercase text-zinc-400 dark:text-zinc-600"
+              >
+                Studio
+                <span className="bg-amber-300 px-1 py-0.5 text-[8px] font-black leading-none text-zinc-950">Soon</span>
+              </span>
+            )}
             <Link
               href="/enhance"
               className={cn(
@@ -98,13 +116,27 @@ export function Navbar() {
             >
               Enhance
             </Link>
-            <span
-              aria-label="AniBuddy — coming soon"
-              className="inline-flex cursor-not-allowed items-center gap-1.5 border border-transparent px-4 py-2 text-xs font-bold uppercase text-zinc-400 dark:text-zinc-600"
-            >
-              AniBuddy
-              <span className="bg-amber-300 px-1 py-0.5 text-[8px] font-black leading-none text-zinc-950">Soon</span>
-            </span>
+            {AniBuddyClientConfig.editorEnabled ? (
+              <Link
+                href="/anibuddy"
+                className={cn(
+                  "text-xs px-4 py-2 border font-bold uppercase transition-all duration-150 rounded-none",
+                  isAniBuddyActive
+                    ? "bg-zinc-950 text-white dark:bg-white dark:text-black border-zinc-950 dark:border-white font-black"
+                    : "text-zinc-500 hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-900 border-transparent hover:border-zinc-300 dark:hover:border-zinc-700",
+                )}
+              >
+                AniBuddy
+              </Link>
+            ) : (
+              <span
+                aria-label="AniBuddy — coming soon"
+                className="inline-flex cursor-not-allowed items-center gap-1.5 border border-transparent px-4 py-2 text-xs font-bold uppercase text-zinc-400 dark:text-zinc-600"
+              >
+                AniBuddy
+                <span className="bg-amber-300 px-1 py-0.5 text-[8px] font-black leading-none text-zinc-950">Soon</span>
+              </span>
+            )}
           </nav>
         </div>
 

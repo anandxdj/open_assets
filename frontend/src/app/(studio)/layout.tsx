@@ -6,7 +6,10 @@ import { ComingSoonPage } from "@/components/layout/ComingSoonPage";
 // Studio works signed-out too (BYOK), so unlike (dashboard) this layout does
 // not redirect unauthenticated users — generation prompts sign-in/BYOK instead.
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
-  void children;
+  if (process.env.NODE_ENV === "development") {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex h-screen flex-col">
       <Navbar />

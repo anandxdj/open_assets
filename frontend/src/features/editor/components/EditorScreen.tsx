@@ -12,6 +12,7 @@ import { Toolbar } from "./Toolbar";
 import { ZoomControls } from "./ZoomControls";
 import { ShortcutsLegend } from "./ShortcutsLegend";
 import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { startExport } from "@/features/editor/services/exportApi";
 import { redetectJob, type DetectionMode } from "@/features/upload/services/uploadApi";
 import { Zap } from "lucide-react";
@@ -22,7 +23,7 @@ import {
   CircularProgressRange,
 } from "@/components/ui/circular-progress";
 
-export function EditorScreen({ jobId }: { jobId: string }) {
+export function EditorScreen({ jobId, embedded = false }: { jobId: string; embedded?: boolean }) {
   const router = useRouter();
   const { job, loading, error } = useJobPolling(jobId);
   const canvas = useCanvasEditor();
@@ -167,7 +168,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
 
   if (error || job?.status === "failed") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-zinc-950">
+      <div className={cn("flex flex-col items-center justify-center gap-4 bg-zinc-950", embedded ? "h-full" : "min-h-screen")}>
         <p className="text-red-400 text-sm">{error ?? job?.error ?? "Detection failed"}</p>
         <Link href="/upload" className={buttonVariants({ variant: "outline" })}>
           Try again
@@ -187,7 +188,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       : "Upload received — detecting assets…";
 
     return (
-      <div className="flex h-screen overflow-hidden bg-zinc-950">
+      <div className={cn("flex overflow-hidden bg-zinc-950", embedded ? "h-full" : "h-screen")}>
         <div className="flex-1 overflow-auto flex items-start justify-center p-6">
           <div className="max-w-4xl w-full space-y-3 mt-8">
             <div className="animate-pulse rounded-lg bg-zinc-800 h-[480px] w-full" />
@@ -233,7 +234,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       : "Trying another background strategy…");
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950">
+    <div className={cn("flex overflow-hidden bg-zinc-950", embedded ? "h-full" : "h-screen")}>
       {/* 1. Left Sidebar: Layers/Detections and Proceed pipeline engine */}
       <AssetPanel
         jobId={jobId}
