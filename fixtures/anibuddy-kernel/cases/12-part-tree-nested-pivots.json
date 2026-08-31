@@ -1,0 +1,51 @@
+{
+  "id": "12-part-tree-nested-pivots",
+  "description": "A three-level part chain on a non-square 640x480 sheet, every level carrying rot, scale and a translation about its own pivot. This is the case that pins the composition order: World(child) = World(parent) . Local(child), with each Local rotating about that part's OWN pivot in rest source pixels. Getting the order backwards, or rotating about the parent's pivot, moves 'hand' by tens of pixels while leaving 'arm' and 'torso' correct, so the failure localizes. The sheet is deliberately non-square because a pivot lifted through Part.rect in normalized space rather than in source pixels shears here and is invisible on a square sheet. 'torso' is a root part at rest, so its transform must be EXACTLY the identity even though its siblings are posed.",
+  "rig": {
+    "asset": { "width": 640, "height": 480, "figureHeight": 440 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.5, "y": 0.85 },
+      { "id": "spine", "parent": "root", "x": 0.5, "y": 0.5 }
+    ],
+    "parts": [
+      {
+        "id": "torso",
+        "zIndex": 0,
+        "rect": [0.34, 0.3, 0.66, 0.78],
+        "pivot": [0.5, 0.1],
+        "parentPartId": null,
+        "attachSlot": null,
+        "deformer": { "kind": "rigid" },
+        "boundJointId": "spine"
+      },
+      {
+        "id": "arm",
+        "zIndex": 1,
+        "rect": [0.62, 0.32, 0.8, 0.46],
+        "pivot": [0.08, 0.5],
+        "parentPartId": "torso",
+        "attachSlot": null,
+        "deformer": { "kind": "rigid" },
+        "boundJointId": "spine"
+      },
+      {
+        "id": "hand",
+        "zIndex": 2,
+        "rect": [0.78, 0.34, 0.88, 0.44],
+        "pivot": [0.15, 0.5],
+        "parentPartId": "arm",
+        "attachSlot": null,
+        "deformer": { "kind": "rigid" },
+        "boundJointId": "spine"
+      }
+    ]
+  },
+  "pose": {
+    "root": { "rot": 4 },
+    "spine": { "rot": -7.5 }
+  },
+  "partPose": {
+    "arm": { "rot": 32.5, "scale": 1.15 },
+    "hand": { "rot": -48, "tx": 0.03, "ty": -0.017 }
+  }
+}

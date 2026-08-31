@@ -1,0 +1,33 @@
+{
+  "id": "02-opacity-key-replaces-rest",
+  "description": "THE divergence, pinned. Three parts authored at opacity 0.5, each keyed to a different value held across the whole clip. Under the settled rule a key REPLACES Part.opacity, so 'toHalf' resolves 0.5, 'toFull' resolves 1.0 and 'toQuarter' resolves 0.25. Under the multiply reading the server used to implement they would resolve 0.25, 0.5 and 0.125 -- every one of them plausible, none of them throwing, and all four vertex kernels still bit-identical.",
+  "parts": [
+    { "id": "toHalf", "visible": true, "opacity": 0.5, "zIndex": 0 },
+    { "id": "toFull", "visible": true, "opacity": 0.5, "zIndex": 1 },
+    { "id": "toQuarter", "visible": true, "opacity": 0.5, "zIndex": 2 },
+    { "id": "untouched", "visible": true, "opacity": 0.5, "zIndex": 3 }
+  ],
+  "clip": {
+    "loop": false,
+    "keyframes": [
+      {
+        "t": 0.0,
+        "ease": "linear",
+        "parts": {
+          "toHalf": { "opacity": 0.5 },
+          "toFull": { "opacity": 1.0 },
+          "toQuarter": { "opacity": 0.25 }
+        }
+      },
+      {
+        "t": 1.0,
+        "ease": "linear",
+        "parts": {
+          "toHalf": { "opacity": 0.5 },
+          "toFull": { "opacity": 1.0 },
+          "toQuarter": { "opacity": 0.25 }
+        }
+      }
+    ]
+  }
+}

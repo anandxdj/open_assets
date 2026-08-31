@@ -1,0 +1,680 @@
+{
+  "version": 1,
+  "description": "AniBuddy v5 archetype rig priors (§10). One table per archetype: role vocabulary, joint topology expectations, default deformer per part role, and attach-slot conventions. Consumed by semantics/rig stages; never invent roles outside the schema PartRole / JointRole enums.",
+  "fallbackDeformer": "rigid",
+  "archetypes": {
+    "humanoid": {
+      "id": "humanoid",
+      "label": "Humanoid",
+      "summary": "Bipedal cutout: axial spine plus four limb chains; mesh limbs/torso, rigid extremities, lattice hair/cape.",
+      "partRoles": [
+        "head", "face", "hair", "torso", "pelvis",
+        "armUpper", "armLower", "hand",
+        "legUpper", "legLower", "foot",
+        "eye", "jaw", "ear", "cape", "accessory",
+        "other"
+      ],
+      "jointRoles": [
+        "root", "spine", "neck", "head",
+        "limbUpper", "limbLower", "limbTip",
+        "eye", "jaw", "ear", "other"
+      ],
+      "defaultDeformerByPartRole": {
+        "head": "mesh",
+        "face": "mesh",
+        "hair": "lattice",
+        "torso": "mesh",
+        "pelvis": "mesh",
+        "armUpper": "mesh",
+        "armLower": "mesh",
+        "hand": "rigid",
+        "legUpper": "mesh",
+        "legLower": "mesh",
+        "foot": "rigid",
+        "eye": "rigid",
+        "jaw": "rigid",
+        "ear": "rigid",
+        "cape": "lattice",
+        "accessory": "rigid",
+        "other": "rigid"
+      },
+      "topology": {
+        "style": "hierarchical",
+        "allowEmptySkeleton": false,
+        "expectedDepth": { "min": 3, "max": 8 },
+        "rootJointRole": "root",
+        "patterns": [
+          {
+            "id": "axial",
+            "description": "root → pelvis(spine) → spine → neck → head",
+            "jointRoleSequence": ["root", "spine", "spine", "neck", "head"],
+            "minOccurrences": 1,
+            "maxOccurrences": 1
+          },
+          {
+            "id": "limb",
+            "description": "limbUpper → limbLower → limbTip hanging off spine/root",
+            "jointRoleSequence": ["limbUpper", "limbLower", "limbTip"],
+            "hangsFromJointRoles": ["spine", "root"],
+            "minOccurrences": 0,
+            "maxOccurrences": 4,
+            "ikChainLengthOnTip": 2
+          }
+        ],
+        "notes": "Exactly one root. Tips get ikChainLength 2 so an IK drag bends the elbow/knee rather than translating the whole limb."
+      },
+      "ikDefaultsByJointRole": {
+        "limbTip": 2
+      },
+      "attachSlots": [
+        {
+          "hostPartRole": "torso",
+          "slotName": "neck",
+          "typicalChildPartRoles": ["head"],
+          "positionHint": { "x": 0.5, "y": 0.05 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "shoulder_l",
+          "typicalChildPartRoles": ["armUpper"],
+          "positionHint": { "x": 0.18, "y": 0.22 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "shoulder_r",
+          "typicalChildPartRoles": ["armUpper"],
+          "positionHint": { "x": 0.82, "y": 0.22 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "hip_l",
+          "typicalChildPartRoles": ["legUpper", "pelvis"],
+          "positionHint": { "x": 0.35, "y": 0.92 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "hip_r",
+          "typicalChildPartRoles": ["legUpper", "pelvis"],
+          "positionHint": { "x": 0.65, "y": 0.92 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "cape",
+          "typicalChildPartRoles": ["cape"],
+          "positionHint": { "x": 0.5, "y": 0.2 }
+        },
+        {
+          "hostPartRole": "pelvis",
+          "slotName": "hip_l",
+          "typicalChildPartRoles": ["legUpper"],
+          "positionHint": { "x": 0.3, "y": 0.5 }
+        },
+        {
+          "hostPartRole": "pelvis",
+          "slotName": "hip_r",
+          "typicalChildPartRoles": ["legUpper"],
+          "positionHint": { "x": 0.7, "y": 0.5 }
+        },
+        {
+          "hostPartRole": "head",
+          "slotName": "face",
+          "typicalChildPartRoles": ["face", "eye", "jaw"],
+          "positionHint": { "x": 0.5, "y": 0.55 }
+        },
+        {
+          "hostPartRole": "head",
+          "slotName": "hair",
+          "typicalChildPartRoles": ["hair"],
+          "positionHint": { "x": 0.5, "y": 0.15 }
+        },
+        {
+          "hostPartRole": "head",
+          "slotName": "ear_l",
+          "typicalChildPartRoles": ["ear"],
+          "positionHint": { "x": 0.12, "y": 0.45 }
+        },
+        {
+          "hostPartRole": "head",
+          "slotName": "ear_r",
+          "typicalChildPartRoles": ["ear"],
+          "positionHint": { "x": 0.88, "y": 0.45 }
+        },
+        {
+          "hostPartRole": "hand",
+          "slotName": "grip",
+          "typicalChildPartRoles": ["accessory", "weapon", "prop"],
+          "positionHint": { "x": 0.5, "y": 0.55 }
+        },
+        {
+          "hostPartRole": "armLower",
+          "slotName": "wrist",
+          "typicalChildPartRoles": ["hand"],
+          "positionHint": { "x": 0.5, "y": 0.95 }
+        },
+        {
+          "hostPartRole": "legLower",
+          "slotName": "ankle",
+          "typicalChildPartRoles": ["foot"],
+          "positionHint": { "x": 0.5, "y": 0.95 }
+        }
+      ],
+      "motionHints": {
+        "preferredEase": "ease",
+        "favorHoldEasing": false,
+        "smallScaleOpacityDeltas": false
+      }
+    },
+
+    "creature": {
+      "id": "creature",
+      "label": "Creature",
+      "summary": "Quadruped / winged / tailed: spine chain of 3–6 segments; limbs off front/rear; tail and tentacle use spline.",
+      "partRoles": [
+        "head", "face", "hair", "torso", "pelvis",
+        "armUpper", "armLower", "hand",
+        "legUpper", "legLower", "foot",
+        "eye", "jaw", "ear", "cape", "accessory",
+        "neck", "tail", "wing", "fin", "horn", "paw", "snout", "shell", "tentacle",
+        "other"
+      ],
+      "jointRoles": [
+        "root", "spine", "neck", "head",
+        "limbUpper", "limbLower", "limbTip",
+        "tail", "wing", "fin", "horn", "tentacleSegment",
+        "eye", "jaw", "ear", "digit", "other"
+      ],
+      "defaultDeformerByPartRole": {
+        "head": "mesh",
+        "face": "mesh",
+        "hair": "lattice",
+        "torso": "mesh",
+        "pelvis": "mesh",
+        "armUpper": "mesh",
+        "armLower": "mesh",
+        "hand": "rigid",
+        "legUpper": "mesh",
+        "legLower": "mesh",
+        "foot": "rigid",
+        "eye": "rigid",
+        "jaw": "rigid",
+        "ear": "rigid",
+        "cape": "lattice",
+        "accessory": "rigid",
+        "neck": "mesh",
+        "tail": "spline",
+        "wing": "mesh",
+        "fin": "mesh",
+        "horn": "rigid",
+        "paw": "rigid",
+        "snout": "rigid",
+        "shell": "rigid",
+        "tentacle": "spline",
+        "other": "rigid"
+      },
+      "topology": {
+        "style": "hierarchical",
+        "allowEmptySkeleton": false,
+        "expectedDepth": { "min": 2, "max": 12 },
+        "rootJointRole": "root",
+        "patterns": [
+          {
+            "id": "spine",
+            "description": "root → spine chain of 3–6 segments (snake = spine only, no limbs)",
+            "jointRoleSequence": ["root", "spine"],
+            "spineSegmentCount": { "min": 3, "max": 6 },
+            "minOccurrences": 1,
+            "maxOccurrences": 1
+          },
+          {
+            "id": "limb",
+            "description": "limbUpper → limbLower → limbTip off front/rear spine",
+            "jointRoleSequence": ["limbUpper", "limbLower", "limbTip"],
+            "hangsFromJointRoles": ["spine", "root"],
+            "minOccurrences": 0,
+            "maxOccurrences": 8,
+            "ikChainLengthOnTip": 2
+          },
+          {
+            "id": "neck",
+            "description": "neck chain toward head",
+            "jointRoleSequence": ["neck", "head"],
+            "hangsFromJointRoles": ["spine", "root"],
+            "minOccurrences": 0,
+            "maxOccurrences": 1
+          },
+          {
+            "id": "tail",
+            "description": "tail joint chain off rear spine",
+            "jointRoleSequence": ["tail"],
+            "hangsFromJointRoles": ["spine", "root"],
+            "minOccurrences": 0,
+            "maxOccurrences": 1
+          },
+          {
+            "id": "tentacle",
+            "description": "tentacleSegment chain for soft appendages",
+            "jointRoleSequence": ["tentacleSegment"],
+            "hangsFromJointRoles": ["spine", "root", "head"],
+            "minOccurrences": 0,
+            "maxOccurrences": 8
+          },
+          {
+            "id": "wing",
+            "description": "wing joints hanging off spine/torso",
+            "jointRoleSequence": ["wing"],
+            "hangsFromJointRoles": ["spine", "root"],
+            "minOccurrences": 0,
+            "maxOccurrences": 4
+          }
+        ],
+        "notes": "A snake is a valid degenerate: spine chain, zero limbs. Tail/tentacle parts default to spline deformers."
+      },
+      "ikDefaultsByJointRole": {
+        "limbTip": 2
+      },
+      "attachSlots": [
+        {
+          "hostPartRole": "torso",
+          "slotName": "neck",
+          "typicalChildPartRoles": ["neck", "head"],
+          "positionHint": { "x": 0.5, "y": 0.08 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "tail_base",
+          "typicalChildPartRoles": ["tail"],
+          "positionHint": { "x": 0.5, "y": 0.92 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "wing_l",
+          "typicalChildPartRoles": ["wing"],
+          "positionHint": { "x": 0.15, "y": 0.35 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "wing_r",
+          "typicalChildPartRoles": ["wing"],
+          "positionHint": { "x": 0.85, "y": 0.35 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "leg_fl",
+          "typicalChildPartRoles": ["legUpper", "armUpper"],
+          "positionHint": { "x": 0.25, "y": 0.7 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "leg_fr",
+          "typicalChildPartRoles": ["legUpper", "armUpper"],
+          "positionHint": { "x": 0.75, "y": 0.7 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "leg_rl",
+          "typicalChildPartRoles": ["legUpper"],
+          "positionHint": { "x": 0.28, "y": 0.88 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "leg_rr",
+          "typicalChildPartRoles": ["legUpper"],
+          "positionHint": { "x": 0.72, "y": 0.88 }
+        },
+        {
+          "hostPartRole": "head",
+          "slotName": "horn",
+          "typicalChildPartRoles": ["horn"],
+          "positionHint": { "x": 0.5, "y": 0.1 }
+        },
+        {
+          "hostPartRole": "head",
+          "slotName": "snout",
+          "typicalChildPartRoles": ["snout", "jaw"],
+          "positionHint": { "x": 0.5, "y": 0.7 }
+        },
+        {
+          "hostPartRole": "legLower",
+          "slotName": "paw",
+          "typicalChildPartRoles": ["paw", "foot"],
+          "positionHint": { "x": 0.5, "y": 0.95 }
+        },
+        {
+          "hostPartRole": "torso",
+          "slotName": "tentacle",
+          "typicalChildPartRoles": ["tentacle"],
+          "positionHint": { "x": 0.5, "y": 0.6 }
+        }
+      ],
+      "motionHints": {
+        "preferredEase": "ease",
+        "favorHoldEasing": false,
+        "smallScaleOpacityDeltas": false
+      }
+    },
+
+    "mechanical": {
+      "id": "mechanical",
+      "label": "Mechanical",
+      "summary": "Vehicles / mechs / robots: chassis root, shallow children; rigid dominates — bending a wheel is a bug.",
+      "partRoles": [
+        "chassis", "wheel", "track", "turret", "barrel",
+        "piston", "hatch", "rotor", "thruster", "antenna",
+        "other"
+      ],
+      "jointRoles": [
+        "root", "hinge", "wheel", "piston", "slider", "prop", "other"
+      ],
+      "defaultDeformerByPartRole": {
+        "chassis": "rigid",
+        "wheel": "rigid",
+        "track": "lattice",
+        "turret": "rigid",
+        "barrel": "rigid",
+        "piston": "rigid",
+        "hatch": "rigid",
+        "rotor": "rigid",
+        "thruster": "rigid",
+        "antenna": "spline",
+        "other": "rigid"
+      },
+      "topology": {
+        "style": "shallow",
+        "allowEmptySkeleton": false,
+        "expectedDepth": { "min": 1, "max": 3 },
+        "rootJointRole": "root",
+        "patterns": [
+          {
+            "id": "chassis_root",
+            "description": "chassis-bound root; every other part is a single-level child",
+            "jointRoleSequence": ["root"],
+            "minOccurrences": 1,
+            "maxOccurrences": 1
+          },
+          {
+            "id": "articulation",
+            "description": "hinge / wheel / piston / slider child of root",
+            "jointRoleSequence": ["hinge"],
+            "hangsFromJointRoles": ["root"],
+            "minOccurrences": 0,
+            "maxOccurrences": 32,
+            "alternateJointRoles": ["wheel", "piston", "slider"]
+          }
+        ],
+        "notes": "Depth is shallow by nature. Piston parts are rigid, driven by a slider joint."
+      },
+      "ikDefaultsByJointRole": {},
+      "attachSlots": [
+        {
+          "hostPartRole": "chassis",
+          "slotName": "axle_fl",
+          "typicalChildPartRoles": ["wheel"],
+          "positionHint": { "x": 0.2, "y": 0.75 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "axle_fr",
+          "typicalChildPartRoles": ["wheel"],
+          "positionHint": { "x": 0.8, "y": 0.75 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "axle_rl",
+          "typicalChildPartRoles": ["wheel"],
+          "positionHint": { "x": 0.2, "y": 0.9 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "axle_rr",
+          "typicalChildPartRoles": ["wheel"],
+          "positionHint": { "x": 0.8, "y": 0.9 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "turret_mount",
+          "typicalChildPartRoles": ["turret"],
+          "positionHint": { "x": 0.5, "y": 0.35 }
+        },
+        {
+          "hostPartRole": "turret",
+          "slotName": "barrel",
+          "typicalChildPartRoles": ["barrel"],
+          "positionHint": { "x": 0.5, "y": 0.2 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "hatch",
+          "typicalChildPartRoles": ["hatch"],
+          "positionHint": { "x": 0.5, "y": 0.25 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "rotor",
+          "typicalChildPartRoles": ["rotor"],
+          "positionHint": { "x": 0.5, "y": 0.1 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "thruster",
+          "typicalChildPartRoles": ["thruster"],
+          "positionHint": { "x": 0.5, "y": 0.95 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "antenna",
+          "typicalChildPartRoles": ["antenna"],
+          "positionHint": { "x": 0.6, "y": 0.15 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "track_l",
+          "typicalChildPartRoles": ["track"],
+          "positionHint": { "x": 0.15, "y": 0.85 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "track_r",
+          "typicalChildPartRoles": ["track"],
+          "positionHint": { "x": 0.85, "y": 0.85 }
+        },
+        {
+          "hostPartRole": "chassis",
+          "slotName": "piston",
+          "typicalChildPartRoles": ["piston"],
+          "positionHint": { "x": 0.4, "y": 0.5 }
+        }
+      ],
+      "motionHints": {
+        "preferredEase": "linear",
+        "favorHoldEasing": false,
+        "smallScaleOpacityDeltas": false
+      }
+    },
+
+    "prop": {
+      "id": "prop",
+      "label": "Prop / VFX",
+      "summary": "Props and VFX: usually one part or a flat set; skeleton may be empty — motion lives in PartPose channels.",
+      "partRoles": [
+        "prop", "weapon", "projectile", "effect", "spark", "smoke", "trail",
+        "other"
+      ],
+      "jointRoles": [
+        "root", "prop", "other"
+      ],
+      "defaultDeformerByPartRole": {
+        "prop": "rigid",
+        "weapon": "rigid",
+        "projectile": "rigid",
+        "effect": "rigid",
+        "spark": "rigid",
+        "smoke": "spline",
+        "trail": "spline",
+        "other": "rigid"
+      },
+      "topology": {
+        "style": "empty",
+        "allowEmptySkeleton": true,
+        "expectedDepth": { "min": 0, "max": 2 },
+        "rootJointRole": null,
+        "patterns": [
+          {
+            "id": "optional_root",
+            "description": "Optional single root/prop joint when a handle is needed; otherwise joints[] is empty",
+            "jointRoleSequence": ["root"],
+            "minOccurrences": 0,
+            "maxOccurrences": 1
+          }
+        ],
+        "notes": "MIN_JOINTS is 0. effect/spark animate via visible/opacity/swapTo; smoke/trail use spline."
+      },
+      "ikDefaultsByJointRole": {},
+      "attachSlots": [
+        {
+          "hostPartRole": "weapon",
+          "slotName": "muzzle",
+          "typicalChildPartRoles": ["projectile", "effect", "spark", "trail"],
+          "positionHint": { "x": 0.5, "y": 0.05 }
+        },
+        {
+          "hostPartRole": "prop",
+          "slotName": "effect",
+          "typicalChildPartRoles": ["effect", "spark", "smoke", "trail"],
+          "positionHint": { "x": 0.5, "y": 0.5 }
+        },
+        {
+          "hostPartRole": "weapon",
+          "slotName": "grip",
+          "typicalChildPartRoles": ["hand", "accessory"],
+          "positionHint": { "x": 0.5, "y": 0.7 }
+        }
+      ],
+      "motionHints": {
+        "preferredEase": "ease",
+        "favorHoldEasing": false,
+        "smallScaleOpacityDeltas": false,
+        "stepChannels": ["visible", "opacity", "swapTo"]
+      }
+    },
+
+    "environment": {
+      "id": "environment",
+      "label": "Environment parallax",
+      "summary": "Parallax layers: every layer is a root part with distinct zIndex; motion is tx at a per-layer rate.",
+      "partRoles": [
+        "skyLayer", "backgroundLayer", "midgroundLayer", "foregroundLayer",
+        "cloud", "foliage", "waterLayer",
+        "other"
+      ],
+      "jointRoles": [
+        "layer", "anchor", "other"
+      ],
+      "defaultDeformerByPartRole": {
+        "skyLayer": "rigid",
+        "backgroundLayer": "rigid",
+        "midgroundLayer": "rigid",
+        "foregroundLayer": "rigid",
+        "cloud": "rigid",
+        "foliage": "lattice",
+        "waterLayer": "lattice",
+        "other": "rigid"
+      },
+      "topology": {
+        "style": "flat",
+        "allowEmptySkeleton": true,
+        "expectedDepth": { "min": 0, "max": 1 },
+        "rootJointRole": "layer",
+        "patterns": [
+          {
+            "id": "layer_handle",
+            "description": "Optional layer-role joint per part as a translation handle; no hierarchy between layers",
+            "jointRoleSequence": ["layer"],
+            "minOccurrences": 0,
+            "maxOccurrences": 64
+          }
+        ],
+        "notes": "Every part is a root (parentPartId null). Joints exist only to give a layer a translation handle."
+      },
+      "ikDefaultsByJointRole": {},
+      "attachSlots": [],
+      "motionHints": {
+        "preferredEase": "linear",
+        "favorHoldEasing": false,
+        "smallScaleOpacityDeltas": false,
+        "primaryChannels": ["tx"]
+      }
+    },
+
+    "ui": {
+      "id": "ui",
+      "label": "UI / logo motion",
+      "summary": "Logo and UI chrome: shallow tree with anchor joints; all rigid; short clips, hold easing, small scale/opacity deltas.",
+      "partRoles": [
+        "logoMark", "logoText", "icon", "badge", "panel", "glyph", "underlay",
+        "other"
+      ],
+      "jointRoles": [
+        "anchor", "root", "other"
+      ],
+      "defaultDeformerByPartRole": {
+        "logoMark": "rigid",
+        "logoText": "rigid",
+        "icon": "rigid",
+        "badge": "rigid",
+        "panel": "rigid",
+        "glyph": "rigid",
+        "underlay": "rigid",
+        "other": "rigid"
+      },
+      "topology": {
+        "style": "shallow",
+        "allowEmptySkeleton": true,
+        "expectedDepth": { "min": 0, "max": 3 },
+        "rootJointRole": "anchor",
+        "patterns": [
+          {
+            "id": "anchor_tree",
+            "description": "Shallow anchor joint tree under an optional root/anchor",
+            "jointRoleSequence": ["anchor"],
+            "minOccurrences": 0,
+            "maxOccurrences": 16
+          }
+        ],
+        "notes": "glyph may be promoted to mesh only on explicit user request; nothing else here should leave rigid."
+      },
+      "ikDefaultsByJointRole": {},
+      "attachSlots": [
+        {
+          "hostPartRole": "panel",
+          "slotName": "mark",
+          "typicalChildPartRoles": ["logoMark", "icon", "badge"],
+          "positionHint": { "x": 0.5, "y": 0.4 }
+        },
+        {
+          "hostPartRole": "panel",
+          "slotName": "text",
+          "typicalChildPartRoles": ["logoText", "glyph"],
+          "positionHint": { "x": 0.5, "y": 0.7 }
+        },
+        {
+          "hostPartRole": "panel",
+          "slotName": "underlay",
+          "typicalChildPartRoles": ["underlay"],
+          "positionHint": { "x": 0.5, "y": 0.5 }
+        },
+        {
+          "hostPartRole": "logoMark",
+          "slotName": "badge",
+          "typicalChildPartRoles": ["badge"],
+          "positionHint": { "x": 0.85, "y": 0.15 }
+        }
+      ],
+      "motionHints": {
+        "preferredEase": "hold",
+        "favorHoldEasing": true,
+        "smallScaleOpacityDeltas": true,
+        "primaryChannels": ["scale", "opacity"]
+      }
+    }
+  }
+}

@@ -30,6 +30,11 @@ frontend/
           page.tsx                          ✅ renders <EditorScreen jobId={jobId} />
           export/
             page.tsx                        ✅ renders <ExportScreen jobId={jobId} />
+      (anibuddy)/
+        layout.tsx                          ✅ flag gate: <AniBuddyEditor/> when
+                                               NEXT_PUBLIC_ANIBUDDY_EDITOR_ENABLED is on,
+                                               <ComingSoonPage/> otherwise
+        anibuddy/page.tsx                   ✅ renders <AniBuddyEditor />
 
     features/
       upload/
@@ -58,10 +63,28 @@ frontend/
         services/
           exportApi.ts                      ✅ startExport(), startFinalize(jobId, ids, names?, skipUpscale?)
 
+      anibuddy/                             AniBuddy v4 — the thin editor half of F9.
+                                            The v3 lib/, components/, hooks/, atlas/ and
+                                            types.ts were deleted by the migration order.
+        config/                             ✅ the only reader of NEXT_PUBLIC_ANIBUDDY_*
+        rig/                                ✅ RigDocument v5 — GENERATED, never hand-edited
+        kernel/                             ✅ FK, LBS, lattice, spline, warp, clip sampler.
+                                               Mirrors py_backend's NumPy kernel; CI holds
+                                               the pair to 0 ULP over 17 fixtures
+        editor/                             ✅ WebGL renderer, viewport, hit test, IK solver,
+                                               clip/part tracks, draw state, project client
+          ui/                               ✅ AniBuddyEditor, RigViewport, ClipTimeline,
+                                               Inspector, StagePanel, ProjectSetup
+        proposal/                           ✅ server-side: strict response formats, the one
+                                               propose-revalidate-retry caller, the three
+                                               revalidators, internal-token auth
+        api/anibuddyClient.ts               ✅ the concept-interview call only
+
     components/
       ui/                                   shadcn components
       layout/
         Navbar.tsx                          ✅ top nav with user menu
+        ComingSoonPage.tsx                  ✅ served by the AniBuddy route while its flag is off
 
     lib/
       api-client.ts                         ✅ fetch wrapper (get, post, postForm) + Bearer auth

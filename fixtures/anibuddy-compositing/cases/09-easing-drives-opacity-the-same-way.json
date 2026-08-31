@@ -1,0 +1,29 @@
+{
+  "id": "09-easing-drives-opacity-the-same-way",
+  "description": "All three easings on the same ramp, so opacity is held to the kernel's own curve rather than to a second one written at the compositing layer. 'smooth' omits ease entirely and must be smoothstep, not linear -- that is the v3 default and picking linear here would silently re-time every existing clip's fades. 'held' pins u to 0 for its whole segment, which is also why the stepped channels need no special case anywhere: hold already pins them. Each ramp runs 0 -> 1 over its own segment so the eased u is readable straight off the resolved opacity.",
+  "parts": [
+    { "id": "linear", "visible": true, "opacity": 1.0, "zIndex": 0 },
+    { "id": "smooth", "visible": true, "opacity": 1.0, "zIndex": 1 },
+    { "id": "held", "visible": true, "opacity": 1.0, "zIndex": 2 }
+  ],
+  "clip": {
+    "loop": false,
+    "keyframes": [
+      {
+        "t": 0.0,
+        "ease": "linear",
+        "parts": { "linear": { "opacity": 0.0 }, "smooth": { "opacity": 0.0 }, "held": { "opacity": 0.0 } }
+      },
+      {
+        "t": 0.5,
+        "ease": "hold",
+        "parts": { "linear": { "opacity": 1.0 }, "smooth": { "opacity": 1.0 }, "held": { "opacity": 1.0 } }
+      },
+      {
+        "t": 1.0,
+        "parts": { "linear": { "opacity": 0.0 }, "smooth": { "opacity": 0.0 }, "held": { "opacity": 0.0 } }
+      }
+    ]
+  },
+  "times": [0.0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9, 1.0]
+}

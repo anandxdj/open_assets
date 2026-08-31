@@ -1,0 +1,60 @@
+{
+  "id": "08-clip-hold-segment",
+  "description": "Sampled at t = 0.6, inside a 'hold' segment of a non-looping clip. Easing must collapse to u = 0 so the pose sits exactly on the starting key, and the channels that key omits must still resolve to rest rather than to the next key's values.",
+  "rig": {
+    "asset": { "width": 640, "height": 640, "figureHeight": 600 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.5, "y": 0.75 },
+      { "id": "armA", "parent": "root", "x": 0.3, "y": 0.55 },
+      { "id": "handA", "parent": "armA", "x": 0.18, "y": 0.4 }
+    ],
+    "parts": [
+      {
+        "id": "arm",
+        "zIndex": 1,
+        "deformer": {
+          "kind": "mesh",
+          "boneCount": 2,
+          "verts": [0.32, 0.5, 0.4, 0.58, 0.2, 0.36, 0.28, 0.44],
+          "tris": [0, 1, 3, 0, 3, 2],
+          "weights": [0.9, 0.1, 0.85, 0.15, 0.15, 0.85, 0.25, 0.75]
+        }
+      }
+    ]
+  },
+  "clip": {
+    "id": "wave",
+    "loop": false,
+    "keyframes": [
+      {
+        "t": 0,
+        "joints": {
+          "armA": { "rot": 0 }
+        },
+        "ease": "linear"
+      },
+      {
+        "t": 0.4,
+        "joints": {
+          "armA": { "rot": 35, "scale": 1.2 },
+          "handA": { "rot": -18 }
+        },
+        "ease": "hold"
+      },
+      {
+        "t": 0.8,
+        "joints": {
+          "armA": { "rot": -25 },
+          "handA": { "rot": 40, "scale": 0.8 }
+        }
+      },
+      {
+        "t": 1,
+        "joints": {
+          "armA": { "rot": 0 }
+        }
+      }
+    ]
+  },
+  "time": 0.6
+}

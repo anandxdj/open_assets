@@ -1,0 +1,51 @@
+{
+  "id": "01-rest-is-the-resolved-state",
+  "frames": [
+    {
+      "time": 0.0,
+      "resolved": [
+        ["backdrop", true, 1.0, -5, null],
+        ["behind", true, 0.5, 3, null],
+        ["ahead", true, 1.0, 3, null],
+        ["hidden", false, 1.0, 9, null],
+        ["clear", true, 0.0, 10, null]
+      ],
+      "draw": [
+        ["backdrop", "backdrop", -5, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["behind", "behind", 3, 0.5, 1, 1.0, 1.0, 0.0, 0.0],
+        ["ahead", "ahead", 3, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.5,
+      "resolved": [
+        ["backdrop", true, 1.0, -5, null],
+        ["behind", true, 0.5, 3, null],
+        ["ahead", true, 1.0, 3, null],
+        ["hidden", false, 1.0, 9, null],
+        ["clear", true, 0.0, 10, null]
+      ],
+      "draw": [
+        ["backdrop", "backdrop", -5, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["behind", "behind", 3, 0.5, 1, 1.0, 1.0, 0.0, 0.0],
+        ["ahead", "ahead", 3, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 1.0,
+      "resolved": [
+        ["backdrop", true, 1.0, -5, null],
+        ["behind", true, 0.5, 3, null],
+        ["ahead", true, 1.0, 3, null],
+        ["hidden", false, 1.0, 9, null],
+        ["clear", true, 0.0, 10, null]
+      ],
+      "draw": [
+        ["backdrop", "backdrop", -5, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["behind", "behind", 3, 0.5, 1, 1.0, 1.0, 0.0, 0.0],
+        ["ahead", "ahead", 3, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    }
+  ],
+  "warnings": []
+}

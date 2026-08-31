@@ -1,0 +1,33 @@
+{
+  "id": "05-spline-tail",
+  "description": "Five-joint tail chain evaluated as a 24-segment ribbon. The chain curls hard so the Catmull-Rom tangents swing through a wide arc, and each joint's local scale changes the chain's arc length, which the ribbon has to follow.",
+  "rig": {
+    "asset": { "width": 1024, "height": 768, "figureHeight": 700 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.28, "y": 0.5 },
+      { "id": "tailA", "parent": "root", "x": 0.42, "y": 0.52 },
+      { "id": "tailB", "parent": "tailA", "x": 0.56, "y": 0.55 },
+      { "id": "tailC", "parent": "tailB", "x": 0.7, "y": 0.6 },
+      { "id": "tailD", "parent": "tailC", "x": 0.84, "y": 0.68 }
+    ],
+    "parts": [
+      {
+        "id": "tail",
+        "zIndex": 0,
+        "deformer": {
+          "kind": "spline",
+          "joints": ["root", "tailA", "tailB", "tailC", "tailD"],
+          "thickness": 0.09,
+          "segments": 24
+        }
+      }
+    ]
+  },
+  "pose": {
+    "root": { "rot": -8, "ty": 0.02 },
+    "tailA": { "rot": 18 },
+    "tailB": { "rot": 24, "scale": 1.15 },
+    "tailC": { "rot": 31 },
+    "tailD": { "rot": 27, "scale": 0.85 }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "id": "07-clip-loop-wrap",
+  "description": "Sampled at t = 0.87, past the last authored key of a looping clip. Both kernels must synthesize the 'after' key by moving key 0 to t + 1, apply the last key's smoothstep easing across that synthetic span, and fall back to rest (1 for scale, 0 otherwise) for every channel one side omits.",
+  "rig": {
+    "asset": { "width": 512, "height": 768, "figureHeight": 700 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.5, "y": 0.8 },
+      { "id": "spine", "parent": "root", "x": 0.5, "y": 0.5 },
+      { "id": "head", "parent": "spine", "x": 0.5, "y": 0.24 }
+    ],
+    "parts": [
+      {
+        "id": "headPlate",
+        "zIndex": 1,
+        "deformer": { "kind": "rigid" },
+        "rect": [0.34, 0.1, 0.66, 0.38],
+        "boundJointId": "head"
+      }
+    ]
+  },
+  "clip": {
+    "id": "breathe",
+    "loop": true,
+    "keyframes": [
+      {
+        "t": 0,
+        "joints": {
+          "root": { "ty": 0 },
+          "spine": { "rot": 0 },
+          "head": { "rot": 0, "scale": 1 }
+        }
+      },
+      {
+        "t": 0.25,
+        "joints": {
+          "root": { "ty": -0.018 },
+          "spine": { "rot": 2 },
+          "head": { "rot": -2 }
+        },
+        "ease": "linear"
+      },
+      {
+        "t": 0.5,
+        "joints": {
+          "root": { "ty": 0 },
+          "spine": { "rot": 0 },
+          "head": { "scale": 0.96 }
+        },
+        "ease": "hold"
+      },
+      {
+        "t": 0.72,
+        "joints": {
+          "root": { "ty": 0.012 },
+          "spine": { "rot": -1 },
+          "head": { "rot": 1, "scale": 0.98 }
+        }
+      }
+    ]
+  },
+  "time": 0.87
+}

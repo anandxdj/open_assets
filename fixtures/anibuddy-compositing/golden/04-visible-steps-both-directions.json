@@ -1,0 +1,90 @@
+{
+  "id": "04-visible-steps-both-directions",
+  "frames": [
+    {
+      "time": 0.0,
+      "resolved": [
+        ["shy", false, 1.0, 0, null],
+        ["shown", true, 1.0, 1, null],
+        ["constant", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["shown", "shown", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["constant", "constant", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.125,
+      "resolved": [
+        ["shy", false, 1.0, 0, null],
+        ["shown", true, 1.0, 1, null],
+        ["constant", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["shown", "shown", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["constant", "constant", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.25,
+      "resolved": [
+        ["shy", false, 1.0, 0, null],
+        ["shown", true, 1.0, 1, null],
+        ["constant", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["shown", "shown", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["constant", "constant", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.5,
+      "resolved": [
+        ["shy", true, 1.0, 0, null],
+        ["shown", false, 1.0, 1, null],
+        ["constant", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["shy", "shy", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["constant", "constant", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.75,
+      "resolved": [
+        ["shy", true, 1.0, 0, null],
+        ["shown", false, 1.0, 1, null],
+        ["constant", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["shy", "shy", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["constant", "constant", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.875,
+      "resolved": [
+        ["shy", true, 1.0, 0, null],
+        ["shown", false, 1.0, 1, null],
+        ["constant", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["shy", "shy", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["constant", "constant", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 1.0,
+      "resolved": [
+        ["shy", true, 1.0, 0, null],
+        ["shown", false, 1.0, 1, null],
+        ["constant", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["shy", "shy", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["constant", "constant", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    }
+  ],
+  "warnings": []
+}

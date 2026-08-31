@@ -1,0 +1,47 @@
+{
+  "id": "07-unresolvable-swap-warns-and-draws-itself",
+  "frames": [
+    {
+      "time": 0.0,
+      "resolved": [
+        ["ghostSwap", true, 1.0, 0, "notAPart"],
+        ["realSwap", true, 1.0, 1, "target"],
+        ["target", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["ghostSwap", "ghostSwap", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["realSwap", "target", 1, 1.0, 1, 2.0, 2.0, 0.0, 0.5],
+        ["target", "target", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.5,
+      "resolved": [
+        ["ghostSwap", true, 1.0, 0, "notAPart"],
+        ["realSwap", true, 1.0, 1, "target"],
+        ["target", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["ghostSwap", "ghostSwap", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["realSwap", "target", 1, 1.0, 1, 2.0, 2.0, 0.0, 0.5],
+        ["target", "target", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 1.0,
+      "resolved": [
+        ["ghostSwap", true, 1.0, 0, "notAPart"],
+        ["realSwap", true, 1.0, 1, "target"],
+        ["target", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["ghostSwap", "ghostSwap", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["realSwap", "target", 1, 1.0, 1, 2.0, 2.0, 0.0, 0.5],
+        ["target", "target", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    }
+  ],
+  "warnings": [
+    "Part \"ghostSwap\" swaps to \"notAPart\", which is not a part of this rig; it was drawn as itself."
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "id": "12-every-channel-on-one-part",
+  "description": "All four compositing channels keyed on one part at once, over three segments with three different easings, alongside a second part keyed on none of them. This is the cross-channel desync case: the four resolve through separate branches but ONE bracketing search, so at any sampled time they must all be reading the same pair of keys. An implementation that bracketed the stepped channels separately from the interpolated one would pass every single-channel case above and fail here, because the arm's z-index would step at a different instant than its opacity finishes ramping. The rects differ in both size and origin so the swap segment carries a non-identity remap on both axes.",
+  "parts": [
+    {
+      "id": "arm",
+      "visible": true,
+      "opacity": 0.8,
+      "zIndex": 2,
+      "rect": { "x": 0.0, "y": 0.0, "width": 0.25, "height": 0.5 }
+    },
+    {
+      "id": "sleeve",
+      "visible": true,
+      "opacity": 1.0,
+      "zIndex": 6,
+      "rect": { "x": 0.5, "y": 0.25, "width": 0.5, "height": 0.25 }
+    },
+    { "id": "bystander", "visible": true, "opacity": 0.3, "zIndex": 4 }
+  ],
+  "clip": {
+    "loop": false,
+    "keyframes": [
+      {
+        "t": 0.0,
+        "ease": "linear",
+        "parts": { "arm": { "visible": true, "opacity": 0.2, "zIndex": 2 } }
+      },
+      {
+        "t": 0.4,
+        "ease": "hold",
+        "parts": { "arm": { "opacity": 1.0, "zIndex": 9, "swapTo": "sleeve" } }
+      },
+      {
+        "t": 0.7,
+        "parts": { "arm": { "visible": false, "opacity": 0.6 } }
+      },
+      {
+        "t": 1.0,
+        "ease": "linear",
+        "parts": { "arm": { "visible": true } }
+      }
+    ]
+  },
+  "times": [0.0, 0.2, 0.4, 0.55, 0.7, 0.85, 1.0]
+}

@@ -1,0 +1,42 @@
+{
+  "id": "10-extreme-angles",
+  "description": "Multi-turn, non-round rotations (1234.5678 degrees and friends). Large arguments are where sin and cos argument reduction differs most between libm implementations, so this is the case most likely to consume the 4 ULP parity budget. If it ever exceeds it, the cause is argument reduction, not a logic bug -- check here first.",
+  "rig": {
+    "asset": { "width": 1280, "height": 960, "figureHeight": 880 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.5, "y": 0.66 },
+      { "id": "a", "parent": "root", "x": 0.58, "y": 0.48 },
+      { "id": "b", "parent": "a", "x": 0.66, "y": 0.31 },
+      { "id": "c", "parent": "b", "x": 0.72, "y": 0.17 }
+    ],
+    "parts": [
+      {
+        "id": "plate",
+        "zIndex": 1,
+        "deformer": { "kind": "rigid" },
+        "rect": [0.55, 0.1, 0.8, 0.35],
+        "boundJointId": "c"
+      },
+      {
+        "id": "limb",
+        "zIndex": 0,
+        "deformer": {
+          "kind": "mesh",
+          "boneCount": 3,
+          "verts": [0.46, 0.62, 0.54, 0.62, 0.62, 0.44, 0.7, 0.44, 0.68, 0.28, 0.76, 0.28],
+          "tris": [0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4],
+          "weights": [
+            1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.25, 0.75, 0.0, 0.25, 0.75, 0.0, 0.0, 0.3, 0.7,
+            0.0, 0.3, 0.7
+          ]
+        }
+      }
+    ]
+  },
+  "pose": {
+    "root": { "rot": 1234.5678, "tx": 0.0731, "ty": -0.0417 },
+    "a": { "rot": -987.6543, "scale": 1.234567 },
+    "b": { "rot": 3600.125, "scale": 0.7654321 },
+    "c": { "rot": -0.0001234 }
+  }
+}

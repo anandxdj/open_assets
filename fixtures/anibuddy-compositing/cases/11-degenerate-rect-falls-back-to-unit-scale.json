@@ -1,0 +1,38 @@
+{
+  "id": "11-degenerate-rect-falls-back-to-unit-scale",
+  "description": "A swap whose SOURCE rect has zero width on one axis and zero height on the other. There is no ratio to take, so that axis falls back to a scale of 1 -- not to an infinity, which would smear a single texel across the whole layer, and not to 0, which would collapse the sampling to a point. The two parts split the degenerate axis between them so a fallback applied to the wrong axis cannot pass. A zero-area rect is reachable from a decompose pass on a one-pixel sliver, so this is a real input rather than a hypothetical one.",
+  "parts": [
+    {
+      "id": "flatX",
+      "visible": true,
+      "opacity": 1.0,
+      "zIndex": 0,
+      "rect": { "x": 0.25, "y": 0.25, "width": 0.0, "height": 0.5 }
+    },
+    {
+      "id": "flatY",
+      "visible": true,
+      "opacity": 1.0,
+      "zIndex": 1,
+      "rect": { "x": 0.25, "y": 0.75, "width": 0.5, "height": 0.0 }
+    },
+    {
+      "id": "solid",
+      "visible": true,
+      "opacity": 1.0,
+      "zIndex": 2,
+      "rect": { "x": 0.5, "y": 0.0, "width": 0.25, "height": 0.25 }
+    }
+  ],
+  "clip": {
+    "loop": false,
+    "keyframes": [
+      {
+        "t": 0.0,
+        "ease": "hold",
+        "parts": { "flatX": { "swapTo": "solid" }, "flatY": { "swapTo": "solid" } }
+      }
+    ]
+  },
+  "times": [0.0, 1.0]
+}

@@ -1,0 +1,74 @@
+{
+  "id": "06-mixed-large-sheet",
+  "description": "All four deformers in one rig on a 2048x1536 sheet, with a non-uniform destination scale. Large coordinates are the point: float32 ULP at 2048 px is ~2.4e-4, so this is where an absolute-epsilon comparison would have started lying and where the relative ULP tolerance earns its keep.",
+  "rig": {
+    "asset": { "width": 2048, "height": 1536, "figureHeight": 1400 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.46, "y": 0.72 },
+      { "id": "spine", "parent": "root", "x": 0.47, "y": 0.5 },
+      { "id": "head", "parent": "spine", "x": 0.48, "y": 0.28 },
+      { "id": "tailA", "parent": "root", "x": 0.62, "y": 0.74 },
+      { "id": "tailB", "parent": "tailA", "x": 0.75, "y": 0.78 },
+      { "id": "tailC", "parent": "tailB", "x": 0.88, "y": 0.83 }
+    ],
+    "parts": [
+      {
+        "id": "headPlate",
+        "zIndex": 4,
+        "deformer": { "kind": "rigid" },
+        "rect": [0.38, 0.14, 0.6, 0.36],
+        "boundJointId": "head"
+      },
+      {
+        "id": "body",
+        "zIndex": 2,
+        "deformer": {
+          "kind": "mesh",
+          "boneCount": 5,
+          "verts": [0.4, 0.34, 0.56, 0.34, 0.39, 0.52, 0.57, 0.52, 0.41, 0.71, 0.55, 0.71],
+          "tris": [0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4],
+          "weights": [
+            0.05, 0.75, 0.2, 0.0, 0.0, 0.05, 0.75, 0.2, 0.0, 0.0, 0.4, 0.55, 0.05, 0.0, 0.0,
+            0.4, 0.55, 0.05, 0.0, 0.0, 0.85, 0.15, 0.0, 0.0, 0.0, 0.85, 0.15, 0.0, 0.0, 0.0
+          ]
+        }
+      },
+      {
+        "id": "cloak",
+        "zIndex": 1,
+        "deformer": {
+          "kind": "lattice",
+          "cols": 2,
+          "rows": 2,
+          "interpolation": "bilinear",
+          "controlPoints": [
+            0.0, 0.0, 0.523913043478, -0.0134615384615, 1.0, 0.0, 0.0391304347826,
+            0.507692307692, 0.471739130435, 0.540384615385, 1.05869565217, 0.480769230769,
+            0.0, 1.0, 0.534782608696, 1.04807692308, 1.0, 1.0
+          ]
+        },
+        "rect": [0.24, 0.4, 0.7, 0.92],
+        "boundJointId": "spine"
+      },
+      {
+        "id": "tail",
+        "zIndex": 0,
+        "deformer": {
+          "kind": "spline",
+          "joints": ["root", "tailA", "tailB", "tailC"],
+          "thickness": 0.055,
+          "segments": 20
+        }
+      }
+    ]
+  },
+  "pose": {
+    "root": { "rot": 3.5, "tx": -0.018, "ty": 0.011 },
+    "spine": { "rot": -14.75 },
+    "head": { "rot": 8.25, "scale": 1.04 },
+    "tailA": { "rot": 21 },
+    "tailB": { "rot": 26.5, "scale": 1.1 },
+    "tailC": { "rot": 19 }
+  },
+  "scale": [0.5, 0.75]
+}

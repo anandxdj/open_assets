@@ -1,0 +1,15 @@
+{
+  "id": "03-opacity-one-sided-key-blends-against-the-part",
+  "description": "A channel present in only ONE of the two bracketing keys blends against the part's own authored opacity, not against a schema-wide 1. 'fadeIn' is a ghost authored at 0.4 keyed to 1 at the end, so it ramps 0.4 -> 1 and its first frame is the part as authored; 'fadeOut' is keyed at the start only and decays back to its own 0.4. Blending against a constant 1 instead would make 'fadeIn' a flat 1 for the whole clip -- the part's authored translucency silently discarded by a key that never mentioned t=0.",
+  "parts": [
+    { "id": "fadeIn", "visible": true, "opacity": 0.4, "zIndex": 0 },
+    { "id": "fadeOut", "visible": true, "opacity": 0.4, "zIndex": 1 }
+  ],
+  "clip": {
+    "loop": false,
+    "keyframes": [
+      { "t": 0.0, "ease": "linear", "parts": { "fadeOut": { "opacity": 1.0 } } },
+      { "t": 1.0, "ease": "linear", "parts": { "fadeIn": { "opacity": 1.0 } } }
+    ]
+  }
+}

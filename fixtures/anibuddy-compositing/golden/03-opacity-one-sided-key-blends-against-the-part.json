@@ -1,0 +1,83 @@
+{
+  "id": "03-opacity-one-sided-key-blends-against-the-part",
+  "frames": [
+    {
+      "time": 0.0,
+      "resolved": [
+        ["fadeIn", true, 0.4000000059604645, 0, null],
+        ["fadeOut", true, 1.0, 1, null]
+      ],
+      "draw": [
+        ["fadeIn", "fadeIn", 0, 0.4000000059604645, 0, 1.0, 1.0, 0.0, 0.0],
+        ["fadeOut", "fadeOut", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.125,
+      "resolved": [
+        ["fadeIn", true, 0.4749999940395355, 0, null],
+        ["fadeOut", true, 0.925000011920929, 1, null]
+      ],
+      "draw": [
+        ["fadeIn", "fadeIn", 0, 0.4749999940395355, 0, 1.0, 1.0, 0.0, 0.0],
+        ["fadeOut", "fadeOut", 1, 0.925000011920929, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.25,
+      "resolved": [
+        ["fadeIn", true, 0.550000011920929, 0, null],
+        ["fadeOut", true, 0.8500000238418579, 1, null]
+      ],
+      "draw": [
+        ["fadeIn", "fadeIn", 0, 0.550000011920929, 0, 1.0, 1.0, 0.0, 0.0],
+        ["fadeOut", "fadeOut", 1, 0.8500000238418579, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.5,
+      "resolved": [
+        ["fadeIn", true, 0.699999988079071, 0, null],
+        ["fadeOut", true, 0.699999988079071, 1, null]
+      ],
+      "draw": [
+        ["fadeIn", "fadeIn", 0, 0.699999988079071, 0, 1.0, 1.0, 0.0, 0.0],
+        ["fadeOut", "fadeOut", 1, 0.699999988079071, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.75,
+      "resolved": [
+        ["fadeIn", true, 0.8500000238418579, 0, null],
+        ["fadeOut", true, 0.550000011920929, 1, null]
+      ],
+      "draw": [
+        ["fadeIn", "fadeIn", 0, 0.8500000238418579, 0, 1.0, 1.0, 0.0, 0.0],
+        ["fadeOut", "fadeOut", 1, 0.550000011920929, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.875,
+      "resolved": [
+        ["fadeIn", true, 0.925000011920929, 0, null],
+        ["fadeOut", true, 0.4749999940395355, 1, null]
+      ],
+      "draw": [
+        ["fadeIn", "fadeIn", 0, 0.925000011920929, 0, 1.0, 1.0, 0.0, 0.0],
+        ["fadeOut", "fadeOut", 1, 0.4749999940395355, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 1.0,
+      "resolved": [
+        ["fadeIn", true, 1.0, 0, null],
+        ["fadeOut", true, 0.4000000059604645, 1, null]
+      ],
+      "draw": [
+        ["fadeIn", "fadeIn", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["fadeOut", "fadeOut", 1, 0.4000000059604645, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    }
+  ],
+  "warnings": []
+}

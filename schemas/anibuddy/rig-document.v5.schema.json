@@ -1,0 +1,991 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openassets.dev/schemas/anibuddy/rig-document.v5.schema.json",
+  "title": "RigDocument",
+  "description": "AniBuddy v5 layered-cutout rig document. THE canonical contract shared by the Python geometry service, the Node gateway, the Rust/WASM kernel and the browser editor. Every language binding in this repo is generated from this file by scripts/anibuddy/generate-bindings.mjs — never hand-edit a generated file. Supersedes the v3 `Rig` (frontend/src/features/anibuddy/types.ts) and the v4 `AtlasRevision` (frontend/src/features/anibuddy/atlas/types.ts).",
+  "$ref": "#/$defs/RigDocument",
+
+  "x-generator": {
+    "note": "This file uses a deliberately small JSON Schema subset so a zero-dependency generator can emit four targets. See the generator header for the exact subset.",
+    "targets": [
+      "frontend/src/features/anibuddy/rig/rig-document.generated.ts",
+      "backend/src/modules/anibuddy/dto/rig-document.generated.ts",
+      "backend/src/modules/anibuddy/anibuddy.rig-document.generated.model.ts",
+      "py_backend/app/modules/anibuddy/schemas.py"
+    ]
+  },
+
+  "x-constants": {
+    "_note": "Structural and algorithmic invariants that cannot be expressed as a per-field JSON Schema constraint. Emitted verbatim into every binding's LIMITS object, merged with the values the generator lifts from `x-limit` annotations. Rule 9: nothing downstream may re-declare these.",
+    "SCHEMA_VERSION": 5,
+    "MIN_PARTS": 1,
+    "MAX_PART_DEPTH": 8,
+    "MIN_JOINTS": 0,
+    "MAX_JOINT_DEPTH": 12,
+    "MAX_VERTS_PER_PART": 1200,
+    "MAX_TRIS_PER_PART": 2400,
+    "ALPHA_FLOOR": 24,
+    "WEIGHT_ROW_EPSILON": 0.001,
+    "MIN_TRIANGLE_AREA": 0.0001,
+    "SEAM_BLEED_PX": 0.5,
+    "STRETCH_WARNING": 2.5,
+    "SKIN_TOP_K": 4,
+    "SKIN_FALLOFF": 4,
+    "CONFIDENCE_REVIEW_FLOOR": 0.55,
+    "MAX_CRITIQUE_PASSES": 3,
+    "CRITIQUE_CREDIT_CEILING": 24,
+    "CRITIQUE_CONTACT_SHEET_FRAMES": 9,
+    "CRITIQUE_MAX_PIVOT_NUDGE": 0.08,
+    "CRITIQUE_MIN_ROTATION_DAMP": 0.25,
+    "PROPOSAL_RETRY_LIMIT": 1,
+    "MAX_INLINE_BUFFER_ELEMENTS": 4096
+  },
+
+  "$defs": {
+    "Archetype": {
+      "description": "Which rig prior applies. Drives the role vocabulary the semantics model may use and the default deformer per role.",
+      "type": "string",
+      "enum": ["humanoid", "creature", "mechanical", "prop", "environment", "ui"]
+    },
+
+    "PartRole": {
+      "description": "What a cutout part IS. Closed set across all six archetypes — the vision model picks from it and never invents a role. Roles select the default deformer and the motion priors.",
+      "type": "string",
+      "enum": [
+        "root",
+        "head", "face", "hair", "torso", "pelvis",
+        "armUpper", "armLower", "hand",
+        "legUpper", "legLower", "foot",
+        "eye", "jaw", "ear", "cape", "accessory",
+        "neck", "tail", "wing", "fin", "horn", "paw", "snout", "shell", "tentacle",
+        "chassis", "wheel", "track", "turret", "barrel", "piston", "hatch", "rotor", "thruster", "antenna",
+        "prop", "weapon", "projectile", "effect", "spark", "smoke", "trail",
+        "skyLayer", "backgroundLayer", "midgroundLayer", "foregroundLayer", "cloud", "foliage", "waterLayer",
+        "logoMark", "logoText", "icon", "badge", "panel", "glyph", "underlay",
+        "other"
+      ]
+    },
+
+    "JointRole": {
+      "description": "What a joint IS. The first thirteen entries are the v3 JointRole set verbatim and in order, so a v3 rig imports without remapping. The remainder cover the five non-humanoid archetypes.",
+      "type": "string",
+      "enum": [
+        "root", "spine", "head", "eye", "jaw",
+        "limbUpper", "limbLower", "limbTip",
+        "tail", "wing", "ear", "prop", "other",
+        "neck", "digit", "fin", "horn", "tentacleSegment",
+        "hinge", "wheel", "piston", "slider", "layer", "anchor"
+      ]
+    },
+
+    "DeformerKind": {
+      "description": "The four per-part deformation models. Chosen from the part role by the archetype prior, always overridable by the user.",
+      "type": "string",
+      "enum": ["rigid", "mesh", "lattice", "spline"]
+    },
+
+    "MaskKind": {
+      "description": "How a part's pixels are selected out of the source sheet. Every kind is a REVERSIBLE description; the source sheet is never edited.",
+      "type": "string",
+      "enum": ["rect", "polygon", "rle", "alpha-threshold"]
+    },
+
+    "PartProvenance": {
+      "description": "Which stage or actor produced this part, so the editor can show what was guessed versus confirmed.",
+      "type": "string",
+      "enum": [
+        "alpha-component", "gutter-grid", "watershed", "grabcut",
+        "vision", "manual", "imported-v3", "imported-v4"
+      ]
+    },
+
+    "Ease": {
+      "description": "Outgoing interpolation of a keyframe. Read from the EARLIER key of a bracketing pair, matching v3 lib/clip.ts.",
+      "type": "string",
+      "enum": ["linear", "ease", "hold"]
+    },
+
+    "ClipSource": {
+      "type": "string",
+      "enum": ["model", "edited", "critique", "imported"]
+    },
+
+    "StageName": {
+      "description": "The six pipeline stages. Each is an idempotent worker keyed by content hash.",
+      "type": "string",
+      "enum": ["decompose", "semantics", "rig", "animate", "render", "critique"]
+    },
+
+    "StageStatus": {
+      "type": "string",
+      "enum": ["pending", "running", "succeeded", "failed", "skipped"]
+    },
+
+    "CorrectionKind": {
+      "description": "The closed set of edits the critique pass may request. Every one of them is a SEMANTIC or PARAMETRIC nudge — none of them can introduce geometry (R2/R3).",
+      "type": "string",
+      "enum": [
+        "pivot-nudge", "rotation-damp", "z-order", "deformer-swap",
+        "parent-change", "keyframe-retime", "part-visibility", "abort"
+      ]
+    },
+
+    "GenerationMode": {
+      "description": "The generation seam. `external-prompt-only` is the only mode a build may serve while AniBuddyConfig.generationEnabled is false; the enum carries `in-app-generated` so turning it on later is a config change plus a validator branch, not a schema migration.",
+      "type": "string",
+      "enum": ["external-prompt-only", "in-app-generated"]
+    },
+
+    "BufferDtype": {
+      "type": "string",
+      "enum": ["f32", "u32"]
+    },
+
+    "BufferStorage": {
+      "description": "`inline` carries the numbers in the document (wire and preview). `external` carries a StorageAdapter key instead, because a 1200-vertex weight matrix per part times 64 parts will not fit a 16MB Mongo document.",
+      "type": "string",
+      "enum": ["inline", "external"]
+    },
+
+    "Vec2": {
+      "description": "A 2D point. Its coordinate space is stated by the field that holds it — never inferred.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+
+    "Rect": {
+      "description": "Axis-aligned rectangle, sheet-normalized 0..1 (R6).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "minimum": 0, "maximum": 1 },
+        "height": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+
+    "NumericBuffer": {
+      "description": "A flat numeric payload that is either inline or behind a StorageAdapter key. `sha256` is over the little-endian bytes of the payload as `dtype` and is the buffer's IDENTITY everywhere downstream: it names the stored object, it keys the render cache, and it is what the kernel fixture corpus compares against. THE EXTERNAL ROUND TRIP, which is a contract and not an implementation detail: (1) a producer that exceeds MAX_INLINE_BUFFER_ELEMENTS emits `storage: \"external\"`, `values: null` and a content-addressed `storageKey`; (2) only the Node gateway holds StorageAdapter credentials, so it is Node that uploads those bytes and rewrites `storageKey` to the key the adapter returned — no other process may invent one; (3) a Python stage that has to READ external geometry cannot fetch it, so Node sends the bytes back alongside the document as multipart FILE parts under the `buffers` field, each part named by its own `sha256`; (4) the receiver re-hashes every uploaded part and refuses any whose bytes disagree with the name, before decoding — bytes that do not match the hash are the wrong bytes whatever they decode to; (5) rehydration is IN MEMORY ONLY. The external reference stays the document's canonical form, and a stage that writes a child revision must restore it, or a payload that exists precisely because it does not fit a Mongo document travels back as the payload itself.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "storage", "length", "sha256", "values", "storageKey"],
+      "properties": {
+        "dtype": { "$ref": "#/$defs/BufferDtype" },
+        "storage": { "$ref": "#/$defs/BufferStorage" },
+        "length": {
+          "description": "Element count, not byte count. Authoritative for both storage modes: a rehydrated external buffer whose decoded element count disagrees with this is refused.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4000000
+        },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "values": {
+          "description": "The numbers themselves when storage is `inline`. MUST be null when storage is `external` — a consumer that finds null here has to either fetch by `storageKey` or refuse; it may never read it as an empty buffer, because an empty weight matrix renders as a collapsed part rather than as an error.",
+          "type": ["array", "null"],
+          "items": { "type": "number" }
+        },
+        "storageKey": {
+          "description": "The StorageAdapter key when storage is `external`; null otherwise. Kept even on a buffer that has been rehydrated inline for a stage's own arithmetic, because it is where the bytes really live and dropping it would let a rehydrated copy be stored back as an inline document.",
+          "type": ["string", "null"],
+          "maxLength": 512
+        }
+      }
+    },
+
+    "MaskRect": {
+      "description": "The part is the whole rectangle. The degenerate case, and what a v4 grid-sliced sprite region imports as.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "const": "rect" }
+      }
+    },
+
+    "MaskAlphaThreshold": {
+      "description": "The part is every pixel inside `Part.rect` whose alpha exceeds the threshold. ALPHA_FLOOR 24 is the repo-wide default and is shared with prepare.ts and rigCore.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "threshold"],
+      "properties": {
+        "kind": { "type": "string", "const": "alpha-threshold" },
+        "threshold": { "type": "integer", "minimum": 0, "maximum": 255 }
+      }
+    },
+
+    "MaskPolygon": {
+      "description": "Explicit outline plus holes, part-local normalized (R6). What contour tracing emits when a part is cleanly separable.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "outline", "holes"],
+      "properties": {
+        "kind": { "type": "string", "const": "polygon" },
+        "outline": { "$ref": "#/$defs/NumericBuffer" },
+        "holes": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/NumericBuffer" },
+          "x-limit": { "maxItems": "MAX_MASK_HOLES" }
+        }
+      }
+    },
+
+    "MaskRle": {
+      "description": "Run-length encoded binary mask in PIXELS, column-major from the mask origin. What watershed and grabCut emit for parts that touch or overlap, where no polygon is faithful.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "origin", "width", "height", "counts"],
+      "properties": {
+        "kind": { "type": "string", "const": "rle" },
+        "origin": {
+          "description": "Top-left of the RLE grid in SOURCE PIXELS.",
+          "$ref": "#/$defs/Vec2"
+        },
+        "width": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "counts": {
+          "description": "Alternating run lengths starting with a background run.",
+          "$ref": "#/$defs/NumericBuffer"
+        }
+      }
+    },
+
+    "Mask": {
+      "description": "Reversible pixel selection. Inherited from the v4 rule that a mask is a DESCRIPTION, never baked pixels — it is what lets a user reopen a decomposition and correct it.",
+      "oneOf": [
+        { "$ref": "#/$defs/MaskRect" },
+        { "$ref": "#/$defs/MaskAlphaThreshold" },
+        { "$ref": "#/$defs/MaskPolygon" },
+        { "$ref": "#/$defs/MaskRle" }
+      ],
+      "x-discriminator": "kind"
+    },
+
+    "CutLine": {
+      "description": "A separation the triangulator will not cross and across which bone distance is infinite. Ported verbatim in meaning from v3; now scoped to one part instead of the whole figure.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "points"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "points": {
+          "description": "Flat [x0,y0,x1,y1,...] part-local normalized polyline, at least two points.",
+          "$ref": "#/$defs/NumericBuffer"
+        }
+      }
+    },
+
+    "DeformerRigid": {
+      "description": "No deformation. The part's own `Part.rect` is drawn as two triangles under the transform of `Part.boundJointId`. Cheapest path, and correct for anything that is drawn as a solid object: a wheel, a shield, a UI badge. It carries NO fields of its own by design: the rectangle it draws and the joint it rides are already on the part, and a second copy on the deformer is a second thing to keep in step. A consumer MUST read both off `Part` — a kernel struct that stores its own `rect` or `bindJoint` has re-declared part state and will drift from it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "const": "rigid" }
+      }
+    },
+
+    "DeformerMesh": {
+      "description": "Triangle mesh plus linear blend skinning. The v3 path, now per-part. Vertex, triangle and weight payloads are part-local normalized (R6).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "verts", "tris", "boneIds", "weights", "cuts"],
+      "properties": {
+        "kind": { "type": "string", "const": "mesh" },
+        "verts": {
+          "description": "f32, flat [x,y,...], part-local normalized 0..1.",
+          "$ref": "#/$defs/NumericBuffer"
+        },
+        "tris": {
+          "description": "u32, flat [i0,i1,i2,...] indices into verts.",
+          "$ref": "#/$defs/NumericBuffer"
+        },
+        "boneIds": {
+          "description": "THE COLUMN ORDER OF `weights`, one entry per column, each `parentJointId->childJointId`. This is not a hint and not a subset marker: column `c` of the weight matrix is the influence of `boneIds[c]`, full stop. Bones themselves are still derived from the joint tree and never stored as objects (v3 rule) — what is stored here is the ORDER, because that is the only part of a derivation the document cannot reconstruct once the skeleton has moved on. A CONSUMER MUST PERMUTE BY NAME into whatever bone order it derives, and MUST NEVER assume column `c` corresponds to its own derived bone `c`; the two coincide only for a rig whose skeleton has not changed since the weights were solved, which is exactly the case that needs no permutation. A name that the consumer's own derivation does not produce MUST be REFUSED, never dropped and never skipped: dropping a column shifts every later column by one and rebinds every vertex that used it to a neighbouring bone, which renders as a plausible figure with one limb driven by the wrong joint. This field is the difference between that failure being loud and being invisible.",
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}->[A-Za-z0-9_-]{1,32}$" },
+          "x-limit": { "maxItems": "MAX_BONES_PER_PART" }
+        },
+        "weights": {
+          "description": "f32, row-major vertCount x boneIds.length, every row summing to 1 within WEIGHT_ROW_EPSILON. Linear blend skinning is an affine combination, so a row summing to 0.5 places its vertex halfway to the origin rather than merely underweighting it — which is why the tolerance is a blocking condition and not a warning.",
+          "$ref": "#/$defs/NumericBuffer"
+        },
+        "cuts": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/CutLine" },
+          "x-limit": { "maxItems": "MAX_CUTS_PER_PART" }
+        }
+      }
+    },
+
+    "DeformerLattice": {
+      "description": "Free-form quad-grid deformation. Right for soft sheets with no skeleton of their own — a cape, hair, a flag, cloth, a parallax layer that should billow. The displaced grid is then carried by `Part.boundJointId` so a lattice part still follows the skeleton; like `rigid`, this deformer stores neither the rect nor the bound joint, because both already live on the part.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "cols", "rows", "controlPoints", "interpolation"],
+      "properties": {
+        "kind": { "type": "string", "const": "lattice" },
+        "cols": { "type": "integer", "minimum": 1, "maximum": 16, "x-limit": { "maximum": "MAX_LATTICE_COLS" } },
+        "rows": { "type": "integer", "minimum": 1, "maximum": 16, "x-limit": { "maximum": "MAX_LATTICE_ROWS" } },
+        "controlPoints": {
+          "description": "f32, flat [x,y,...] of (cols+1)*(rows+1) ABSOLUTE positions, part-local normalized (R6), in ROW-MAJOR order — rows outer, index `j * (cols + 1) + i`. Absolute rather than displacements-from-rest is the canonical form and consumers MUST keep it: it is what an editor drags, it is what the rig stage authors, and the rest grid it would be differenced against (exactly uniform over `Part.rect`, so control point `(i, j)` rests at `(i / cols, j / rows)`) is a reconstruction each consumer would otherwise have to perform identically. Two reconstructions of one grid is two chances to disagree about it, in the one place where disagreement reads as the artwork shearing at rest.",
+          "$ref": "#/$defs/NumericBuffer"
+        },
+        "interpolation": { "type": "string", "enum": ["bilinear", "bicubic"] }
+      }
+    },
+
+    "DeformerSpline": {
+      "description": "A tapering ribbon along a spine, for anything long that bends down its length — a tail, a tentacle, a rope, a hose, a smoke trail. THE SPINE IS THE PART'S JOINT CHAIN, and that is the whole design: a tail needs a joint chain to be posable at all, so reusing it as the spline's control polyline means the spline is animated by ordinary forward kinematics and needs no deformer-specific animation channels. There is deliberately no stored control polyline here. An earlier draft carried a cubic bezier chain as well; it was removed because nothing could pose it — a static polyline has no channels — so it was authored, never read, and free to drift from the joints that actually drove the render. THE CHAIN DERIVATION, which every consumer MUST implement identically: take the joints whose `partId` is this part; the HEAD is the one whose `parent` is not itself a member of that set; follow child links from the head, taking at each step the member joint whose `parent` is the current one, until no member remains. That yields the chain head-to-tail. Order is load-bearing rather than cosmetic — the ribbon's shape is the sequence of its control points, and a reordered chain produces a ribbon folded back on itself. Fewer than two resolvable joints means the part cannot be splined and MUST be downgraded to `rigid` with a stated reason, never rendered as an empty ribbon. The rest ribbon and the posed ribbon are evaluated by the same function over the rest and posed chains respectively, which is what makes the artwork slide ALONG the curve instead of swimming across it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "thickness", "samples"],
+      "properties": {
+        "kind": { "type": "string", "const": "spline" },
+        "thickness": {
+          "description": "f32 TAPER TRACK: at least one half-width, normalized against the GEOMETRIC MEAN of `Part.rect`'s pixel dimensions. The axis has to be declared rather than inferred (R6) because a single scalar cannot be exact in an anisotropic part-local space, and the geometric mean is the only choice that does not silently assume the ribbon runs horizontally or vertically. The rig producer and the render consumer are commented on both sides that this must not drift. The track is indexed by NORMALIZED POSITION ALONG THE SPINE, not by joint: with `m` entries, the half-width at curve parameter `u` in 0..1 is the linear interpolation of the track at `u * (m - 1)`. Decoupling the track's length from the chain's is what lets a chain shortened by the joint budget still taper correctly, and `m = 1` is a legitimate uniform ribbon rather than a special case.",
+          "$ref": "#/$defs/NumericBuffer"
+        },
+        "samples": {
+          "description": "Ribbon evaluation resolution: `samples` points along the spine, two ribbon vertices and (samples - 1) quads. Fixed here rather than chosen per renderer, because browser preview and server render must agree bit for bit (R4). Samples are spaced uniformly in PARAMETER, not in arc length — an arc-length reparameterization needs an iterative solve whose convergence path is one more thing two languages have to reproduce identically.",
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 256,
+          "x-limit": { "maximum": "MAX_SPLINE_SAMPLES" }
+        }
+      }
+    },
+
+    "Deformer": {
+      "description": "Exactly one of the four deformation models, tagged on `kind`.",
+      "oneOf": [
+        { "$ref": "#/$defs/DeformerRigid" },
+        { "$ref": "#/$defs/DeformerMesh" },
+        { "$ref": "#/$defs/DeformerLattice" },
+        { "$ref": "#/$defs/DeformerSpline" }
+      ],
+      "x-discriminator": "kind"
+    },
+
+    "Slot": {
+      "description": "A named attachment point this part OFFERS to children. A child references it by name through Part.attachSlot, so a sword can move from hand to back without either part learning about the other's geometry.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "position"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "position": {
+          "description": "Part-local normalized (R6).",
+          "$ref": "#/$defs/Vec2"
+        }
+      }
+    },
+
+    "Part": {
+      "description": "One cutout layer. The unit of decomposition, of draw order, of attachment, and of deformation.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "name", "role", "mask", "rect", "pivot", "zIndex",
+        "parentPartId", "attachSlot", "slots", "deformer", "boundJointId",
+        "visible", "opacity", "confidence", "provenance"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "role": { "$ref": "#/$defs/PartRole" },
+        "mask": { "$ref": "#/$defs/Mask" },
+        "rect": {
+          "description": "The part's bounding box on the source sheet, sheet-normalized. Defines the part-local space every deformer payload lives in.",
+          "$ref": "#/$defs/Rect"
+        },
+        "pivot": {
+          "description": "Rotation centre, part-local normalized. A hip is near (0.5, 0.1); a wheel is at its axle.",
+          "$ref": "#/$defs/Vec2"
+        },
+        "zIndex": {
+          "description": "Draw order, low first. Animatable through PartPose.zIndex, which is how a limb crosses in front of a torso mid-clip. THIS FIELD IS THE REST VALUE of that channel: a clip that never keys it leaves the part at this draw order. Ties are broken by document order, never by part id — two parts sharing a z-index is a legitimate authoring state, and the artist's list order is the only signal about which they meant in front.",
+          "type": "integer",
+          "minimum": -512,
+          "maximum": 512
+        },
+        "parentPartId": {
+          "description": "Transform parent in the cutout tree, or null for a root part. Acyclic, depth capped by MAX_PART_DEPTH.",
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9_-]{1,32}$"
+        },
+        "attachSlot": {
+          "description": "Name of a Slot on the parent part this part hangs from, or null to hang from the parent's pivot.",
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9_-]{1,32}$"
+        },
+        "slots": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/Slot" },
+          "x-limit": { "maxItems": "MAX_SLOTS_PER_PART" }
+        },
+        "deformer": { "$ref": "#/$defs/Deformer" },
+        "boundJointId": {
+          "description": "The joint whose transform drives this part as a unit. Read by the `rigid` deformer (which draws `rect` under it) and by `lattice` (which carries its displaced grid under it); ignored by `mesh`, which is driven per-vertex by its weight matrix, and by `spline`, which is driven by its whole joint chain. NULL MEANS THE SKELETON ROOT, not \"no transform\": a part pinned to nothing stays put while the figure around it moves, which reads as the part having come loose, whereas riding the root means a global move still carries it and a root at rest is the identity anyway. An id that the skeleton does not contain falls back the same way, with a stated reason.",
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9_-]{1,32}$"
+        },
+        "visible": {
+          "description": "Whether the part composites at all. THIS FIELD IS THE REST VALUE of PartPose.visible — see PartPose for the one rule all four compositing channels follow.",
+          "type": "boolean"
+        },
+        "opacity": {
+          "description": "Layer opacity, 0..1. THIS FIELD IS THE REST VALUE of PartPose.opacity, in exactly the sense 0 is the rest value of rot — see PartPose. A keyframe REPLACES it for the keyed span and is NEVER multiplied by it, which is what lets a clip drive a part authored at 0.5 all the way to 1.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "confidence": {
+          "description": "How sure the producing stage is. Below CONFIDENCE_REVIEW_FLOOR the editor marks the part as needing review rather than silently trusting it.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "provenance": { "$ref": "#/$defs/PartProvenance" }
+      }
+    },
+
+    "Joint": {
+      "description": "A node of the free-form skeleton. Kept from v3 almost verbatim; the one structural change is `partId` — joints now bind to a part rather than to one global mesh.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role", "x", "y", "parent", "partId", "ikChainLength", "confidence"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "role": { "$ref": "#/$defs/JointRole" },
+        "x": { "description": "Sheet-normalized 0..1 (R6).", "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "description": "Sheet-normalized 0..1 (R6).", "type": "number", "minimum": 0, "maximum": 1 },
+        "parent": {
+          "description": "Parent joint id, or null for the single root. Exactly one root across the skeleton, no cycles, depth capped by MAX_JOINT_DEPTH.",
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9_-]{1,32}$"
+        },
+        "partId": {
+          "description": "The part this joint articulates, or null for a pure structural joint such as the root.",
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9_-]{1,32}$"
+        },
+        "ikChainLength": {
+          "description": "How many ancestors an IK drag on this joint may rotate, or null for FK only. Set by the archetype prior on limbTip roles.",
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 4
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+
+    "Skeleton": {
+      "description": "The joint graph. Bones are DERIVED from it and never stored as objects — only their ids appear, as DeformerMesh.boneIds. THE DERIVATION, which every consumer MUST reproduce exactly: walk `joints` in document order and emit one bone `parentId->childId` for each joint that has a resolvable parent, skipping the root and any joint whose parent is missing. That order is the order weight-matrix columns are named against, so it is a contract rather than an implementation choice — but a consumer still permutes `DeformerMesh.boneIds` by name into it rather than trusting the positions to line up, because the skeleton is free to gain a joint after a matrix was solved.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["joints"],
+      "properties": {
+        "joints": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 96,
+          "items": { "$ref": "#/$defs/Joint" },
+          "x-limit": { "maxItems": "MAX_JOINTS" }
+        }
+      }
+    },
+
+    "JointPose": {
+      "description": "One joint's LOCAL delta at a keyframe. Every channel optional; absent means unchanged from rest. That sparsity is load-bearing — a key that only mentions the tail must not snap every other joint.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "rot": { "description": "Degrees, local, positive is clockwise on screen.", "type": "number", "minimum": -180, "maximum": 180 },
+        "tx": { "description": "Fraction of AssetRef.figureHeight — of the figure, not of the canvas, and the same denominator on both axes so a translation cannot shear on a non-square sheet.", "type": "number", "minimum": -1, "maximum": 1 },
+        "ty": { "description": "Fraction of AssetRef.figureHeight, as tx.", "type": "number", "minimum": -1, "maximum": 1 },
+        "scale": { "type": "number", "minimum": 0.05, "maximum": 4 }
+      }
+    },
+
+    "PartPose": {
+      "description": "One part's LOCAL delta at a keyframe. Same sparsity rule as JointPose. The last four channels are new in v5 and are what make sprite swapping, layered reveals and mid-clip draw-order changes expressible — the v4 MotionProgram track types, folded into one keyframe model. REST FOR A COMPOSITING CHANNEL IS THE PART'S OWN AUTHORED VALUE, AND A KEY REPLACES IT RATHER THAN SCALING IT. `Part.visible`, `Part.opacity` and `Part.zIndex` ARE the rest values of `visible`, `opacity` and `zIndex` here, in exactly the sense 0 is the rest value of `rot`. Three consequences, stated because each one is a place two implementations can silently disagree: (1) a clip that never mentions the channel composites the part exactly as authored; (2) a channel present in only ONE of the two bracketing keys blends against the part's authored value, not against a schema-wide constant, so a part drawn at 0.5 that is keyed to 1 at the end of a clip ramps 0.5 → 1; (3) a resolved opacity is NEVER multiplied by `Part.opacity` — multiplying would make it impossible for a keyframe to drive a translucent part to full opacity, and would make `opacity` the only channel in the schema whose static field is a gain rather than a rest. `swapTo` has no static counterpart, so its rest is \"no swap\". The four geometry channels (`rot`, `tx`, `ty`, `scale`) keep the schema-wide rests, because a part has no authored `rot` for them to fall back to.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "rot": { "type": "number", "minimum": -180, "maximum": 180 },
+        "tx": { "description": "Fraction of AssetRef.figureHeight, exactly as JointPose.tx.", "type": "number", "minimum": -1, "maximum": 1 },
+        "ty": { "description": "Fraction of AssetRef.figureHeight, exactly as JointPose.ty.", "type": "number", "minimum": -1, "maximum": 1 },
+        "scale": { "type": "number", "minimum": 0.05, "maximum": 4 },
+        "visible": { "description": "Steps, never interpolates — there is no meaningful halfway between shown and hidden. Rest is `Part.visible`.", "type": "boolean" },
+        "opacity": { "description": "Interpolates. Rest is `Part.opacity`, NOT 1: the resolved value replaces the part's authored opacity rather than scaling it.", "type": "number", "minimum": 0, "maximum": 1 },
+        "zIndex": { "description": "Steps, never interpolates — there is no meaningful halfway between two draw orders. Rest is `Part.zIndex`.", "type": "integer", "minimum": -512, "maximum": 512 },
+        "swapTo": {
+          "description": "Id of another part whose PIXELS replace this one's for the rest of the segment. The v4 sprite-swap track, expressed as a channel. Steps, never interpolates; rest is no swap. ONLY THE PIXELS CHANGE: the referring part's geometry, deformer, parent chain, pivot, opacity and draw order all stay its own. Both parts crop the same sheet through `Part.rect`, so the substitution is an affine remap of texture coordinates from this part's rect onto the target's, and R2 holds — a different region of the user's own artwork is resampled, nothing is generated. Reading it the other way, as \"draw the target's posed geometry in this slot\", is REFUSED by this schema: it would make a swap silently re-parent and re-deform the layer, so a mouth cutout would stop following the head, and it would composite the target's mesh twice in any frame where the target is also drawn as itself. A target that is not a part of this rig is a warning and the part draws itself.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,32}$"
+        }
+      }
+    },
+
+    "Keyframe": {
+      "description": "A sparse pose sample. Interpolation is per-channel between the two bracketing keys; a channel present in only one of them blends against its REST value — 0 for rot/tx/ty, 1 for scale, and for a PartPose's compositing channels the part's own authored `visible`/`opacity`/`zIndex` rather than a schema-wide constant (see PartPose). Every channel of every kind brackets through the same search, so a part's opacity and a joint's rotation sampled from this clip at the same instant can never land on different keys.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "ease", "joints", "parts"],
+      "properties": {
+        "t": { "description": "Normalized clip time. keyframes[0].t is always 0.", "type": "number", "minimum": 0, "maximum": 1 },
+        "ease": { "$ref": "#/$defs/Ease" },
+        "joints": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+          "additionalProperties": { "$ref": "#/$defs/JointPose" }
+        },
+        "parts": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+          "additionalProperties": { "$ref": "#/$defs/PartPose" }
+        }
+      }
+    },
+
+    "Clip": {
+      "description": "One named motion. `fps` and `frameCount` are the clip's sampling rate, not its content.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "request", "loop", "fps", "frameCount", "keyframes", "source"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "request": {
+          "description": "What the user asked for, kept so the clip can be regenerated.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "loop": { "type": "boolean" },
+        "fps": { "type": "integer", "minimum": 1, "maximum": 60, "x-limit": { "maximum": "MAX_FPS" } },
+        "frameCount": { "type": "integer", "minimum": 2, "maximum": 120, "x-limit": { "maximum": "MAX_FRAMES" } },
+        "keyframes": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/Keyframe" },
+          "x-limit": { "maxItems": "MAX_KEYFRAMES" }
+        },
+        "source": { "$ref": "#/$defs/ClipSource" }
+      }
+    },
+
+    "AssetRef": {
+      "description": "The source sheet. Referenced, never embedded and never edited.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "name", "storageKey", "contentHash", "width", "height",
+        "figureHeight", "mimeType", "rightsConfirmed", "remoteVisionConsented"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "storageKey": {
+          "description": "Key into the Node StorageAdapter. The browser never receives a raw provider URL for a private sheet.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "contentHash": {
+          "description": "SHA-256 of the source bytes. Every stage is idempotent on this, and it is what makes a render cache hit safe.",
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "width": { "type": "integer", "minimum": 1, "maximum": 8192, "x-limit": { "maximum": "MAX_SOURCE_EDGE" } },
+        "height": { "type": "integer", "minimum": 1, "maximum": 8192, "x-limit": { "maximum": "MAX_SOURCE_EDGE" } },
+        "figureHeight": {
+          "description": "Height of the SUBJECT inside the sheet, in source pixels. This is the denominator for the `tx`/`ty` pose channels on both JointPose and PartPose, and for `DeformerSpline.thickness` — translations are authored as a fraction of the figure rather than of the canvas, so that the same clip reads identically on a tight crop and on a loose one. It is a separate field from `height` precisely because those two numbers differ whenever the artwork does not fill its sheet, which is the common case; resolving it to `height` would defeat the only reason the channel is figure-relative. DERIVATION: the pixel height of the union of every `Part.rect`, i.e. the bounding box of the decomposed figure, measured once by the stage that first knows the parts (decompose) and carried forward by later revisions. It is not re-measured per stage: a rig stage that merges two parts would otherwise silently re-time every existing clip. DEFAULT: null means unmeasured — a sheet uploaded but not yet decomposed — and a consumer MUST then fall back to `height`. Null and `height` are therefore the same arithmetic, which is what makes adding the measurement to an existing document a refinement rather than a migration.",
+          "type": ["number", "null"],
+          "minimum": 1,
+          "maximum": 8192,
+          "x-limit": { "maximum": "MAX_SOURCE_EDGE" }
+        },
+        "mimeType": { "type": "string", "enum": ["image/png", "image/webp", "image/jpeg"] },
+        "rightsConfirmed": { "type": "boolean" },
+        "remoteVisionConsented": {
+          "description": "The user has agreed this sheet may be sent to a remote vision model. False blocks the semantics, animate and critique stages, not the geometry stages.",
+          "type": "boolean"
+        }
+      }
+    },
+
+    "QaTurn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "answer"],
+      "properties": {
+        "question": { "type": "string", "maxLength": 1000 },
+        "answer": { "type": "string", "maxLength": 1000 }
+      }
+    },
+
+    "GenerationProducedBy": {
+      "description": "Who made the source sheet. While generationEnabled is false the validator requires `kind: external-tool`, which is the machine-checkable form of R2.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "modelId", "at"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["user-supplied", "external-tool", "in-app-model"] },
+        "modelId": { "type": ["string", "null"], "maxLength": 120 },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    },
+
+    "GenerationSeam": {
+      "description": "Everything about where the pixels came from, isolated in one object so enabling in-app generation later touches this object, one config flag and one validator branch — and nothing else.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "prompt", "transcript", "producedBy"],
+      "properties": {
+        "mode": { "$ref": "#/$defs/GenerationMode" },
+        "prompt": {
+          "description": "The prompt AniBuddy WROTE for the user to take to an external image tool. Writing it is not generating with it (R2).",
+          "type": ["string", "null"],
+          "maxLength": 4000
+        },
+        "transcript": {
+          "type": "array",
+          "maxItems": 6,
+          "items": { "$ref": "#/$defs/QaTurn" },
+          "x-limit": { "maxItems": "MAX_INTERVIEW_ROUNDS" }
+        },
+        "producedBy": {
+          "oneOf": [
+            { "$ref": "#/$defs/GenerationProducedBy" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+
+    "StageRecord": {
+      "description": "One execution of one pipeline stage. The audit trail that makes a rig explainable and a bill defensible.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage", "status", "startedAt", "finishedAt", "inputHash",
+        "passIndex", "modelId", "usageEventId", "creditsSpent", "message"
+      ],
+      "properties": {
+        "stage": { "$ref": "#/$defs/StageName" },
+        "status": { "$ref": "#/$defs/StageStatus" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+        "inputHash": {
+          "description": "SHA-256 of the stage's canonicalized input. Equal hash means the worker may return the cached artifact instead of recomputing.",
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "passIndex": {
+          "description": "Which critique pass produced this record. 0 is the first, unreviewed pass.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "modelId": {
+          "description": "The model that was actually SERVED, threaded back from the provider response tag — never the model that was requested.",
+          "type": ["string", "null"],
+          "maxLength": 120
+        },
+        "usageEventId": { "type": ["string", "null"], "pattern": "^[a-f0-9]{24}$" },
+        "creditsSpent": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "message": { "type": ["string", "null"], "maxLength": 2000 }
+      }
+    },
+
+    "DocumentProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pipelineVersion", "kernelVersion", "stages"],
+      "properties": {
+        "pipelineVersion": { "type": "string", "maxLength": 40 },
+        "kernelVersion": {
+          "description": "Version of the shared Rust kernel that produced or last validated this document. A preview rendered by a different kernel build is not guaranteed bit-identical (R4).",
+          "type": "string",
+          "maxLength": 40
+        },
+        "stages": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/StageRecord" },
+          "x-limit": { "maxItems": "MAX_STAGE_RECORDS" }
+        }
+      }
+    },
+
+    "Diagnostics": {
+      "description": "What the pipeline measured. Server-authoritative: authored only by the Python validator, never by the browser and never by a model.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "foregroundPixels", "coveredForegroundPixels", "overlappingPartPairs",
+        "maxStretch", "flippedTriangles", "isolatedVertices", "warnings", "blockingReason"
+      ],
+      "properties": {
+        "foregroundPixels": { "type": "integer", "minimum": 0 },
+        "coveredForegroundPixels": {
+          "description": "Foreground pixels claimed by at least one part. The gap against foregroundPixels is the decompose stage's own honesty check.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "overlappingPartPairs": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$" }
+          }
+        },
+        "maxStretch": {
+          "description": "Worst sigmaMax/sigmaMin across every deformed triangle in the last render. 1 is undistorted; above STRETCH_WARNING the UI discloses it rather than hiding it.",
+          "type": "number",
+          "minimum": 0
+        },
+        "flippedTriangles": { "type": "integer", "minimum": 0 },
+        "isolatedVertices": {
+          "description": "Vertices a cut line severed from every bone, which fell back to nearest-bone. Carried as a number instead of a console warning, which is where v3 put it.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string", "maxLength": 500 }
+        },
+        "blockingReason": {
+          "description": "The export gate. Null means the document is structurally valid and may be rendered or exported. Non-null is a user-facing sentence explaining the lock — the direct descendant of v3's rigInvalidReason, moved server-side so the browser cannot talk its way past it.",
+          "type": ["string", "null"],
+          "maxLength": 500
+        }
+      }
+    },
+
+    "RevisionLink": {
+      "description": "Immutable parent-linked revisions, kept from v4. A stage never mutates a document in place; it writes a child revision, so every correction is reversible and the editor can diff two passes.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "parentRevisionId", "reason", "accepted"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0, "maximum": 4096 },
+        "parentRevisionId": { "type": ["string", "null"], "maxLength": 64 },
+        "reason": { "type": "string", "maxLength": 200 },
+        "accepted": {
+          "description": "Whether the user or the critique loop signed this revision off. An unaccepted revision is a proposal, not the truth.",
+          "type": "boolean"
+        }
+      }
+    },
+
+    "RigDocument": {
+      "description": "The whole contract. One document is one revision of one asset's rig.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion", "id", "projectId", "createdAt", "updatedAt", "revision",
+        "archetype", "asset", "parts", "skeleton", "clips",
+        "generation", "provenance", "diagnostics"
+      ],
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 5 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "projectId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "revision": { "$ref": "#/$defs/RevisionLink" },
+        "archetype": { "$ref": "#/$defs/Archetype" },
+        "asset": { "$ref": "#/$defs/AssetRef" },
+        "parts": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/Part" },
+          "x-limit": { "maxItems": "MAX_PARTS" }
+        },
+        "skeleton": { "$ref": "#/$defs/Skeleton" },
+        "clips": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/Clip" },
+          "x-limit": { "maxItems": "MAX_CLIPS" }
+        },
+        "generation": { "$ref": "#/$defs/GenerationSeam" },
+        "provenance": { "$ref": "#/$defs/DocumentProvenance" },
+        "diagnostics": { "$ref": "#/$defs/Diagnostics" }
+      }
+    },
+
+    "ProposedPartSemantics": {
+      "description": "What the vision model is allowed to say about one part. Note what is absent: no mask, no rect, no vertices, no weights. The model proposes SEMANTICS ONLY (R3).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["partId", "role", "parentPartId", "attachSlot", "pivotHint", "zIndex", "deformerHint", "confidence"],
+      "properties": {
+        "partId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "role": { "$ref": "#/$defs/PartRole" },
+        "parentPartId": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "attachSlot": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "pivotHint": {
+          "description": "A HINT in part-local normalized coordinates. The rig stage snaps it to the mask's medial axis; the model's number is an initial guess, not a geometric fact.",
+          "$ref": "#/$defs/Vec2"
+        },
+        "zIndex": { "type": "integer", "minimum": -512, "maximum": 512 },
+        "deformerHint": { "$ref": "#/$defs/DeformerKind" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+
+    "ProposedJointSemantics": {
+      "description": "A joint the model believes exists. Position is normalized and advisory; the rig stage validates it against the part's mask and rejects joints that fall on empty pixels.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jointId", "name", "role", "partId", "parent", "x", "y"],
+      "properties": {
+        "jointId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "role": { "$ref": "#/$defs/JointRole" },
+        "partId": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "parent": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+
+    "SemanticsProposal": {
+      "description": "The strict response schema of the `semantics` stage's vision call. Revalidated server-side; a structural failure rejects the WHOLE response and refunds (R7), because a partially repaired graph animates wrongly while looking plausible.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archetype", "parts", "joints", "warnings"],
+      "properties": {
+        "archetype": { "$ref": "#/$defs/Archetype" },
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/ProposedPartSemantics" },
+          "x-limit": { "maxItems": "MAX_PARTS" }
+        },
+        "joints": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 96,
+          "items": { "$ref": "#/$defs/ProposedJointSemantics" },
+          "x-limit": { "maxItems": "MAX_JOINTS" }
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+
+    "MotionProposal": {
+      "description": "The strict response schema of the `animate` stage. Keyframes reference REAL part and joint ids from the built rig; an unknown id rejects the whole response.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "loop", "fps", "frameCount", "keyframes", "warnings"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "loop": { "type": "boolean" },
+        "fps": { "type": "integer", "minimum": 1, "maximum": 60, "x-limit": { "maximum": "MAX_FPS" } },
+        "frameCount": { "type": "integer", "minimum": 2, "maximum": 120, "x-limit": { "maximum": "MAX_FRAMES" } },
+        "keyframes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/Keyframe" },
+          "x-limit": { "maxItems": "MAX_KEYFRAMES" }
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+
+    "Correction": {
+      "description": "One requested change from a critique pass. Every field the model may set is a small bounded scalar or an id — there is no field here through which geometry can enter.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "targetId", "reason", "vec2", "scalar", "intValue", "deformerKind", "stringValue"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/CorrectionKind" },
+        "targetId": {
+          "description": "Part id, joint id or clip id, depending on `kind`.",
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9_-]{1,32}$"
+        },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "vec2": {
+          "description": "Payload for pivot-nudge. Part-local normalized delta, clamped to CRITIQUE_MAX_PIVOT_NUDGE.",
+          "oneOf": [{ "$ref": "#/$defs/Vec2" }, { "type": "null" }]
+        },
+        "scalar": {
+          "description": "Payload for rotation-damp (a 0..1 multiplier) and keyframe-retime (a 0..1 time).",
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "intValue": {
+          "description": "Payload for z-order.",
+          "type": ["integer", "null"],
+          "minimum": -512,
+          "maximum": 512
+        },
+        "deformerKind": {
+          "oneOf": [{ "$ref": "#/$defs/DeformerKind" }, { "type": "null" }]
+        },
+        "stringValue": {
+          "description": "Payload for parent-change (a part or joint id) and part-visibility (`show` or `hide`).",
+          "type": ["string", "null"],
+          "maxLength": 64
+        }
+      }
+    },
+
+    "CritiqueReport": {
+      "description": "The strict response schema of the `critique` stage, produced after the model VIEWS a contact sheet of really-rendered frames. `verdict: accept` ends the loop; `abort` ends it without spending another pass.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "passIndex", "observations", "corrections"],
+      "properties": {
+        "verdict": { "type": "string", "enum": ["accept", "revise", "abort"] },
+        "passIndex": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "observations": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "maxLength": 500 }
+        },
+        "corrections": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/Correction" },
+          "x-limit": { "maxItems": "MAX_CORRECTIONS_PER_PASS" }
+        }
+      }
+    }
+  }
+}

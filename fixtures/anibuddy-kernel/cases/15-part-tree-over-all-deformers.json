@@ -1,0 +1,98 @@
+{
+  "id": "15-part-tree-over-all-deformers",
+  "description": "One part transform over each of the four deformers, to pin that the tree composes on the OUTSIDE of every one of them uniformly. The mesh part is the load-bearing member: it has no single joint transform to fold into, only one per bone blended per vertex, so a kernel that tried to compose the part tree INSIDE the deformer could not produce this case's output at all. Every part here is also driven by a bound joint or a bone chain, so this is the 'both' case -- the joint deforms the artwork, the tree then carries the deformed result. A non-uniform destination scale is applied on top, because the tree runs in source pixels and the surface scale must still be the last multiply.",
+  "rig": {
+    "asset": { "width": 900, "height": 700, "figureHeight": 640 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.44, "y": 0.78 },
+      { "id": "spine", "parent": "root", "x": 0.46, "y": 0.48 },
+      { "id": "head", "parent": "spine", "x": 0.47, "y": 0.24 },
+      { "id": "tailA", "parent": "root", "x": 0.6, "y": 0.8 },
+      { "id": "tailB", "parent": "tailA", "x": 0.74, "y": 0.84 }
+    ],
+    "parts": [
+      {
+        "id": "hull",
+        "zIndex": 0,
+        "rect": [0.3, 0.34, 0.64, 0.82],
+        "pivot": [0.5, 0.92],
+        "parentPartId": null,
+        "attachSlot": null,
+        "slots": [
+          {
+            "name": "mount",
+            "position": [0.82, 0.12]
+          }
+        ],
+        "deformer": {
+          "kind": "mesh",
+          "boneCount": 4,
+          "verts": [0.32, 0.36, 0.62, 0.36, 0.31, 0.58, 0.63, 0.58, 0.33, 0.8, 0.61, 0.8],
+          "tris": [0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4],
+          "weights": [
+            0.1, 0.75, 0.15, 0.0, 0.1, 0.75, 0.15, 0.0, 0.45, 0.5, 0.05, 0.0, 0.45, 0.5,
+            0.05, 0.0, 0.9, 0.1, 0.0, 0.0, 0.9, 0.1, 0.0, 0.0
+          ]
+        }
+      },
+      {
+        "id": "turret",
+        "zIndex": 3,
+        "rect": [0.56, 0.2, 0.72, 0.34],
+        "pivot": [0.5, 0.75],
+        "parentPartId": "hull",
+        "attachSlot": "mount",
+        "deformer": { "kind": "rigid" },
+        "boundJointId": "head"
+      },
+      {
+        "id": "banner",
+        "zIndex": 1,
+        "rect": [0.18, 0.42, 0.4, 0.9],
+        "pivot": [0.9, 0.05],
+        "parentPartId": "hull",
+        "attachSlot": null,
+        "deformer": {
+          "kind": "lattice",
+          "cols": 2,
+          "rows": 2,
+          "interpolation": "bicubic",
+          "controlPoints": [
+            0.0, 0.0, 0.563636363636, -0.0166666666667, 1.0, 0.0, 0.0954545454545,
+            0.510416666667, 0.427272727273, 0.55, 1.13636363636, 0.475, 0.0, 1.0,
+            0.586363636364, 1.05833333333, 1.0, 1.0
+          ]
+        },
+        "boundJointId": "spine"
+      },
+      {
+        "id": "cable",
+        "zIndex": 2,
+        "rect": [0.42, 0.72, 0.82, 0.94],
+        "pivot": [0.05, 0.4],
+        "parentPartId": null,
+        "attachSlot": null,
+        "deformer": {
+          "kind": "spline",
+          "joints": ["root", "tailA", "tailB"],
+          "thickness": 0.05,
+          "segments": 12
+        }
+      }
+    ]
+  },
+  "pose": {
+    "root": { "rot": 2.5, "tx": -0.014 },
+    "spine": { "rot": -11 },
+    "head": { "rot": 9.5 },
+    "tailA": { "rot": 18 },
+    "tailB": { "rot": 24, "scale": 1.05 }
+  },
+  "partPose": {
+    "hull": { "rot": 7.25, "ty": -0.02 },
+    "turret": { "rot": -41.5, "scale": 0.92 },
+    "banner": { "rot": 15.75 },
+    "cable": { "tx": 0.035, "scale": 1.12 }
+  },
+  "scale": [0.8, 1.25]
+}

@@ -1,0 +1,115 @@
+{
+  "id": "09-easing-drives-opacity-the-same-way",
+  "frames": [
+    {
+      "time": 0.0,
+      "resolved": [
+        ["linear", true, 0.0, 0, null],
+        ["smooth", true, 0.0, 1, null],
+        ["held", true, 0.0, 2, null]
+      ],
+      "draw": []
+    },
+    {
+      "time": 0.10000000149011612,
+      "resolved": [
+        ["linear", true, 0.20000000298023224, 0, null],
+        ["smooth", true, 0.20000000298023224, 1, null],
+        ["held", true, 0.20000000298023224, 2, null]
+      ],
+      "draw": [
+        ["linear", "linear", 0, 0.20000000298023224, 0, 1.0, 1.0, 0.0, 0.0],
+        ["smooth", "smooth", 1, 0.20000000298023224, 1, 1.0, 1.0, 0.0, 0.0],
+        ["held", "held", 2, 0.20000000298023224, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.25,
+      "resolved": [
+        ["linear", true, 0.5, 0, null],
+        ["smooth", true, 0.5, 1, null],
+        ["held", true, 0.5, 2, null]
+      ],
+      "draw": [
+        ["linear", "linear", 0, 0.5, 0, 1.0, 1.0, 0.0, 0.0],
+        ["smooth", "smooth", 1, 0.5, 1, 1.0, 1.0, 0.0, 0.0],
+        ["held", "held", 2, 0.5, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.4000000059604645,
+      "resolved": [
+        ["linear", true, 0.800000011920929, 0, null],
+        ["smooth", true, 0.800000011920929, 1, null],
+        ["held", true, 0.800000011920929, 2, null]
+      ],
+      "draw": [
+        ["linear", "linear", 0, 0.800000011920929, 0, 1.0, 1.0, 0.0, 0.0],
+        ["smooth", "smooth", 1, 0.800000011920929, 1, 1.0, 1.0, 0.0, 0.0],
+        ["held", "held", 2, 0.800000011920929, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.5,
+      "resolved": [
+        ["linear", true, 1.0, 0, null],
+        ["smooth", true, 1.0, 1, null],
+        ["held", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["linear", "linear", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["smooth", "smooth", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["held", "held", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.6000000238418579,
+      "resolved": [
+        ["linear", true, 1.0, 0, null],
+        ["smooth", true, 1.0, 1, null],
+        ["held", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["linear", "linear", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["smooth", "smooth", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["held", "held", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.75,
+      "resolved": [
+        ["linear", true, 1.0, 0, null],
+        ["smooth", true, 1.0, 1, null],
+        ["held", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["linear", "linear", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["smooth", "smooth", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["held", "held", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.8999999761581421,
+      "resolved": [
+        ["linear", true, 1.0, 0, null],
+        ["smooth", true, 1.0, 1, null],
+        ["held", true, 1.0, 2, null]
+      ],
+      "draw": [
+        ["linear", "linear", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["smooth", "smooth", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["held", "held", 2, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 1.0,
+      "resolved": [
+        ["linear", true, 0.0, 0, null],
+        ["smooth", true, 0.0, 1, null],
+        ["held", true, 0.0, 2, null]
+      ],
+      "draw": []
+    }
+  ],
+  "warnings": []
+}

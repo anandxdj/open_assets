@@ -1,0 +1,71 @@
+{
+  "id": "13-attach-slot-reanchor",
+  "description": "The sword-from-hand-to-back case, both halves of it in one rig, as a controlled comparison. 'swordHeld' and 'swordStowed' have IDENTICAL rects, pivots and poses -- both drawn in the same spare corner of the sheet, as a separate sprite normally is -- and differ in exactly one field: which slot on 'torso' they name. Their posed geometry must therefore differ by precisely the vector between the two slots, carried through the torso's own transform, and by nothing else. That is the assertion the slot field exists to satisfy: pointing a child at a different slot moves it, without either part storing the other's coordinates. 'scabbard' is parented to the torso with attachSlot null and must NOT move from where it was drawn, which is the other half of the contract -- parenting alone carries, attaching re-anchors. The torso carries rot, scale and a translation, so the slot's frame of reference (origin at the slot, basis inherited from the host) is exercised rather than assumed: a kernel that gave the slot its own basis, or that re-anchored before the parent's rotation instead of after, separates the two swords by the wrong vector.",
+  "rig": {
+    "asset": { "width": 512, "height": 512, "figureHeight": 460 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.5, "y": 0.86 },
+      { "id": "spine", "parent": "root", "x": 0.5, "y": 0.46 }
+    ],
+    "parts": [
+      {
+        "id": "torso",
+        "zIndex": 1,
+        "rect": [0.3, 0.24, 0.62, 0.8],
+        "pivot": [0.5, 0.94],
+        "parentPartId": null,
+        "attachSlot": null,
+        "slots": [
+          {
+            "name": "hand",
+            "position": [0.94, 0.42]
+          },
+          {
+            "name": "back",
+            "position": [0.08, 0.16]
+          }
+        ],
+        "deformer": { "kind": "rigid" },
+        "boundJointId": "spine"
+      },
+      {
+        "id": "swordHeld",
+        "zIndex": 3,
+        "rect": [0.7, 0.06, 0.78, 0.34],
+        "pivot": [0.5, 0.88],
+        "parentPartId": "torso",
+        "attachSlot": "hand",
+        "deformer": { "kind": "rigid" },
+        "boundJointId": "spine"
+      },
+      {
+        "id": "swordStowed",
+        "zIndex": 0,
+        "rect": [0.7, 0.06, 0.78, 0.34],
+        "pivot": [0.5, 0.88],
+        "parentPartId": "torso",
+        "attachSlot": "back",
+        "deformer": { "kind": "rigid" },
+        "boundJointId": "spine"
+      },
+      {
+        "id": "scabbard",
+        "zIndex": 2,
+        "rect": [0.24, 0.5, 0.32, 0.72],
+        "pivot": [0.5, 0.2],
+        "parentPartId": "torso",
+        "attachSlot": null,
+        "deformer": { "kind": "rigid" },
+        "boundJointId": "spine"
+      }
+    ]
+  },
+  "pose": {
+    "spine": { "rot": 6 }
+  },
+  "partPose": {
+    "torso": { "rot": -18.5, "scale": 1.08, "ty": -0.024 },
+    "swordHeld": { "rot": 62 },
+    "swordStowed": { "rot": 62 }
+  }
+}

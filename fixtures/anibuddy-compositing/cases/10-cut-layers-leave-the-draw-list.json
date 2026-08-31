@@ -1,0 +1,26 @@
+{
+  "id": "10-cut-layers-leave-the-draw-list",
+  "description": "The two cuts, and where they land. A layer that resolves hidden or at opacity 0 is dropped from the draw list entirely rather than carried with a flag -- which is what makes the renderer, the hit tester and the server's cost estimate agree without each applying the cut for itself. 'fader' crosses the cut mid-clip: it is present in the draw list while its ramp is above 0 and absent at exactly 0, so the boundary is pinned rather than approached. 'hiddenButKeyedOpaque' is authored invisible and keyed to full opacity, which must still not draw: visible is a separate channel and opacity cannot revive it.",
+  "parts": [
+    { "id": "always", "visible": true, "opacity": 1.0, "zIndex": 0 },
+    { "id": "fader", "visible": true, "opacity": 1.0, "zIndex": 1 },
+    { "id": "hiddenButKeyedOpaque", "visible": false, "opacity": 0.2, "zIndex": 2 },
+    { "id": "restZero", "visible": true, "opacity": 0.0, "zIndex": 3 }
+  ],
+  "clip": {
+    "loop": false,
+    "keyframes": [
+      {
+        "t": 0.0,
+        "ease": "linear",
+        "parts": { "fader": { "opacity": 1.0 }, "hiddenButKeyedOpaque": { "opacity": 1.0 } }
+      },
+      {
+        "t": 1.0,
+        "ease": "linear",
+        "parts": { "fader": { "opacity": 0.0 }, "hiddenButKeyedOpaque": { "opacity": 1.0 } }
+      }
+    ]
+  },
+  "times": [0.0, 0.5, 0.99, 1.0]
+}

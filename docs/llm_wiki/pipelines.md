@@ -124,6 +124,69 @@ finalize.worker.ts:
 
 ---
 
+## Pipeline 4: AniBuddy v4 layered cutout ✅ BUILT, dark behind a flag
+
+**Goal:** one sheet of character art the user already owns → a rigged, animated,
+downloadable clip, with no pixel generated.
+
+Contract: [`docs/plan/features/F9-anibuddy-v4-cutout-rig.md`](../plan/features/F9-anibuddy-v4-cutout-rig.md).
+
+Six stages. Each is an idempotent BullMQ worker keyed by `inputHash`, each writes
+an immutable child revision of the `RigDocument` rather than mutating one, and
+each appends a `StageRecord` naming the model that was actually served and the
+credit event it belongs to.
+
+```
+POST /api/anibuddy/assets                 sheet → StorageAdapter, sha256 recorded
+POST /api/anibuddy/projects/:id/enqueue   one stage, credits pre-authorized
+
+1. decompose   py_backend /anibuddy/decompose
+     alpha connected components → gutter grid → cv2.watershed → cv2.grabCut,
+     cheapest first, each with its own confidence. Emits foreground vs covered
+     pixel counts so the stage grades its own work. No model call.
+
+2. semantics   Next /api/enhance/anibuddy/semantics
+     the ONLY place a model touches structure. Sees the sheet with numbered
+     part outlines (drawn by py_backend, proxied through the gateway's
+     /anibuddy/internal/annotate) and answers with roles, parentage, pivot
+     HINTS, draw order and deformer hints. It cannot answer with geometry.
+     No consent, or two rejected responses → the geometric prior, free.
+
+3. rig         py_backend /anibuddy/rig
+     skeleton inference, then one deformer per part: rigid, mesh (contour →
+     RDP → Poisson sampling → quality triangulation → bounded biharmonic
+     weights), lattice or spline. Oversized buffers come back as base64 for
+     the gateway to write through storage.
+
+4. animate     Next /api/enhance/anibuddy/motion
+     bounded keyframes against the rig's REAL part and joint ids. Unknown id,
+     t outside 0..1, first key not at 0, non-increasing t, fewer than two
+     usable keys → reject the whole response and refund. A partially applied
+     clip is worse than none, because it looks deliberate.
+
+5. render      py_backend /anibuddy/render
+     deform, rasterize, encode to PNG zip / GIF / WebM / MP4. Refuses before
+     spending a frame when diagnostics carry a blockingReason; discloses a
+     maxStretch over 2.5 rather than hiding it; falls back to the PNG zip when
+     ffmpeg is missing.
+
+6. critique    py_backend contact sheet → Next /api/enhance/anibuddy/critique
+     nine REALLY-RENDERED frames, not the model's own plan. Answers accept /
+     revise / abort plus corrections from a closed set — pivot nudge, rotation
+     damp, z-order, deformer swap, parent change, keyframe retime, visibility.
+     Every payload is a bounded scalar or an id; there is no field through
+     which geometry can enter.
+        └─► corrections re-enter at stage 3, up to MAX_CRITIQUE_PASSES (3) or
+            CRITIQUE_CREDIT_CEILING (24), whichever comes first. The BEST
+            revision is then selected, not the last: lowest maxStretch among
+            revisions with no flipped triangles and no blockingReason.
+```
+
+Both flags are off by default: `NEXT_PUBLIC_ANIBUDDY_EDITOR_ENABLED` (the route)
+and `ANIBUDDY_PIPELINE_ENABLED` (the proposal routes).
+
+---
+
 ## Key API Contracts
 
 ### POST /api/upload → `{ jobId, cloudinaryUrl, status: "queued" }`
@@ -135,3 +198,9 @@ finalize.worker.ts:
 ### py_backend POST /detect → `{ boxes: DetectedBox[], image_width, image_height }`
 ### py_backend POST /name-assets → `{ names: Record<string, string> }`
 ### py_backend POST /crop → `{ assets: AssetResult[] }`
+
+### AniBuddy
+See `backend.md` for the gateway routes and `py_backend.md` for the
+`/anibuddy/*` geometry endpoints. Every AniBuddy payload shape is generated from
+`schemas/anibuddy/rig-document.v5.schema.json` — that file, not this page, is the
+contract.

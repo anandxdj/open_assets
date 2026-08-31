@@ -1,0 +1,25 @@
+{
+  "id": "04-visible-steps-both-directions",
+  "description": "visible steps and its rest is Part.visible, in both directions. 'shy' is authored visible and hidden by a key, then falls back to visible when a later key stops mentioning the channel -- absent means REST, not 'hold whatever the previous key left'. 'shown' is authored hidden and revealed by a key, which is the case that fails if an implementation treats Part.visible as a gate applied after the pose rather than as the value the pose replaces. Neither ever blends: at t=0.25 and t=0.75, mid-segment, both are still fully one state or the other.",
+  "parts": [
+    { "id": "shy", "visible": true, "opacity": 1.0, "zIndex": 0 },
+    { "id": "shown", "visible": false, "opacity": 1.0, "zIndex": 1 },
+    { "id": "constant", "visible": true, "opacity": 1.0, "zIndex": 2 }
+  ],
+  "clip": {
+    "loop": false,
+    "keyframes": [
+      {
+        "t": 0.0,
+        "ease": "linear",
+        "parts": { "shy": { "visible": false }, "shown": { "visible": true } }
+      },
+      { "t": 0.5, "ease": "linear", "parts": {} },
+      {
+        "t": 1.0,
+        "ease": "linear",
+        "parts": { "shy": { "visible": true }, "shown": { "visible": false } }
+      }
+    ]
+  }
+}

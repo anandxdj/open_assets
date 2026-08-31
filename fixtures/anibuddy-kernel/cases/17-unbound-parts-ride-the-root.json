@@ -1,0 +1,53 @@
+{
+  "id": "17-unbound-parts-ride-the-root",
+  "description": "Three parts with nothing usable in boundJointId, under a root that is both rotated and translated. 'cape' omits the field, 'banner' sets it to null, and 'ghost' names a joint this skeleton does not contain. All three must resolve to the ROOT and move with it. This case exists because the fallback used to live in each caller's wire adapter rather than in the kernel, and the two had drifted: the server bound an unbound lattice to the root while the browser left it untransformed, so the same cape moved on export and stood still in preview. A rest pose would hide that -- the root at rest IS the identity -- so the root is posed here, which is the only arrangement where 'rides the root' and 'rides nothing' produce different pixels. 'anchored' is bound to a real joint and is the control: if it moves differently from the other three, the fallback has over-reached.",
+  "rig": {
+    "asset": { "width": 900, "height": 600, "figureHeight": 520 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.5, "y": 0.8 },
+      { "id": "spine", "parent": "root", "x": 0.5, "y": 0.4 }
+    ],
+    "parts": [
+      {
+        "id": "cape",
+        "zIndex": 0,
+        "rect": [0.15, 0.2, 0.55, 0.7],
+        "deformer": {
+          "kind": "lattice",
+          "cols": 2,
+          "rows": 2,
+          "interpolation": "bilinear",
+          "controlPoints": [
+            0.0, 0.0, 0.5, -0.04, 1.0, 0.0, 0.06, 0.5, 0.53, 0.47, 0.94, 0.5, 0.0, 1.0,
+            0.5, 1.06, 1.0, 1.0
+          ]
+        }
+      },
+      {
+        "id": "banner",
+        "zIndex": 1,
+        "rect": [0.6, 0.15, 0.85, 0.45],
+        "boundJointId": null,
+        "deformer": { "kind": "rigid" }
+      },
+      {
+        "id": "ghost",
+        "zIndex": 2,
+        "rect": [0.62, 0.5, 0.8, 0.72],
+        "boundJointId": "noSuchJoint",
+        "deformer": { "kind": "rigid" }
+      },
+      {
+        "id": "anchored",
+        "zIndex": 3,
+        "rect": [0.3, 0.05, 0.5, 0.18],
+        "boundJointId": "spine",
+        "deformer": { "kind": "rigid" }
+      }
+    ]
+  },
+  "pose": {
+    "root": { "rot": 12.5, "tx": -0.035, "ty": 0.02 },
+    "spine": { "rot": -21 }
+  }
+}

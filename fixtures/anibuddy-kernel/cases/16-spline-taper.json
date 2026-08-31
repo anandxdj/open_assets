@@ -1,0 +1,33 @@
+{
+  "id": "16-spline-taper",
+  "description": "A tapering tail: the thickness TRACK has three entries over a five-joint chain sampled at 17 segments, so nothing lines up on a whole number and every one of the 18 samples has to interpolate. This is the case that pins the taper contract. The track is indexed by normalized position along the SPINE, not by joint, so a kernel that indexed it by span would run off the end at joint 4; one that resampled per joint instead of per sample would agree only where a sample happens to land on a joint. The track also narrows to a near-point at the tip, which is where a ribbon whose two rails are offset by the wrong half-width crosses over itself and reports a flipped triangle rather than a slightly wrong width.",
+  "rig": {
+    "asset": { "width": 1024, "height": 768, "figureHeight": 700 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.28, "y": 0.5 },
+      { "id": "tailA", "parent": "root", "x": 0.42, "y": 0.52 },
+      { "id": "tailB", "parent": "tailA", "x": 0.56, "y": 0.55 },
+      { "id": "tailC", "parent": "tailB", "x": 0.7, "y": 0.6 },
+      { "id": "tailD", "parent": "tailC", "x": 0.84, "y": 0.68 }
+    ],
+    "parts": [
+      {
+        "id": "tail",
+        "zIndex": 0,
+        "deformer": {
+          "kind": "spline",
+          "joints": ["root", "tailA", "tailB", "tailC", "tailD"],
+          "thickness": [0.14, 0.075, 0.004],
+          "segments": 17
+        }
+      }
+    ]
+  },
+  "pose": {
+    "root": { "rot": -8, "ty": 0.02 },
+    "tailA": { "rot": 18 },
+    "tailB": { "rot": 24, "scale": 1.15 },
+    "tailC": { "rot": 31 },
+    "tailD": { "rot": 27, "scale": 0.85 }
+  }
+}

@@ -26,9 +26,9 @@ FastAPI py_backend (:8000)
 
 | Service | Port | Technology | Purpose |
 |---|---|---|---|
-| Frontend | 3000 | Next.js 16, React 19, Tailwind 4, TypeScript | UI, canvas editor |
-| Backend | 4000 | Express, TypeScript, tsx | API, auth, BullMQ workers |
-| AI Service | 8000 | FastAPI, Python 3.11, OpenCV | Image detection, cropping, Vision |
+| Frontend | 3000 | Next.js 16, React 19, Tailwind 4, TypeScript | UI, canvas editor, AniBuddy WebGL rig editor, LLM route handlers |
+| Backend | 4000 | Express, TypeScript, tsx | API, auth, credits, BullMQ workers, AniBuddy stage gateway |
+| AI Service | 8000 | FastAPI, Python 3.11, OpenCV, NumPy | Image detection, cropping, Vision, **all AniBuddy geometry** |
 | MongoDB | 27017 | Docker, mongo:7 | Auth data only |
 | Redis | 6379 | Docker, redis:7-alpine | Job state + BullMQ |
 | Cloudinary | external | SaaS | All image storage + CDN |
@@ -70,6 +70,46 @@ FastAPI py_backend (:8000)
 6. Frontend polls GET /api/export/:exportJobId/status
    → On ready: GET /api/export/:exportJobId/download → 302 → Cloudinary zip URL
 ```
+
+## Request Flow: AniBuddy (v4 layered cutout)
+
+Contract: [`docs/plan/features/F9-anibuddy-v4-cutout-rig.md`](../plan/features/F9-anibuddy-v4-cutout-rig.md).
+Built, and dark behind two independently-off flags —
+`NEXT_PUBLIC_ANIBUDDY_EDITOR_ENABLED` (the `/anibuddy` route) and
+`ANIBUDDY_PIPELINE_ENABLED` (the proposal routes).
+
+```
+Browser (thin editor: poses, previews in WebGL, derives nothing)
+   |  the ONLY path out
+   v
+Express gateway  ──── auth, credits, StorageAdapter, Mongo (projects, rig documents)
+   |
+   +── BullMQ, one idempotent worker per stage, keyed by inputHash
+   |
+   +──► py_backend /anibuddy/*        decompose, rig, render, annotate, contact sheet, apply
+   +──► Next /api/enhance/anibuddy/*  semantics, motion, critique   (the vision calls)
+
+   decompose → semantics → rig → animate → render → critique
+                            ▲                          |
+                            └──── corrections, pass N+1 ┘
+```
+
+Five properties that are load-bearing rather than incidental:
+
+- **The model proposes semantics, never geometry.** No proposal schema has a
+  field capable of carrying a vertex, a weight or a mask. Structural, not
+  policed.
+- **Non-generative.** Every exported pixel is a resampled pixel of the user's own
+  artwork. AniBuddy writes a prompt; it never makes one into an image.
+- **One contract, four languages.** `schemas/anibuddy/rig-document.v5.schema.json`
+  generates the TypeScript types, the zod DTOs, the Mongoose schemas and the
+  Pydantic models. A hand edit to any of them fails CI.
+- **Two kernels, one answer.** The deformation math exists in NumPy and in
+  TypeScript; CI holds them to 0 ULP across seventeen fixtures, and a second job
+  checks the compositing channels that no vertex comparison can see.
+- **Revisions are immutable.** A stage writes a child revision rather than
+  mutating one, so every correction is reversible and every critique pass is
+  diffable.
 
 ## Auth Flow
 

@@ -1,0 +1,57 @@
+{
+  "id": "10-cut-layers-leave-the-draw-list",
+  "frames": [
+    {
+      "time": 0.0,
+      "resolved": [
+        ["always", true, 1.0, 0, null],
+        ["fader", true, 1.0, 1, null],
+        ["hiddenButKeyedOpaque", false, 1.0, 2, null],
+        ["restZero", true, 0.0, 3, null]
+      ],
+      "draw": [
+        ["always", "always", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["fader", "fader", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.5,
+      "resolved": [
+        ["always", true, 1.0, 0, null],
+        ["fader", true, 0.5, 1, null],
+        ["hiddenButKeyedOpaque", false, 1.0, 2, null],
+        ["restZero", true, 0.0, 3, null]
+      ],
+      "draw": [
+        ["always", "always", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["fader", "fader", 1, 0.5, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.9900000095367432,
+      "resolved": [
+        ["always", true, 1.0, 0, null],
+        ["fader", true, 0.009999999776482582, 1, null],
+        ["hiddenButKeyedOpaque", false, 1.0, 2, null],
+        ["restZero", true, 0.0, 3, null]
+      ],
+      "draw": [
+        ["always", "always", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["fader", "fader", 1, 0.009999999776482582, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 1.0,
+      "resolved": [
+        ["always", true, 1.0, 0, null],
+        ["fader", true, 0.0, 1, null],
+        ["hiddenButKeyedOpaque", false, 1.0, 2, null],
+        ["restZero", true, 0.0, 3, null]
+      ],
+      "draw": [
+        ["always", "always", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0]
+      ]
+    }
+  ],
+  "warnings": []
+}

@@ -21,7 +21,8 @@
 | [`features/F6-extension-v2-completion.md`](features/F6-extension-v2-completion.md) | Finish the Chrome extension overhaul (live progress, real icons, session-storage JWT). |
 | [`features/F7-testing-and-ci-hardening.md`](features/F7-testing-and-ci-hardening.md) | Close the test/CI gaps so regressions can't ship silently. |
 | [`features/F8-enhance-workspace.md`](features/F8-enhance-workspace.md) | Add the non-generative Enhance workspace: deterministic line-art polish and Cloudinary-backed AI enhancement. |
-| [`features/F9-anibuddy.md`](features/F9-anibuddy.md) | Animate user-supplied character art with AI-assisted 2D mesh rigs, without image generation. |
+| [`features/F9-anibuddy.md`](features/F9-anibuddy.md) | Animate user-supplied character art with AI-assisted 2D mesh rigs, without image generation. Historical: the v1 concept. |
+| [`features/F9-anibuddy-v4-cutout-rig.md`](features/F9-anibuddy-v4-cutout-rig.md) | **The current AniBuddy contract.** Layered cutout rig, Python-authoritative geometry, RigDocument v5. Supersedes `F9-anibuddy-v3.md` and the v4 atlas workspace. |
 | [`features/F10-background-aware-detection.md`](features/F10-background-aware-detection.md) | Detect assets reliably on black, dark, light, and non-uniform opaque backgrounds. |
 
 Related existing docs (predate this folder, still useful):
@@ -36,7 +37,7 @@ Related existing docs (predate this folder, still useful):
 
 OpenAssets is four surfaces (Next.js frontend, Express backend + BullMQ workers,
 FastAPI `py_backend`, Chrome extension) over MongoDB + Redis + pluggable object
-storage. Four product lines now live side by side or are explicitly planned:
+storage. Five product lines now live side by side or are explicitly planned:
 
 1. **Extraction** — upload a packed image → OpenCV detect → canvas edit → Gemini
    names → crop → optional 2× upscale → ZIP or push to a Collection. **End-to-end
@@ -49,8 +50,21 @@ storage. Four product lines now live side by side or are explicitly planned:
 counts, search, and on-the-fly ZIP export. **Working, with one promised AI
 feature missing (auto-tagging on manual upload).**
 4. **Enhance** *(planned)* — a non-generative workspace for deterministic
-line-art refinement, Cloudinary-backed enhancement, and AniBuddy 2D character
-animation. **Specified in F8/F9; not yet implemented.**
+line-art refinement and Cloudinary-backed enhancement. **Specified in F8; not
+yet implemented.**
+5. **AniBuddy (2D character animation)** — the v4 layered-cutout pipeline is
+**built and dark**. Six idempotent stages (decompose → semantics → rig →
+animate → render → critique) run as BullMQ workers in the Express gateway
+against a FastAPI geometry service; `RigDocument` v5 is generated for four
+languages from one JSON Schema; the deformation kernel exists twice (NumPy and
+TypeScript) and CI holds them to 0 ULP across seventeen fixtures; the browser is
+a WebGL editor that poses and previews but derives no geometry. It ships behind
+two independently-off flags — `NEXT_PUBLIC_ANIBUDDY_EDITOR_ENABLED` gates the
+`/anibuddy` route (ComingSoonPage otherwise) and `ANIBUDDY_PIPELINE_ENABLED`
+gates the proposal routes (503 otherwise) — so nothing is publicly reachable
+yet. The v3 browser puppet pipeline and the v4 atlas workspace have been
+deleted. Still generation-free (R2): AniBuddy writes a prompt, it never makes a
+pixel. See `features/F9-anibuddy-v4-cutout-rig.md`.
 
 ### What's genuinely solid (don't re-plan these)
 

@@ -553,15 +553,26 @@ them with a different image yields a silently wrong rig.
 ## 9. Usage ops
 
 `resolveKeyAndCredits` takes a typed `op` and the backend independently validates
-it, so adding `anibuddy-prompt` and `anibuddy-rig` means editing **all four**
-sites or requests fail zod validation at `/api/usage/consume`:
+it, so a missing entry fails zod validation at `/api/usage/consume`.
 
-| File | Line | Change |
-|---|---|---|
-| `frontend/src/app/api/studio/_lib/openrouter.ts` | `:21` | add to `UsageOp` union |
-| `backend/src/modules/usage/dto/consume.schema.ts` | `:4` | add to `z.enum` |
-| `backend/src/modules/usage/usage.model.ts` | `:8`, `:27` | add to TS union **and** mongoose `enum` |
-| `backend/src/modules/usage/usage.service.ts` | `:14` | `costPerUnit` — both are reasoning ops, same branch as `scene-brief`/`sprite-review` (`:20`) |
+This used to be a four-site edit. Three of those sites now derive from one
+declaration, so adding an op is **two** edits:
+
+| File | Change |
+|---|---|
+| `backend/src/modules/usage/usage.constants.ts` | add to `REGISTERED_USAGE_OPS` and give it a rate in `opCreditRates` — the TS union, the mongoose `enum` and the zod `enum` all derive from this |
+| `frontend/src/app/api/studio/_lib/openrouter.ts` | add to the mirrored `UsageOp` union |
+
+Registered ops: `anibuddy-prompt` (units = interview rounds),
+`anibuddy-decompose` (parts), `anibuddy-rig` (parts), `anibuddy-animate`
+(clips), `anibuddy-critique` (passes), `anibuddy-render` (frames). Rates are
+relative to one ~700-token text call = 1 credit and may be fractional; the total
+is `ceil(rate × units)` floored at 1.
+
+`anibuddy-generation` is priced in `opCreditRates` but deliberately **not**
+registered, so it is unreachable while AniBuddy stays non-generative (R2).
+Enabling in-app sheet generation is then a one-line move into
+`REGISTERED_USAGE_OPS`, not another migration.
 
 ---
 

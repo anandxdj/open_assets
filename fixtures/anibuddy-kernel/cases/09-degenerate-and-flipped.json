@@ -1,0 +1,30 @@
+{
+  "id": "09-degenerate-and-flipped",
+  "description": "Pathology case. Triangle 2 is exactly zero-area in the source (verts 4 and 5 coincide) and must be dropped by both kernels identically -- drop it in one and not the other and every subsequent triangleIndex shifts, which would misalign the whole warp batch. The near-zero scale on handA and the 195 degree rotation drive maxStretch well past the warning threshold. Orientation flipping is covered by case 08.",
+  "rig": {
+    "asset": { "width": 480, "height": 720, "figureHeight": 660 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.5, "y": 0.7 },
+      { "id": "armA", "parent": "root", "x": 0.35, "y": 0.5 },
+      { "id": "handA", "parent": "armA", "x": 0.2, "y": 0.32 }
+    ],
+    "parts": [
+      {
+        "id": "brokenMesh",
+        "zIndex": 0,
+        "deformer": {
+          "kind": "mesh",
+          "boneCount": 2,
+          "verts": [0.3, 0.3, 0.5, 0.3, 0.3, 0.5, 0.5, 0.5, 0.4, 0.6, 0.4, 0.6],
+          "tris": [0, 1, 3, 0, 3, 2, 2, 4, 5, 3, 2, 4],
+          "weights": [0.6, 0.4, 0.55, 0.45, 0.3, 0.7, 0.35, 0.65, 0.1, 0.9, 0.1, 0.9]
+        }
+      }
+    ]
+  },
+  "pose": {
+    "root": { "rot": 0 },
+    "armA": { "rot": 195 },
+    "handA": { "rot": -140, "scale": 0.02 }
+  }
+}

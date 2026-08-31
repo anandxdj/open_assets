@@ -1,0 +1,68 @@
+{
+  "id": "14-part-clip-channel-sparsity",
+  "description": "Part channels sampled from a clip, held to the same rules as joint channels. Sampled at t = 0.62, inside a segment whose earlier key uses smoothstep, so the part and the joint channels must bracket the same pair of keys and ease by the same u -- a part and a joint keyed on the same clip drifting apart in TIME is the failure this case exists to catch, and it is invisible in a pose-only fixture. Three sparsity traps are set: 'lid' sets scale only at t = 0.35 and never again, so scale must decay toward 1 rather than hold 1.25; 'lid' sets rot only at t = 0.9, so rot must rise from 0 rather than from wherever it was; and 'body' is mentioned by no part key at all, so its transform must come out as exactly the identity. The clip loops, so the joint half also re-covers the synthetic wrap key -- which now has to carry key 0's PARTS as well as its joints.",
+  "rig": {
+    "asset": { "width": 480, "height": 640, "figureHeight": 600 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.5, "y": 0.82 },
+      { "id": "spine", "parent": "root", "x": 0.5, "y": 0.42 }
+    ],
+    "parts": [
+      {
+        "id": "body",
+        "zIndex": 0,
+        "rect": [0.28, 0.36, 0.72, 0.86],
+        "pivot": [0.5, 0.95],
+        "parentPartId": null,
+        "attachSlot": null,
+        "deformer": { "kind": "rigid" },
+        "boundJointId": "spine"
+      },
+      {
+        "id": "lid",
+        "zIndex": 1,
+        "rect": [0.26, 0.18, 0.74, 0.38],
+        "pivot": [0.04, 0.9],
+        "parentPartId": "body",
+        "attachSlot": null,
+        "deformer": { "kind": "rigid" },
+        "boundJointId": "spine"
+      }
+    ]
+  },
+  "clip": {
+    "id": "open",
+    "loop": true,
+    "keyframes": [
+      {
+        "t": 0,
+        "joints": {
+          "spine": { "rot": 0 }
+        },
+        "parts": {
+          "lid": { "rot": 0 }
+        }
+      },
+      {
+        "t": 0.35,
+        "joints": {
+          "spine": { "rot": -3.5 }
+        },
+        "parts": {
+          "lid": { "scale": 1.25, "tx": 0.02 }
+        },
+        "ease": "linear"
+      },
+      {
+        "t": 0.9,
+        "joints": {
+          "spine": { "rot": 2.25 }
+        },
+        "parts": {
+          "lid": { "rot": -74 }
+        }
+      }
+    ]
+  },
+  "time": 0.62
+}

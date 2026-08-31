@@ -1,0 +1,97 @@
+{
+  "id": "05-zindex-steps-and-reorders-the-frame",
+  "frames": [
+    {
+      "time": 0.0,
+      "resolved": [
+        ["torso", true, 1.0, 5, null],
+        ["armL", true, 1.0, 1, null],
+        ["armR", true, 1.0, 5, null]
+      ],
+      "draw": [
+        ["armL", "armL", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["torso", "torso", 5, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["armR", "armR", 5, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.125,
+      "resolved": [
+        ["torso", true, 1.0, 5, null],
+        ["armL", true, 1.0, 1, null],
+        ["armR", true, 1.0, 5, null]
+      ],
+      "draw": [
+        ["armL", "armL", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["torso", "torso", 5, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["armR", "armR", 5, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.25,
+      "resolved": [
+        ["torso", true, 1.0, 5, null],
+        ["armL", true, 1.0, 1, null],
+        ["armR", true, 1.0, 5, null]
+      ],
+      "draw": [
+        ["armL", "armL", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["torso", "torso", 5, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["armR", "armR", 5, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.5,
+      "resolved": [
+        ["torso", true, 1.0, 5, null],
+        ["armL", true, 1.0, 9, null],
+        ["armR", true, 1.0, 5, null]
+      ],
+      "draw": [
+        ["torso", "torso", 5, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["armR", "armR", 5, 1.0, 2, 1.0, 1.0, 0.0, 0.0],
+        ["armL", "armL", 9, 1.0, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.75,
+      "resolved": [
+        ["torso", true, 1.0, 5, null],
+        ["armL", true, 1.0, 9, null],
+        ["armR", true, 1.0, 5, null]
+      ],
+      "draw": [
+        ["torso", "torso", 5, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["armR", "armR", 5, 1.0, 2, 1.0, 1.0, 0.0, 0.0],
+        ["armL", "armL", 9, 1.0, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.875,
+      "resolved": [
+        ["torso", true, 1.0, 5, null],
+        ["armL", true, 1.0, 9, null],
+        ["armR", true, 1.0, 5, null]
+      ],
+      "draw": [
+        ["torso", "torso", 5, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["armR", "armR", 5, 1.0, 2, 1.0, 1.0, 0.0, 0.0],
+        ["armL", "armL", 9, 1.0, 1, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 1.0,
+      "resolved": [
+        ["torso", true, 1.0, 5, null],
+        ["armL", true, 1.0, 1, null],
+        ["armR", true, 1.0, 5, null]
+      ],
+      "draw": [
+        ["armL", "armL", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["torso", "torso", 5, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["armR", "armR", 5, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    }
+  ],
+  "warnings": []
+}

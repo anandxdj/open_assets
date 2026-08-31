@@ -1,0 +1,24 @@
+{
+  "id": "08-loop-wrap-closes-onto-key-zero",
+  "description": "A looping clip sampled past its last key. Beyond t=0.6 there is no later key, so the bracket closes back onto key 0 read one cycle later: 'pulse' blends from 0.9 toward key 0's 0.1 across the synthetic span, and the stepping channels stay on the LAST key rather than jumping to key 0 early -- 'blinker' is hidden from 0.6 onward and its zIndex stays at 7. This is the case that catches a bracketing copy: a second search that forgot the wrap would hold 0.9 flat to the end of the clip and nothing else would look wrong.",
+  "parts": [
+    { "id": "pulse", "visible": true, "opacity": 0.5, "zIndex": 0 },
+    { "id": "blinker", "visible": true, "opacity": 1.0, "zIndex": 2 }
+  ],
+  "clip": {
+    "loop": true,
+    "keyframes": [
+      {
+        "t": 0.0,
+        "ease": "linear",
+        "parts": { "pulse": { "opacity": 0.1 }, "blinker": { "visible": true, "zIndex": 2 } }
+      },
+      {
+        "t": 0.6,
+        "ease": "linear",
+        "parts": { "pulse": { "opacity": 0.9 }, "blinker": { "visible": false, "zIndex": 7 } }
+      }
+    ]
+  },
+  "times": [0.0, 0.3, 0.6, 0.7, 0.8, 0.9, 1.0]
+}

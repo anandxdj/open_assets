@@ -1,0 +1,35 @@
+{
+  "id": "06-swap-remaps-pixels-not-geometry",
+  "description": "The second divergence, pinned. 'mouth' swaps to 'mouthOpen', which crops a different, differently-sized region of the same sheet. The settled reading substitutes PIXELS ONLY: the draw entry keeps partId 'mouth' -- its geometry, its z-index and its opacity are its own -- and carries a non-identity uvRemap onto the target's rect. The server used to substitute the whole posed target instead, which would show here as a draw entry that had lost the referring part entirely. Rects are chosen so the remap is exact in binary and reversible by hand: scale is 0.25/0.125 = 2 on x and 0.1/0.2 = 0.5 on y, so a uniform scale would pass and does not. 'mouthOpen' is still drawn as itself at its own z: a swap does not consume its target.",
+  "parts": [
+    {
+      "id": "head",
+      "visible": true,
+      "opacity": 1.0,
+      "zIndex": 0,
+      "rect": { "x": 0.0, "y": 0.0, "width": 0.5, "height": 0.5 }
+    },
+    {
+      "id": "mouth",
+      "visible": true,
+      "opacity": 0.75,
+      "zIndex": 4,
+      "rect": { "x": 0.125, "y": 0.25, "width": 0.125, "height": 0.2 }
+    },
+    {
+      "id": "mouthOpen",
+      "visible": true,
+      "opacity": 1.0,
+      "zIndex": 8,
+      "rect": { "x": 0.5, "y": 0.5, "width": 0.25, "height": 0.1 }
+    }
+  ],
+  "clip": {
+    "loop": false,
+    "keyframes": [
+      { "t": 0.0, "ease": "linear", "parts": {} },
+      { "t": 0.5, "ease": "linear", "parts": { "mouth": { "swapTo": "mouthOpen" } } },
+      { "t": 1.0, "ease": "linear", "parts": {} }
+    ]
+  }
+}

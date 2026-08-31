@@ -1,0 +1,53 @@
+{
+  "id": "11-dense-weights-deep-chain",
+  "description": "An eight-bone chain where every vertex is bound to every bone. This is the case that exercises the skinning reduction at width: eight summands per coordinate, with weights spanning three orders of magnitude on the last vertex (0.5 down to 0.0078125, all exact in binary) so the accumulation covers a wide exponent range. It also pins bone COLUMN order -- with dense weights, a single transposed or off-by-one column moves vertices by whole pixels rather than hiding inside a near-zero weight.",
+  "rig": {
+    "asset": { "width": 1600, "height": 1200, "figureHeight": 1100 },
+    "joints": [
+      { "id": "j0", "parent": null, "x": 0.12, "y": 0.5 },
+      { "id": "j1", "parent": "j0", "x": 0.21, "y": 0.47 },
+      { "id": "j2", "parent": "j1", "x": 0.3, "y": 0.45 },
+      { "id": "j3", "parent": "j2", "x": 0.39, "y": 0.44 },
+      { "id": "j4", "parent": "j3", "x": 0.48, "y": 0.45 },
+      { "id": "j5", "parent": "j4", "x": 0.57, "y": 0.48 },
+      { "id": "j6", "parent": "j5", "x": 0.66, "y": 0.52 },
+      { "id": "j7", "parent": "j6", "x": 0.75, "y": 0.57 },
+      { "id": "j8", "parent": "j7", "x": 0.84, "y": 0.63 }
+    ],
+    "parts": [
+      {
+        "id": "serpent",
+        "zIndex": 0,
+        "deformer": {
+          "kind": "mesh",
+          "boneCount": 8,
+          "verts": [
+            0.14, 0.42, 0.14, 0.58, 0.28, 0.4, 0.28, 0.56, 0.42, 0.39, 0.42, 0.55, 0.56,
+            0.42, 0.56, 0.58, 0.7, 0.48, 0.7, 0.64
+          ],
+          "tris": [0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 7, 4, 7, 6, 6, 7, 9, 6, 9, 8],
+          "weights": [
+            0.3, 0.22, 0.16, 0.11, 0.08, 0.06, 0.04, 0.03, 0.03, 0.3, 0.22, 0.16, 0.11,
+            0.08, 0.06, 0.04, 0.04, 0.03, 0.3, 0.22, 0.16, 0.11, 0.08, 0.06, 0.06, 0.04,
+            0.03, 0.3, 0.22, 0.16, 0.11, 0.08, 0.08, 0.06, 0.04, 0.03, 0.3, 0.22, 0.16,
+            0.11, 0.11, 0.08, 0.06, 0.04, 0.03, 0.3, 0.22, 0.16, 0.16, 0.11, 0.08, 0.06,
+            0.04, 0.03, 0.3, 0.22, 0.22, 0.16, 0.11, 0.08, 0.06, 0.04, 0.03, 0.3, 0.125,
+            0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.5, 0.25, 0.125, 0.0625,
+            0.03125, 0.015625, 0.0078125, 0.0078125
+          ]
+        }
+      }
+    ]
+  },
+  "pose": {
+    "j0": { "rot": 6.5, "tx": 0.021, "ty": -0.013 },
+    "j1": { "rot": -14 },
+    "j2": { "rot": 22.5, "scale": 1.12 },
+    "j3": { "rot": -31.25 },
+    "j4": { "rot": 17.75, "scale": 0.88 },
+    "j5": { "rot": -9.5 },
+    "j6": { "rot": 28, "scale": 1.05 },
+    "j7": { "rot": -19.125 },
+    "j8": { "rot": 12.375 }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "05-zindex-steps-and-reorders-the-frame",
+  "description": "The limb crossing in front of the torso mid-clip -- the reason PartPose.zIndex exists. 'armL' starts behind the torso, steps in front at t=0.5 and steps back at t=1, and the DRAW LIST order changes with it rather than only the number. The step is what is being pinned: at t=0.25 the arm is still fully behind, not halfway between draw orders. 'armR' is keyed to the torso's own z, so the tie is broken by document order and the arm lands behind the torso for the whole clip.",
+  "parts": [
+    { "id": "torso", "visible": true, "opacity": 1.0, "zIndex": 5 },
+    { "id": "armL", "visible": true, "opacity": 1.0, "zIndex": 1 },
+    { "id": "armR", "visible": true, "opacity": 1.0, "zIndex": 1 }
+  ],
+  "clip": {
+    "loop": false,
+    "keyframes": [
+      { "t": 0.0, "ease": "linear", "parts": { "armR": { "zIndex": 5 } } },
+      {
+        "t": 0.5,
+        "ease": "linear",
+        "parts": { "armL": { "zIndex": 9 }, "armR": { "zIndex": 5 } }
+      },
+      { "t": 1.0, "ease": "linear", "parts": { "armR": { "zIndex": 5 } } }
+    ]
+  }
+}

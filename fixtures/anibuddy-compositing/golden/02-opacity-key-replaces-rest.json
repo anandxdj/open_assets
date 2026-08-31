@@ -1,0 +1,111 @@
+{
+  "id": "02-opacity-key-replaces-rest",
+  "frames": [
+    {
+      "time": 0.0,
+      "resolved": [
+        ["toHalf", true, 0.5, 0, null],
+        ["toFull", true, 1.0, 1, null],
+        ["toQuarter", true, 0.25, 2, null],
+        ["untouched", true, 0.5, 3, null]
+      ],
+      "draw": [
+        ["toHalf", "toHalf", 0, 0.5, 0, 1.0, 1.0, 0.0, 0.0],
+        ["toFull", "toFull", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["toQuarter", "toQuarter", 2, 0.25, 2, 1.0, 1.0, 0.0, 0.0],
+        ["untouched", "untouched", 3, 0.5, 3, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.125,
+      "resolved": [
+        ["toHalf", true, 0.5, 0, null],
+        ["toFull", true, 1.0, 1, null],
+        ["toQuarter", true, 0.25, 2, null],
+        ["untouched", true, 0.5, 3, null]
+      ],
+      "draw": [
+        ["toHalf", "toHalf", 0, 0.5, 0, 1.0, 1.0, 0.0, 0.0],
+        ["toFull", "toFull", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["toQuarter", "toQuarter", 2, 0.25, 2, 1.0, 1.0, 0.0, 0.0],
+        ["untouched", "untouched", 3, 0.5, 3, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.25,
+      "resolved": [
+        ["toHalf", true, 0.5, 0, null],
+        ["toFull", true, 1.0, 1, null],
+        ["toQuarter", true, 0.25, 2, null],
+        ["untouched", true, 0.5, 3, null]
+      ],
+      "draw": [
+        ["toHalf", "toHalf", 0, 0.5, 0, 1.0, 1.0, 0.0, 0.0],
+        ["toFull", "toFull", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["toQuarter", "toQuarter", 2, 0.25, 2, 1.0, 1.0, 0.0, 0.0],
+        ["untouched", "untouched", 3, 0.5, 3, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.5,
+      "resolved": [
+        ["toHalf", true, 0.5, 0, null],
+        ["toFull", true, 1.0, 1, null],
+        ["toQuarter", true, 0.25, 2, null],
+        ["untouched", true, 0.5, 3, null]
+      ],
+      "draw": [
+        ["toHalf", "toHalf", 0, 0.5, 0, 1.0, 1.0, 0.0, 0.0],
+        ["toFull", "toFull", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["toQuarter", "toQuarter", 2, 0.25, 2, 1.0, 1.0, 0.0, 0.0],
+        ["untouched", "untouched", 3, 0.5, 3, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.75,
+      "resolved": [
+        ["toHalf", true, 0.5, 0, null],
+        ["toFull", true, 1.0, 1, null],
+        ["toQuarter", true, 0.25, 2, null],
+        ["untouched", true, 0.5, 3, null]
+      ],
+      "draw": [
+        ["toHalf", "toHalf", 0, 0.5, 0, 1.0, 1.0, 0.0, 0.0],
+        ["toFull", "toFull", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["toQuarter", "toQuarter", 2, 0.25, 2, 1.0, 1.0, 0.0, 0.0],
+        ["untouched", "untouched", 3, 0.5, 3, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.875,
+      "resolved": [
+        ["toHalf", true, 0.5, 0, null],
+        ["toFull", true, 1.0, 1, null],
+        ["toQuarter", true, 0.25, 2, null],
+        ["untouched", true, 0.5, 3, null]
+      ],
+      "draw": [
+        ["toHalf", "toHalf", 0, 0.5, 0, 1.0, 1.0, 0.0, 0.0],
+        ["toFull", "toFull", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["toQuarter", "toQuarter", 2, 0.25, 2, 1.0, 1.0, 0.0, 0.0],
+        ["untouched", "untouched", 3, 0.5, 3, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 1.0,
+      "resolved": [
+        ["toHalf", true, 0.5, 0, null],
+        ["toFull", true, 1.0, 1, null],
+        ["toQuarter", true, 0.25, 2, null],
+        ["untouched", true, 0.5, 3, null]
+      ],
+      "draw": [
+        ["toHalf", "toHalf", 0, 0.5, 0, 1.0, 1.0, 0.0, 0.0],
+        ["toFull", "toFull", 1, 1.0, 1, 1.0, 1.0, 0.0, 0.0],
+        ["toQuarter", "toQuarter", 2, 0.25, 2, 1.0, 1.0, 0.0, 0.0],
+        ["untouched", "untouched", 3, 0.5, 3, 1.0, 1.0, 0.0, 0.0]
+      ]
+    }
+  ],
+  "warnings": []
+}

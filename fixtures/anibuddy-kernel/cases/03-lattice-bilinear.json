@@ -1,0 +1,35 @@
+{
+  "id": "03-lattice-bilinear",
+  "description": "3x2 bilinear lattice whose control points are pulled asymmetrically off their rest grid, carried by a rotated joint. Control points are ABSOLUTE part-local positions, so each is lifted through Part.rect and then through the asset; a kernel that lifted x and y through the same dimension would pass on a square sheet and fail here. The corner points are left exactly on the rest grid, which pins the other half of the contract: an unmoved control point must land on exactly the same float as the rest grid puts it on, not merely near it.",
+  "rig": {
+    "asset": { "width": 800, "height": 600, "figureHeight": 540 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.5, "y": 0.8 },
+      { "id": "spine", "parent": "root", "x": 0.5, "y": 0.45 }
+    ],
+    "parts": [
+      {
+        "id": "cape",
+        "zIndex": 0,
+        "deformer": {
+          "kind": "lattice",
+          "cols": 3,
+          "rows": 2,
+          "interpolation": "bilinear",
+          "controlPoints": [
+            0.0, 0.0, 0.353333333333, -0.0133333333333, 0.656666666667, 0.0233333333333,
+            1.0, 0.0, 0.0333333333333, 0.508333333333, 0.308333333333, 0.536666666667,
+            0.718333333333, 0.481666666667, 0.993333333333, 0.515, 0.0, 1.0, 0.363333333333,
+            1.045, 0.626666666667, 0.971666666667, 1.0, 1.0
+          ]
+        },
+        "rect": [0.2, 0.25, 0.8, 0.85],
+        "boundJointId": "spine"
+      }
+    ]
+  },
+  "pose": {
+    "root": { "ty": 0.01 },
+    "spine": { "rot": 17.5 }
+  }
+}

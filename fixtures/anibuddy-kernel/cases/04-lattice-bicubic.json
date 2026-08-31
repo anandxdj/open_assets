@@ -1,0 +1,39 @@
+{
+  "id": "04-lattice-bicubic",
+  "description": "3x3 bicubic lattice. Subdivides to a 13x13 sample grid and 288 triangles, so this is the case that actually exercises the Catmull-Rom evaluation and the edge-clamping at the rim in volume.",
+  "rig": {
+    "asset": { "width": 900, "height": 700, "figureHeight": 620 },
+    "joints": [
+      { "id": "root", "parent": null, "x": 0.5, "y": 0.85 },
+      { "id": "spine", "parent": "root", "x": 0.5, "y": 0.5 },
+      { "id": "head", "parent": "spine", "x": 0.5, "y": 0.22 }
+    ],
+    "parts": [
+      {
+        "id": "cloth",
+        "zIndex": 0,
+        "deformer": {
+          "kind": "lattice",
+          "cols": 3,
+          "rows": 3,
+          "interpolation": "bicubic",
+          "controlPoints": [
+            0.0, 0.0, 0.353333333333, -0.0128571428571, 0.656666666667, 0.0228571428571,
+            1.0, 0.0, 0.03, 0.341904761905, 0.309047619048, 0.367619047619, 0.71380952381,
+            0.31619047619, 0.992857142857, 0.349047619048, -0.0271428571429, 0.706666666667,
+            0.370476190476, 0.685238095238, 0.622380952381, 0.638095238095, 1.01142857143,
+            0.645238095238, 0.0, 1.0, 0.360476190476, 1.04142857143, 0.629523809524,
+            0.974285714286, 1.0, 1.0
+          ]
+        },
+        "rect": [0.15, 0.2, 0.85, 0.9],
+        "boundJointId": "spine"
+      }
+    ]
+  },
+  "pose": {
+    "root": { "tx": -0.02 },
+    "spine": { "rot": -23.25 },
+    "head": { "rot": 11 }
+  }
+}

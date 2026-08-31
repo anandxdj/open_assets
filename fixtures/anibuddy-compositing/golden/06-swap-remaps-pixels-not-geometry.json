@@ -1,0 +1,97 @@
+{
+  "id": "06-swap-remaps-pixels-not-geometry",
+  "frames": [
+    {
+      "time": 0.0,
+      "resolved": [
+        ["head", true, 1.0, 0, null],
+        ["mouth", true, 0.75, 4, null],
+        ["mouthOpen", true, 1.0, 8, null]
+      ],
+      "draw": [
+        ["head", "head", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["mouth", "mouth", 4, 0.75, 1, 1.0, 1.0, 0.0, 0.0],
+        ["mouthOpen", "mouthOpen", 8, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.125,
+      "resolved": [
+        ["head", true, 1.0, 0, null],
+        ["mouth", true, 0.75, 4, null],
+        ["mouthOpen", true, 1.0, 8, null]
+      ],
+      "draw": [
+        ["head", "head", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["mouth", "mouth", 4, 0.75, 1, 1.0, 1.0, 0.0, 0.0],
+        ["mouthOpen", "mouthOpen", 8, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.25,
+      "resolved": [
+        ["head", true, 1.0, 0, null],
+        ["mouth", true, 0.75, 4, null],
+        ["mouthOpen", true, 1.0, 8, null]
+      ],
+      "draw": [
+        ["head", "head", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["mouth", "mouth", 4, 0.75, 1, 1.0, 1.0, 0.0, 0.0],
+        ["mouthOpen", "mouthOpen", 8, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.5,
+      "resolved": [
+        ["head", true, 1.0, 0, null],
+        ["mouth", true, 0.75, 4, "mouthOpen"],
+        ["mouthOpen", true, 1.0, 8, null]
+      ],
+      "draw": [
+        ["head", "head", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["mouth", "mouthOpen", 4, 0.75, 1, 2.0, 0.5, 0.25, 0.375],
+        ["mouthOpen", "mouthOpen", 8, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.75,
+      "resolved": [
+        ["head", true, 1.0, 0, null],
+        ["mouth", true, 0.75, 4, "mouthOpen"],
+        ["mouthOpen", true, 1.0, 8, null]
+      ],
+      "draw": [
+        ["head", "head", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["mouth", "mouthOpen", 4, 0.75, 1, 2.0, 0.5, 0.25, 0.375],
+        ["mouthOpen", "mouthOpen", 8, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 0.875,
+      "resolved": [
+        ["head", true, 1.0, 0, null],
+        ["mouth", true, 0.75, 4, "mouthOpen"],
+        ["mouthOpen", true, 1.0, 8, null]
+      ],
+      "draw": [
+        ["head", "head", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["mouth", "mouthOpen", 4, 0.75, 1, 2.0, 0.5, 0.25, 0.375],
+        ["mouthOpen", "mouthOpen", 8, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    },
+    {
+      "time": 1.0,
+      "resolved": [
+        ["head", true, 1.0, 0, null],
+        ["mouth", true, 0.75, 4, null],
+        ["mouthOpen", true, 1.0, 8, null]
+      ],
+      "draw": [
+        ["head", "head", 0, 1.0, 0, 1.0, 1.0, 0.0, 0.0],
+        ["mouth", "mouth", 4, 0.75, 1, 1.0, 1.0, 0.0, 0.0],
+        ["mouthOpen", "mouthOpen", 8, 1.0, 2, 1.0, 1.0, 0.0, 0.0]
+      ]
+    }
+  ],
+  "warnings": []
+}

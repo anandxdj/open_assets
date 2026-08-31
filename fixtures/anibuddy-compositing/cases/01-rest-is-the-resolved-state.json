@@ -1,0 +1,13 @@
+{
+  "id": "01-rest-is-the-resolved-state",
+  "description": "No clip at all. Every part composites exactly as authored, which is half the rule the two implementations disagreed about: Part.visible, Part.opacity and Part.zIndex are the resolved values when nothing animates. The two parts at zIndex 3 pin the tie-break to DOCUMENT order rather than part id -- 'ahead' sorts before 'behind' alphabetically, so an id-based tie-break would reverse them.",
+  "parts": [
+    { "id": "backdrop", "visible": true, "opacity": 1.0, "zIndex": -5 },
+    { "id": "behind", "visible": true, "opacity": 0.5, "zIndex": 3 },
+    { "id": "ahead", "visible": true, "opacity": 1.0, "zIndex": 3 },
+    { "id": "hidden", "visible": false, "opacity": 1.0, "zIndex": 9 },
+    { "id": "clear", "visible": true, "opacity": 0.0, "zIndex": 10 }
+  ],
+  "clip": null,
+  "times": [0.0, 0.5, 1.0]
+}

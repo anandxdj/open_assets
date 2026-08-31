@@ -1,0 +1,41 @@
+{
+  "id": "07-unresolvable-swap-warns-and-draws-itself",
+  "description": "A swapTo naming a part this rig does not contain. The part draws itself with the identity remap, and both implementations emit the same warning -- compared as a string, because a swap target that one side resolves and the other refuses is the same class of bug as one they remap differently, and the wording is the cheapest place to catch it. The warning appears once in the golden despite being raised at every sampled time, because the fixture runner deduplicates in first-seen order exactly as RenderReport.warn does. 'realSwap' is here so the case covers both branches of the same conditional.",
+  "parts": [
+    {
+      "id": "ghostSwap",
+      "visible": true,
+      "opacity": 1.0,
+      "zIndex": 0,
+      "rect": { "x": 0.0, "y": 0.0, "width": 0.25, "height": 0.25 }
+    },
+    {
+      "id": "realSwap",
+      "visible": true,
+      "opacity": 1.0,
+      "zIndex": 1,
+      "rect": { "x": 0.25, "y": 0.0, "width": 0.25, "height": 0.25 }
+    },
+    {
+      "id": "target",
+      "visible": true,
+      "opacity": 1.0,
+      "zIndex": 2,
+      "rect": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.5 }
+    }
+  ],
+  "clip": {
+    "loop": false,
+    "keyframes": [
+      {
+        "t": 0.0,
+        "ease": "hold",
+        "parts": {
+          "ghostSwap": { "swapTo": "notAPart" },
+          "realSwap": { "swapTo": "target" }
+        }
+      }
+    ]
+  },
+  "times": [0.0, 0.5, 1.0]
+}
