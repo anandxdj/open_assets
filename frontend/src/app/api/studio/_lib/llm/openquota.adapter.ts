@@ -62,7 +62,7 @@ export class OpenQuotaAdapter implements LlmAdapter {
       } else {
         console.error('[studio] Open Quota error:', response.status, error);
       }
-      return { ok: false, status: response.status, error, provider: this.name };
+      return { ok: false, status: response.status, error, provider: this.name, attemptedModel: selectedModel };
     }
 
     // Model ids outside printable ASCII come back percent-encoded.
@@ -76,6 +76,12 @@ export class OpenQuotaAdapter implements LlmAdapter {
       }
     }
 
-    return { ok: true, data: await response.json(), provider: this.name, routedVia };
+    return {
+      ok: true,
+      data: await response.json(),
+      provider: this.name,
+      routedVia,
+      attemptedModel: selectedModel,
+    };
   }
 }

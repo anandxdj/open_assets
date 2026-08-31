@@ -42,9 +42,9 @@ export class OpenRouterAdapter implements LlmAdapter {
         error = errBody.slice(0, 500) || error;
       }
       console.error('[studio] OpenRouter error:', response.status, error);
-      return { ok: false, status: response.status, error, provider: this.name };
+      return { ok: false, status: response.status, error, provider: this.name, attemptedModel: req.model };
     }
 
-    return { ok: true, data: await response.json(), provider: this.name };
+    return { ok: true, data: await response.json(), provider: this.name, attemptedModel: req.model };
   }
 }

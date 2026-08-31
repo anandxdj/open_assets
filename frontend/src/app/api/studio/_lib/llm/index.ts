@@ -122,6 +122,7 @@ export async function callLlm(req: CallLlmRequest): Promise<ChatResult> {
             ? err.message
             : 'Network error',
         provider: adapter.name,
+        attemptedModel: attempt.openQuotaModel ?? req.model,
       };
     } finally {
       clearTimeout(timer);
@@ -161,4 +162,16 @@ export function providerHeaders(result: ChatResult): Record<string, string> {
   const headers: Record<string, string> = { 'X-LLM-Provider': result.provider };
   if (result.ok && result.routedVia) headers['X-LLM-Routed-Via'] = result.routedVia;
   return headers;
+}
+
+/**
+ * The model that actually ran, best available resolution:
+ * Open Quota's routed-via upstream, else the profile the winning adapter sent,
+ * else the model the caller asked for. Credits are pre-authorized against the
+ * requested id before the chain picks a provider, so this is what the usage
+ * event must be corrected to.
+ */
+export function servedModel(result: ChatResult, requestedModel: string): string {
+  if (result.ok && result.routedVia) return result.routedVia;
+  return result.attemptedModel ?? requestedModel;
 }

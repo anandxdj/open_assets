@@ -18,6 +18,15 @@ const EXPRESS_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:4000';
 
+/**
+ * Mirror of REGISTERED_USAGE_OPS in backend/src/modules/usage/usage.constants.ts,
+ * which the backend's zod and mongoose enums both derive from. Adding an op is
+ * one edit there plus one here. `anibuddy-generation` is deliberately absent:
+ * it is reserved and unreachable while AniBuddy stays non-generative.
+ *
+ * `units` semantics per AniBuddy op: prompt = interview rounds,
+ * decompose/rig = parts, animate = clips, critique = passes, render = frames.
+ */
 export type UsageOp =
   | 'extend'
   | 'generate'
@@ -26,8 +35,11 @@ export type UsageOp =
   | 'tile-review'
   | 'sprite-review'
   | 'anibuddy-prompt'
+  | 'anibuddy-decompose'
   | 'anibuddy-rig'
-  | 'anibuddy-animate';
+  | 'anibuddy-animate'
+  | 'anibuddy-critique'
+  | 'anibuddy-render';
 
 export type KeyResolution =
   | { ok: true; key: string; byok: boolean; eventId?: string; remaining?: number }
@@ -41,22 +53,29 @@ export type KeyResolution =
  *    which verifies the JWT and atomically deducts credits (402 when broke).
  *    Then use the configured provider chain. Open Quota can serve the primary
  *    attempt without an OpenRouter key; that key is needed only for fallback.
+ *
+ * There is deliberately no per-route opt-out of step 1. The 402 copy below
+ * tells users to add their own key, `studioClient.ts` sends that header on
+ * every studio request, and the AniBuddy docs promise the BYOK path — a route
+ * that took the header and charged credits anyway would make all three lie.
+ * A BYOK caller must also be routed OpenRouter-only (`byok: true` on
+ * `callLlm`), since the key is an OpenRouter credential.
  */
 export async function resolveKeyAndCredits(
   request: NextRequest,
   op: UsageOp,
   model: string,
   units = 1,
-  options: { allowByok?: boolean } = {},
 ): Promise<KeyResolution> {
   const byokKey = request.headers.get('x-openrouter-key')?.trim();
-  if (options.allowByok !== false && byokKey) {
+  if (byokKey) {
     return { ok: true, key: byokKey, byok: true };
   }
 
   // Local development should not depend on the Express usage service or
-  // consume a developer's free-tier balance. Provider configuration still
-  // applies when a real LLM call is made.
+  // consume a developer's free-tier balance. Nothing is metered in dev: no
+  // usage event exists, so `eventId` is absent and refund/reconcile are no-ops.
+  // Provider configuration still applies when a real LLM call is made.
   if (process.env.NODE_ENV === 'development') {
     return { ok: true, key: process.env.OPENROUTER_API_KEY ?? '', byok: false };
   }
@@ -138,6 +157,40 @@ export async function refundCredits(eventId: string): Promise<void> {
     if (!res.ok) console.error('[studio] refund failed:', res.status, await res.text());
   } catch (err) {
     console.error('[studio] refund failed:', err);
+  }
+}
+
+/**
+ * Correct a usage event to the model that actually served it.
+ *
+ * Credits are pre-authorized against the *intended* model before the provider
+ * chain runs, so `UsageEvent.modelId` starts out as an assumption — Open Quota
+ * may route to a different upstream, or the chain may fall back to OpenRouter.
+ * This records reality without touching the cost: re-pricing after the call
+ * would turn pre-authorization into post-payment.
+ *
+ * Best-effort, like `refundCredits`. A failure leaves `reconciledAt` unset, so
+ * the audit trail still distinguishes confirmed events from assumed ones.
+ */
+export async function reconcileUsage(
+  eventId: string,
+  model: string,
+  provider: string,
+): Promise<void> {
+  const token = process.env.INTERNAL_SERVICE_TOKEN;
+  if (!token) {
+    console.error('[studio] reconcile skipped: INTERNAL_SERVICE_TOKEN not set');
+    return;
+  }
+  try {
+    const res = await fetch(`${EXPRESS_URL}/api/usage/reconcile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-service-token': token },
+      body: JSON.stringify({ eventId, model, provider }),
+    });
+    if (!res.ok) console.error('[studio] reconcile failed:', res.status, await res.text());
+  } catch (err) {
+    console.error('[studio] reconcile failed:', err);
   }
 }
 

@@ -48,6 +48,13 @@ export type ChatSuccess = {
   provider: string;
   /** Open Quota's X-Routed-Via, percent-decoded. Undefined for other providers. */
   routedVia?: string;
+  /**
+   * The model id this adapter actually sent upstream. Not always `req.model`:
+   * Open Quota substitutes its own routing profile, and the chain may retry a
+   * fallback profile. Credit events are pre-authorized against the *intended*
+   * model, so this is what reconciles the audit trail with the provider bill.
+   */
+  attemptedModel: string;
 };
 
 export type ChatFailure = {
@@ -56,6 +63,7 @@ export type ChatFailure = {
   status: number;
   error: string;
   provider: string;
+  attemptedModel?: string;
 };
 
 export type ChatResult = ChatSuccess | ChatFailure;
