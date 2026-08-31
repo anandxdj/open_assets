@@ -3,6 +3,15 @@ uvicorn[standard]==0.32.1
 httpx==0.28.1
 numpy==2.2.1
 opencv-python-headless==4.10.0.84
+scipy==1.15.1
+Pillow==11.1.0
+# Video encoding for the AniBuddy render stage. This is a BINARY LOCATOR, not a
+# writer API: `render/encode.py` calls `get_ffmpeg_exe()` and drives ffmpeg over
+# a raw-video pipe itself. Bundling the binary in a wheel means the container
+# image needs no `apt-get install ffmpeg` and CI needs no system package; a
+# system ffmpeg on PATH is used as the fallback. If neither exists, the render
+# falls back to the PNG frame zip, which needs no encoder (F9 §8.5).
+imageio-ffmpeg==0.6.0
 cloudinary==1.41.0
 pydantic==2.10.4
 pydantic-settings==2.7.0

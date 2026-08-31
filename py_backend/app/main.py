@@ -7,6 +7,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from app.core.config import settings
 from app.routers import detect, name, crop, enhance
+from app.modules.anibuddy.router import router as anibuddy_router
 
 logger = logging.getLogger("open_assets")
 
@@ -41,6 +42,7 @@ app.include_router(detect.router)
 app.include_router(name.router)
 app.include_router(crop.router)
 app.include_router(enhance.router)
+app.include_router(anibuddy_router)
 
 
 @app.get("/health")
