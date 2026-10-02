@@ -67,7 +67,7 @@ fade=np.ones(len(audio))
 fade[:SR]=np.linspace(0,1,SR)
 fade[-SR*2:]=np.linspace(1,0,SR*2)
 audio*=fade[:,None]
-audio=np.tanh(audio*1.8)*.65
+audio=np.clip(np.tanh(audio*1.8)*1.625,-.98,.98)
 Path('public').mkdir(exist_ok=True)
 with wave.open('public/soundtrack.wav','wb') as f:
     f.setnchannels(2);f.setsampwidth(2);f.setframerate(SR)
