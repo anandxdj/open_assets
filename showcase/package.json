@@ -1,0 +1,25 @@
+{
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "5.2.7",
+    "@fontsource/inter": "5.2.8",
+    "@remotion/bundler": "4.0.532",
+    "@remotion/cli": "4.0.532",
+    "@remotion/renderer": "4.0.532",
+    "@types/react": "19.1.16",
+    "@types/react-dom": "19.1.9",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "remotion": "4.0.532",
+    "typescript": "5.9.3"
+  },
+  "name": "openassets-showcase",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.tsx",
+    "render": "node render.mjs",
+    "stills": "node render.mjs --stills-only",
+    "typecheck": "tsc --noEmit",
+    "prepare-assets": "node prepare-assets.mjs"
+  }
+}
