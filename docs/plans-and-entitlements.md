@@ -68,10 +68,20 @@ upload fails before a job exists.
 | GET | `/api/admin/users?q=` | admin only: search users by email or name |
 | PUT | `/api/admin/users/:id/plan` | admin only: `{ plan: 'free' \| 'pro', days? }` |
 
-Gates on existing routes: `POST /api/finalize` takes `scale` (2 or 4; 4 needs Pro,
-else 403 `PLAN_LIMIT`); `POST /api/jobs/:id/redetect` takes `threshold` (1 to 100,
-default 50) and `padding` (0 to 64 px, default 0); free accounts may only send the
-defaults (else 403 `PLAN_REQUIRED`).
+Gates on existing routes:
+- `POST /api/finalize` takes `scale` (2 or 4; 4 needs Pro, else 403 `PLAN_LIMIT`).
+- `POST /api/enhance/ai` takes `scale` 2 or 4 the same way (4 needs Pro); `GET /api/enhance/capabilities`
+  reports the plan's `operations.upscale.maxScale`.
+- `POST /api/jobs/:id/redetect` takes `threshold` (1 to 100, default 50) and `padding` (0 to 64 px,
+  default 0); free accounts may only send the defaults (else 403 `PLAN_REQUIRED`).
+
+Upscale factors: the storage providers' AI upscale is a fixed 4x. The extract export (`finalize`)
+resizes to exactly `scale` times the cropped width (2x is the 4x result scaled down), and AI enhance
+does the same from the source width (`applyEnhance`).
+
+Account deletion (`account.service.deleteAccount`) also removes the user's monthly sheet counters,
+their Redis history index and job records, and their AI enhance jobs, deleting the stored originals,
+crops and enhance sources best-effort (`account.purge.ts`). A Redis or storage failure never blocks it.
 
 ## Frontend
 
@@ -79,7 +89,9 @@ defaults (else 403 `PLAN_REQUIRED`).
 - `usePlan()` (`features/plans/PlanContext`): `{ plan, loading, refresh, startTrial, starting }`.
 - `useEntitlement(key)`: `{ value, allowed, ready }`. While `ready` is false show a neutral state, not a lock.
 - `<UpgradeAction />`: at a Pro gate, "Start 14-day trial" if eligible, otherwise "Contact us to upgrade" (mailto, subject only).
-- `<ProBadge />`, `<TrialBadge />` (sidebar), `<UsageMeter />` (upload page).
+- `<ProBadge />`, `<TrialBadge />` (sidebar), `<UsageMeter />` (upload page), and the Settings plan
+  section (`features/settings/components/PlanOverview.tsx`): the effective plan, what it includes, sheets
+  used and the reset date, and the trial state. Never show the raw `user.plan`.
 - `ApiRequestError` (`@/lib/api-error`) keeps `code` and `details` from API failures.
 
 ## Granting Pro (admin)

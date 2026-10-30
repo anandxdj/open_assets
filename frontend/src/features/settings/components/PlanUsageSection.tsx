@@ -1,26 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { ChevronLeft, ChevronRight, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/controls";
 import { Notice } from "@/components/ui/feedback";
+import { PlanOverview } from "@/features/settings/components/PlanOverview";
 import { SectionError, SectionLoading, SubSection } from "@/features/settings/components/parts";
 import { getUsage, listUsageEvents } from "@/features/settings/api";
 import { useRemote } from "@/features/settings/useRemote";
 import { formatFullDate, formatRelativeTime, useNow } from "@/features/jobs/time";
 import { cn } from "@/lib/utils";
-import type { Plan, Usage, UsageEvent, UsageOp } from "@/types/account";
+import type { Usage, UsageEvent, UsageOp } from "@/types/account";
 
 const PAGE_SIZE = 10;
-
-const PLAN_LABEL: Record<Plan, string> = {
-  free: "Free",
-  byok: "Bring your own key",
-  pro: "Pro",
-};
 
 const OP_LABEL: Record<UsageOp, string> = {
   extend: "Extend image",
@@ -36,9 +30,12 @@ const OP_LABEL: Record<UsageOp, string> = {
 
 const resetDate = new Intl.DateTimeFormat("en", { dateStyle: "long" });
 
-/* ------------------------------ plan + credits ------------------------- */
+/* ------------------------------ credits -------------------------------- */
 
-function PlanAndCredits({ usage }: { usage: Usage }) {
+// The plan itself (effective plan, limits, trial) is PlanOverview, from
+// /api/plans/me. This block is only the Studio AI credits; the stored
+// `usage.plan` is deliberately not shown (an expired trial still stores "pro").
+function Credits({ usage }: { usage: Usage }) {
   const left = Math.max(0, usage.credits);
   const percent = usage.monthlyGrant > 0 ? (left / usage.monthlyGrant) * 100 : 0;
   const reset = new Date(usage.resetAt);
@@ -46,16 +43,6 @@ function PlanAndCredits({ usage }: { usage: Usage }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="oa-label">Current plan</span>
-          <Badge>{PLAN_LABEL[usage.plan] ?? usage.plan}</Badge>
-        </div>
-        <Button asChild>
-          <Link href="/pricing">Compare plans</Link>
-        </Button>
-      </div>
-
       <div className="flex max-w-[460px] flex-col gap-2.5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <p>
@@ -74,7 +61,7 @@ function PlanAndCredits({ usage }: { usage: Usage }) {
       {left === 0 && (
         <Notice tone="warning" role="status">
           You have used all your credits for this month.
-          {resetLabel ? ` They reset on ${resetLabel}.` : ""} See the plans for more.
+          {resetLabel ? ` They reset on ${resetLabel}.` : ""}
         </Notice>
       )}
     </div>
@@ -189,13 +176,16 @@ export function PlanUsageContent() {
 
   return (
     <>
-      <SubSection first title="Plan and credits">
+      <SubSection first title="Plan" description="What your account includes right now.">
+        <PlanOverview />
+      </SubSection>
+      <SubSection title="AI credits" description="Studio and AniBuddy generations spend credits.">
         {usage.status === "error" ? (
           <SectionError message={usage.error ?? ""} onRetry={usage.reload} />
         ) : usage.data === undefined ? (
-          <SectionLoading label="Loading plan" />
+          <SectionLoading label="Loading credits" />
         ) : (
-          <PlanAndCredits usage={usage.data} />
+          <Credits usage={usage.data} />
         )}
       </SubSection>
       <SubSection title="Recent usage">
