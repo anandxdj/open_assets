@@ -45,7 +45,7 @@ export function LoginForm() {
       <AuthIntro title="Welcome back">Sign in to pick up your extractions and collections.</AuthIntro>
 
       <div className="flex flex-col gap-4">
-        <GoogleButton>Continue with Google</GoogleButton>
+        <GoogleButton next={searchParams.get("next")}>Continue with Google</GoogleButton>
         <OrDivider />
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

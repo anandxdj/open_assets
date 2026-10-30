@@ -64,7 +64,7 @@ export const PLANS: Plan[] = [
       `${PRO.maxUpscale}× upscale on export`,
       "Custom naming patterns",
       `${PRO.apiKeys} API keys`,
-      "Team sharing",
+      `Team sharing, up to ${PRO.teamSeats} people`,
     ],
   },
   {
@@ -117,7 +117,7 @@ export const COMPARISON: ComparisonGroup[] = [
     label: "Teams and API",
     rows: [
       { feature: "API keys", values: { hobby: FREE.apiKeys > 0 ? String(FREE.apiKeys) : false, pro: String(PRO.apiKeys), enterprise: "Custom" } },
-      { feature: "Team sharing", values: { hobby: FREE.teamSharing, pro: PRO.teamSharing, enterprise: true } },
+      { feature: "Team sharing", values: { hobby: FREE.teamSharing, pro: PRO.teamSharing ? `Up to ${PRO.teamSeats} people` : false, enterprise: true } },
       { feature: "SAML SSO and roles", values: { hobby: false, pro: false, enterprise: true } },
     ],
   },

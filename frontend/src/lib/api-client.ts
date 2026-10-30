@@ -92,7 +92,25 @@ async function postFormBlobWithRetry(path: string, form: FormData): Promise<Blob
   return res.blob();
 }
 
+/** GET that returns the body as a file (authenticated ZIP downloads). */
+async function getBlobWithRetry(path: string): Promise<Blob> {
+  const send = () => fetch(`${BASE_URL}${path}`, { credentials: "include", headers: buildHeaders(true) });
+  let res = await send();
+  if (res.status === 401) {
+    const token = await refreshAccessToken();
+    if (token) res = await send();
+  }
+  if (!res.ok) {
+    throw apiErrorFrom(res.status, await res.json().catch(() => ({})));
+  }
+  return res.blob();
+}
+
 export const apiClient = {
+  getBlob(path: string): Promise<Blob> {
+    return getBlobWithRetry(path);
+  },
+
   get<T>(path: string): Promise<T> {
     return requestWithRetry<T>(path, { method: "GET" });
   },

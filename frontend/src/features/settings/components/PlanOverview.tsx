@@ -172,9 +172,7 @@ export function PlanOverview() {
               <th scope="row" className="border-b border-rule bg-transparent text-xs font-normal normal-case leading-[18px] tracking-normal text-ink">
                 Team sharing
               </th>
-              <td>
-                <Included yes={e.teamSharing} />
-              </td>
+              <td className="oa-value">{e.teamSharing ? `Up to ${e.teamSeats} people` : <Included yes={false} />}</td>
             </tr>
           </tbody>
         </table>

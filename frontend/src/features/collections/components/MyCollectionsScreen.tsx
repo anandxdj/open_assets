@@ -2,35 +2,46 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Ellipsis, Eye, Folder, Globe, LayoutGrid, List, LoaderCircle, Lock, Pencil, Plus, Trash2 } from "lucide-react";
+import { Ellipsis, Eye, Folder, Globe, LayoutGrid, List, LoaderCircle, Lock, Pencil, Plus, Trash2, UserMinus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Crumbs, PageBody, PageTitle, Topbar } from "@/components/layout/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
-import { EmptyState } from "@/components/ui/feedback";
+import { EmptyState, Notice } from "@/components/ui/feedback";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { TabButton } from "@/components/ui/tabs";
 import {
   createCollection,
   deleteCollection,
   listMyCollections,
+  shareCollection,
   updateCollection,
   type CollectionSummary,
 } from "@/features/collections/api";
 import { ConfirmDeleteDialog, NameDialog } from "@/features/collections/components/CollectionDialogs";
 import { CoverGrid } from "@/features/collections/components/CoverGrid";
-import { formatCount, isUntitled, plural } from "@/features/collections/format";
+import { creatorName, formatCount, isUntitled, plural } from "@/features/collections/format";
 import { formatFullDate, formatRelativeTime, useNow } from "@/features/jobs/time";
+import { getTeam, type TeamOverview } from "@/features/team/api";
 
-type Filter = "all" | "drafts" | "public";
+type Filter = "all" | "drafts" | "public" | "team";
 type View = "grid" | "list";
 
-const FILTERS: { value: Filter; label: string }[] = [
+const OWN_FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "drafts", label: "Drafts" },
   { value: "public", label: "Public" },
 ];
+
+/** With a team in play, "All" is only what you own, so it says so. */
+function filtersFor(showTeam: boolean): { value: Filter; label: string }[] {
+  if (!showTeam) return OWN_FILTERS;
+  return [{ value: "all", label: "Mine" }, ...OWN_FILTERS.slice(1), { value: "team", label: "Team" }];
+}
+
+/** Collections of other people, shared with my team. Everything else in the list is mine. */
+const isFromTeam = (c: CollectionSummary) => c.access?.via === "team";
 
 type DialogState =
   | { kind: "create" }
@@ -46,6 +57,15 @@ function errorMessage(err: unknown, fallback: string) {
 function editedLabel(updatedAt: string, now: number) {
   const rel = formatRelativeTime(Date.parse(updatedAt), now);
   return `Edited ${rel === "Just now" || rel === "Yesterday" ? rel.toLowerCase() : rel}`;
+}
+
+function TeamBadge() {
+  return (
+    <Badge>
+      <Users aria-hidden />
+      Team
+    </Badge>
+  );
 }
 
 function VisibilityBadge({ isPublic }: { isPublic: boolean }) {
@@ -69,10 +89,24 @@ function menuTriggerId(c: CollectionSummary) {
 type CardActions = {
   onRename: (c: CollectionSummary) => void;
   onTogglePublish: (c: CollectionSummary) => void;
+  onToggleShare: (c: CollectionSummary) => void;
   onDelete: (c: CollectionSummary) => void;
+  /** The signed-in person owns a team that can take more collections. */
+  canShare: boolean;
 };
 
 function CollectionMenu({ collection: c, busy, actions }: { collection: CollectionSummary; busy: boolean; actions: CardActions }) {
+  // A teammate's collection: view and edit happen on its page, nothing to manage here.
+  if (c.access && !c.access.canManage) {
+    return (
+      <Button asChild variant="ghost" size="sm" className="relative z-10 -mr-1.5 -mt-1 flex-none">
+        <Link href={`/collections/${c._id}`} aria-label={`Open ${c.name}`}>
+          Open
+        </Link>
+      </Button>
+    );
+  }
+  const shared = Boolean(c.teamId);
   return (
     <Menu>
       <MenuTrigger asChild>
@@ -96,6 +130,12 @@ function CollectionMenu({ collection: c, busy, actions }: { collection: Collecti
           {c.isPublic ? <Lock aria-hidden /> : <Globe aria-hidden />}
           {c.isPublic ? "Unpublish" : "Publish"}
         </MenuItem>
+        {(shared || actions.canShare) && (
+          <MenuItem onSelect={() => actions.onToggleShare(c)}>
+            {shared ? <UserMinus aria-hidden /> : <Users aria-hidden />}
+            {shared ? "Remove from team" : "Share with team"}
+          </MenuItem>
+        )}
         <MenuItem asChild>
           <Link href={`/collections/${c._id}`}>
             <Eye aria-hidden />
@@ -113,9 +153,11 @@ function CollectionMenu({ collection: c, busy, actions }: { collection: Collecti
 }
 
 function metaLine(c: CollectionSummary, now: number) {
-  return c.isPublic
+  if (isFromTeam(c)) return `Shared by ${creatorName(c)} · ${editedLabel(c.updatedAt, now)}`;
+  const base = c.isPublic
     ? `${plural(c.likesCount, "like")} · ${plural(c.downloadCount, "download")}`
     : editedLabel(c.updatedAt, now);
+  return c.teamId ? `Shared with team · ${base}` : base;
 }
 
 function CollectionGrid({
@@ -144,7 +186,7 @@ function CollectionGrid({
               </Link>
               <span className="text-[11px] leading-4 text-ink-2">{metaLine(c, now)}</span>
             </div>
-            <VisibilityBadge isPublic={c.isPublic} />
+            {isFromTeam(c) ? <TeamBadge /> : <VisibilityBadge isPublic={c.isPublic} />}
             <CollectionMenu collection={c} busy={busyId === c._id} actions={actions} />
           </div>
         </li>
@@ -188,13 +230,25 @@ function CollectionTable({
               <td>
                 <span className="flex items-center gap-3">
                   <CoverGrid urls={c.coverImageUrls} className="w-12 flex-none border" />
-                  <Link href={`/collections/${c._id}`} className="max-w-[260px] truncate text-[13px] font-medium hover:underline">
-                    {c.name}
-                  </Link>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <Link href={`/collections/${c._id}`} className="max-w-[260px] truncate text-[13px] font-medium hover:underline">
+                      {c.name}
+                    </Link>
+                    {isFromTeam(c) && <span className="text-[11px] text-ink-3">Shared by {creatorName(c)}</span>}
+                  </span>
                 </span>
               </td>
               <td>
-                <VisibilityBadge isPublic={c.isPublic} />
+                <span className="flex flex-wrap gap-1.5">
+                  {isFromTeam(c) ? (
+                    <TeamBadge />
+                  ) : (
+                    <>
+                      <VisibilityBadge isPublic={c.isPublic} />
+                      {c.teamId && <TeamBadge />}
+                    </>
+                  )}
+                </span>
               </td>
               <td className="text-ink-2">{formatCount(c.likesCount)}</td>
               <td className="text-ink-2">{formatCount(c.downloadCount)}</td>
@@ -215,30 +269,32 @@ function CollectionTable({
 }
 
 function FilterTabs({
+  filters,
   value,
   onChange,
   counts,
 }: {
+  filters: { value: Filter; label: string }[];
   value: Filter;
   onChange: (next: Filter) => void;
   counts: Record<Filter, number>;
 }) {
   function handleKeyDown(event: React.KeyboardEvent) {
-    const index = FILTERS.findIndex((f) => f.value === value);
+    const index = filters.findIndex((f) => f.value === value);
     let next = index;
-    if (event.key === "ArrowRight") next = (index + 1) % FILTERS.length;
-    else if (event.key === "ArrowLeft") next = (index - 1 + FILTERS.length) % FILTERS.length;
+    if (event.key === "ArrowRight") next = (index + 1) % filters.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + filters.length) % filters.length;
     else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = FILTERS.length - 1;
+    else if (event.key === "End") next = filters.length - 1;
     else return;
     event.preventDefault();
-    onChange(FILTERS[next].value);
-    document.getElementById(`collections-tab-${FILTERS[next].value}`)?.focus();
+    onChange(filters[next].value);
+    document.getElementById(`collections-tab-${filters[next].value}`)?.focus();
   }
 
   return (
     <div role="tablist" aria-label="Filter collections" className="oa-tabs flex-1 border-b-0" onKeyDown={handleKeyDown}>
-      {FILTERS.map((f) => (
+      {filters.map((f) => (
         <TabButton
           key={f.value}
           id={`collections-tab-${f.value}`}
@@ -257,6 +313,7 @@ function FilterTabs({
 
 export function MyCollectionsScreen() {
   const [items, setItems] = useState<CollectionSummary[]>([]);
+  const [teamInfo, setTeamInfo] = useState<TeamOverview | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -271,10 +328,12 @@ export function MyCollectionsScreen() {
 
   useEffect(() => {
     let alive = true;
-    listMyCollections()
-      .then((res) => {
+    // The team only decorates the page, so its failure never blocks the list.
+    Promise.all([listMyCollections(), getTeam().then((r) => r.data, () => null)])
+      .then(([res, team]) => {
         if (!alive) return;
         setItems(res.data);
+        setTeamInfo(team);
         setStatus("ready");
       })
       .catch((err: unknown) => {
@@ -292,8 +351,15 @@ export function MyCollectionsScreen() {
     setAttempt((n) => n + 1);
   }
 
+  /**
+   * Folds an update response into the list. The API returns the bare collection:
+   * keep the creator and the caller's access from the list, and read `teamId`
+   * from the response, where an unshared collection simply has none.
+   */
   function replace(next: CollectionSummary) {
-    setItems((prev) => prev.map((x) => (x._id === next._id ? next : x)));
+    setItems((prev) =>
+      prev.map((x) => (x._id === next._id ? { ...x, ...next, teamId: next.teamId ?? null, creator: x.creator, access: x.access } : x)),
+    );
   }
 
   async function setVisibility(c: CollectionSummary, isPublic: boolean, name?: string): Promise<boolean> {
@@ -306,6 +372,21 @@ export function MyCollectionsScreen() {
     } catch (err) {
       toast.error(isPublic ? "Could not publish" : "Could not unpublish", { description: errorMessage(err, "Try again.") });
       return false;
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function setShared(c: CollectionSummary, shared: boolean) {
+    setBusyId(c._id);
+    try {
+      const res = await shareCollection(c._id, shared);
+      replace(res.data);
+      toast.success(shared ? "Shared with your team" : "Removed from your team", { description: res.data.name });
+    } catch (err) {
+      toast.error(shared ? "Could not share" : "Could not remove it from the team", {
+        description: errorMessage(err, "Try again."),
+      });
     } finally {
       setBusyId(null);
     }
@@ -327,7 +408,12 @@ export function MyCollectionsScreen() {
     }
   }
 
+  const team = teamInfo?.team ?? null;
   const actions: CardActions = {
+    canShare: team?.role === "owner" && !team.readOnly,
+    onToggleShare: (c) => {
+      if (busyId !== c._id) void setShared(c, !c.teamId);
+    },
     onRename: (c) => openFromMenu({ kind: "rename", collection: c }),
     onDelete: (c) => openFromMenu({ kind: "delete", collection: c }),
     onTogglePublish: (c) => {
@@ -382,13 +468,72 @@ export function MyCollectionsScreen() {
     }
   }
 
+  // Mine: what I own (shared ones included). Team: what is shared with my team, from anyone on it.
+  const mine = items.filter((c) => !isFromTeam(c));
+  const shared = items.filter((c) => Boolean(c.teamId));
+  // The Team tab shows for people in a team, people who could start one, and anyone with a team collection.
+  const showTeam = team !== null || Boolean(teamInfo?.entitled) || shared.length > 0;
+  const filters = filtersFor(showTeam);
   const counts: Record<Filter, number> = {
-    all: items.length,
-    drafts: items.filter((c) => !c.isPublic).length,
-    public: items.filter((c) => c.isPublic).length,
+    all: mine.length,
+    drafts: mine.filter((c) => !c.isPublic).length,
+    public: mine.filter((c) => c.isPublic).length,
+    team: shared.length,
   };
-  const visible = items.filter((c) => (filter === "all" ? true : filter === "public" ? c.isPublic : !c.isPublic));
+  const visible =
+    filter === "team"
+      ? shared
+      : mine.filter((c) => (filter === "all" ? true : filter === "public" ? c.isPublic : !c.isPublic));
   const closeDialog = (open: boolean) => !open && setDialog(null);
+
+  function emptyTab() {
+    if (filter === "team") {
+      if (!team) {
+        return (
+          <EmptyState
+            icon={<Users aria-hidden className="size-5" />}
+            title="You are not in a team"
+            description="Create a team in Settings, invite people, then share collections with them from a collection's menu."
+            actions={
+              <Button asChild>
+                <Link href="/settings#team">Set up a team</Link>
+              </Button>
+            }
+          />
+        );
+      }
+      return (
+        <EmptyState
+          icon={<Users aria-hidden className="size-5" />}
+          title="Nothing shared yet"
+          description={
+            team.role === "owner"
+              ? "Open the menu of one of your collections and choose Share with team."
+              : `${team.owner.name} has not shared any collections with the team yet.`
+          }
+        />
+      );
+    }
+    if (filter === "all") {
+      return (
+        <EmptyState
+          icon={<Folder aria-hidden className="size-5" />}
+          title="No collections yet"
+          description="Save assets from any export and we start a private draft pack for you."
+          actions={
+            <Button asChild>
+              <Link href="/upload">Extract a sheet</Link>
+            </Button>
+          }
+        />
+      );
+    }
+    return filter === "drafts" ? (
+      <EmptyState title="No drafts" description="Every collection you have is public." />
+    ) : (
+      <EmptyState title="Nothing published yet" description="Publish a draft from its menu to share it with the community." />
+    );
+  }
 
   let body: React.ReactNode;
   if (status === "loading") {
@@ -407,7 +552,7 @@ export function MyCollectionsScreen() {
         actions={<Button onClick={retryLoad}>Try again</Button>}
       />
     );
-  } else if (items.length === 0) {
+  } else if (items.length === 0 && !showTeam) {
     body = (
       <EmptyState
         icon={<Folder aria-hidden className="size-5" />}
@@ -424,7 +569,7 @@ export function MyCollectionsScreen() {
     body = (
       <>
         <div className="flex flex-wrap items-center gap-3 border-b-[1.5px] border-line">
-          <FilterTabs value={filter} onChange={setFilter} counts={counts} />
+          <FilterTabs filters={filters} value={filter} onChange={setFilter} counts={counts} />
           <Segmented<View>
             ariaLabel="View"
             value={view}
@@ -436,16 +581,16 @@ export function MyCollectionsScreen() {
             ]}
           />
         </div>
-        <div role="tabpanel" id="collections-panel" aria-labelledby={`collections-tab-${filter}`}>
+        <div role="tabpanel" id="collections-panel" aria-labelledby={`collections-tab-${filter}`} className="flex flex-col gap-4">
+          {filter === "team" && team?.readOnly && (
+            <Notice tone="warning" role="status">
+              {team.role === "owner"
+                ? "Your plan no longer includes team sharing, so the team is read-only. Members can view and download these collections but not edit them. You can still take collections back out of the team."
+                : `This team is read-only because ${team.owner.name}'s plan no longer includes team sharing. You can view and download these collections, not edit them.`}
+            </Notice>
+          )}
           {visible.length === 0 ? (
-            filter === "drafts" ? (
-              <EmptyState title="No drafts" description="Every collection you have is public." />
-            ) : (
-              <EmptyState
-                title="Nothing published yet"
-                description="Publish a draft from its menu to share it with the community."
-              />
-            )
+            emptyTab()
           ) : view === "grid" ? (
             <CollectionGrid items={visible} busyId={busyId} actions={actions} now={now} />
           ) : (
@@ -467,7 +612,14 @@ export function MyCollectionsScreen() {
         </Button>
       </Topbar>
       <PageBody className="flex flex-col gap-5">
-        <PageTitle title="My collections" description="Drafts stay private until you publish them to the community." />
+        <PageTitle
+          title="My collections"
+          description={
+            showTeam
+              ? "Drafts stay private until you publish them to the community. Team collections are shared with the people on your team."
+              : "Drafts stay private until you publish them to the community."
+          }
+        />
         {body}
       </PageBody>
 

@@ -23,6 +23,8 @@ export interface Entitlements {
   /** Most API keys an account may hold. 0 = none. */
   apiKeys: number;
   teamSharing: boolean;
+  /** Seats on a team the account owns, the owner included. 0 = no team. */
+  teamSeats: number;
 }
 
 export type EntitlementKey = keyof Entitlements;
@@ -47,6 +49,7 @@ export const ENTITLEMENT_LABEL: Record<EntitlementKey, string> = {
   customNamingPatterns: "Custom naming patterns",
   apiKeys: "API keys",
   teamSharing: "Team sharing",
+  teamSeats: "Team seats",
 };
 
 /** Shape of GET /api/plans/me (data). */
