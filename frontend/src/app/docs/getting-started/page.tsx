@@ -5,7 +5,7 @@ import { DOCS_URL, SOCIAL } from "@/components/marketing/site";
 import { ENTITLEMENT_TABLE } from "@/lib/plans";
 
 export const metadata: Metadata = {
-  title: "Getting started · OpenAssets Docs",
+  title: "Getting started · Docs · OpenAssets",
   description: "Make your first extraction with the OpenAssets web app or the Chrome extension, and the limits that apply.",
   alternates: { canonical: `${DOCS_URL}/getting-started` },
 };

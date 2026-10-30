@@ -70,7 +70,7 @@ export function SettingsDrawer({
                       <KeyRound aria-hidden />
                       Your own key
                     </Badge>
-                    <p>Requests use your OpenRouter key with no credit limit and go to OpenRouter only.</p>
+                    <p>Requests use your OpenRouter key with no AI credit limit and go to OpenRouter only.</p>
                   </>
                 ) : credits ? (
                   <>
@@ -86,7 +86,7 @@ export function SettingsDrawer({
                     </p>
                   </>
                 ) : (
-                  <p>Your credit balance is unavailable right now. Your own OpenRouter key still works.</p>
+                  <p>Your AI credit balance is unavailable right now. Your own OpenRouter key still works.</p>
                 )}
                 {!apiKey && (
                   <p>

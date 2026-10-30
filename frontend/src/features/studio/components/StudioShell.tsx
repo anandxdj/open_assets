@@ -32,7 +32,7 @@ function StudioCredits() {
   if (!hydrated) return null;
   if (apiKey) {
     return (
-      <Badge title="Using your own OpenRouter key. No credit limit.">
+      <Badge title="Using your own OpenRouter key. No AI credit limit.">
         <KeyRound aria-hidden />
         BYOK
         <span className="sr-only">: using your own OpenRouter key</span>

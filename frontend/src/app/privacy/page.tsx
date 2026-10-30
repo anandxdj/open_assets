@@ -56,7 +56,7 @@ const SECTIONS: LegalSectionData[] = [
           rows={[
             [
               "Account",
-              "Name, email address, a bcrypt hash of your password (never the password itself), whether your email is verified, your last sign-in time, your plan and your Studio credit balance.",
+              "Name, email address, a bcrypt hash of your password (never the password itself), whether your email is verified, your last sign-in time, your plan and your AI credit balance.",
               "You, when you register or sign in.",
             ],
             [
@@ -81,7 +81,7 @@ const SECTIONS: LegalSectionData[] = [
             ],
             [
               "Usage records",
-              "Which AI tool you used, which model, how many credits it cost, whether the credits were refunded, and when.",
+              "Which AI tool you used, which model, how many AI credits it cost, whether the credits were refunded, and when.",
               "Our systems.",
             ],
             [
@@ -125,7 +125,7 @@ const SECTIONS: LegalSectionData[] = [
           <Bullet>To run the Service: detect, name, crop, upscale and export the assets in your images.</Bullet>
           <Bullet>To create and secure your account, including verification and password-reset emails.</Bullet>
           <Bullet>To show and serve the collections you choose to publish.</Bullet>
-          <Bullet>To count credits, apply plan limits and stop abuse, for example with rate limits.</Bullet>
+          <Bullet>To count AI credits, apply plan limits and stop abuse, for example with rate limits.</Bullet>
           <Bullet>To fix bugs, keep the Service available and answer your messages.</Bullet>
           <Bullet>To meet legal obligations and defend legal claims.</Bullet>
         </Bullets>
@@ -361,7 +361,7 @@ const SECTIONS: LegalSectionData[] = [
               "Usage records",
               "MongoDB",
               <>
-                Kept for credit accounting. <Fill>OWNER TO CONFIRM period</Fill>
+                Kept for AI credit accounting. <Fill>OWNER TO CONFIRM period</Fill>
               </>,
             ],
             [

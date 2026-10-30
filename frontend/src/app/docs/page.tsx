@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Bullet, Bullets, Internal, LegalTable, Step, Steps } from "@/components/marketing/LegalPage";
 import { DocsPage, Ic } from "@/components/marketing/DocsPage";
 import { DOCS_URL } from "@/components/marketing/site";
-import { ENTITLEMENT_TABLE, TRIAL_DAYS } from "@/lib/plans";
+import { AI_CREDITS_PER_MONTH, ENTITLEMENT_TABLE, TRIAL_DAYS } from "@/lib/plans";
 
 export const metadata: Metadata = {
   title: "Docs · OpenAssets",
@@ -23,13 +23,19 @@ export default function DocsOverviewPage() {
         what: (
           <>
             <p>
-              Drop in one packed image: a sprite sheet, an icon grid, a UI mockup. OpenAssets detects each individual
-              asset, cuts it out, removes the background, names it, and gives you a ZIP of transparent PNGs. You can
-              upscale the result when you export it.
+              Drop in one sheet: a sprite sheet, an icon grid, a UI mockup. OpenAssets detects each individual asset,
+              cuts it out, removes the background, names it, and gives you a ZIP of transparent PNGs. You can upscale
+              the result when you export it.
             </p>
             <p>
-              The image does not need a transparent background to start. When it has none, background removal runs
+              The sheet does not need a transparent background to start. When it has none, background removal runs
               before the assets are cut.
+            </p>
+            <p>
+              Around extraction sit three more tools. <strong>Enhance</strong> cleans up and upscales an image,{" "}
+              <strong>Studio</strong> generates sprites, tiles, props and parallax layers, and{" "}
+              <strong>AniBuddy</strong> rigs and animates a character. Studio and AniBuddy spend AI credits;
+              extraction and Enhance do not.
             </p>
           </>
         ),
@@ -37,7 +43,7 @@ export default function DocsOverviewPage() {
           <>
             <Steps>
               <Step n={1}>
-                <strong>Upload.</strong> A PNG, JPEG or WebP image starts a job. Detection finds a box around every
+                <strong>Upload.</strong> A PNG, JPEG or WebP sheet starts a job. Detection finds a box around every
                 asset on the sheet.
               </Step>
               <Step n={2}>
@@ -73,7 +79,7 @@ export default function DocsOverviewPage() {
               ],
               [
                 "Chrome extension",
-                "An image you meet on a web page",
+                "A sheet or image you meet on a web page",
                 <>
                   Right-click the image and choose Extract with OpenAssets. It opens in the editor. See{" "}
                   <Internal href={`${DOCS_URL}/getting-started#extension`}>the extension</Internal>.
@@ -108,15 +114,20 @@ export default function DocsOverviewPage() {
                   FREE.customNamingPatterns ? "Yes" : "No",
                   PRO.customNamingPatterns ? "Yes" : "No",
                 ],
-                ["Team sharing", FREE.teamSharing ? "Yes" : "No", PRO.teamSharing ? "Yes" : "No"],
+                [
+                  "Team sharing",
+                  FREE.teamSharing ? "Yes" : "No",
+                  PRO.teamSharing ? `Yes, up to ${PRO.teamSeats} people` : "No",
+                ],
                 ["API keys", FREE.apiKeys > 0 ? String(FREE.apiKeys) : "None", String(PRO.apiKeys)],
+                ["AI credits per month (Studio and AniBuddy)", String(AI_CREDITS_PER_MONTH), String(AI_CREDITS_PER_MONTH)],
               ]}
             />
             <p>
-              Sheets are counted per calendar month in UTC. Every account can start a {TRIAL_DAYS}-day Pro trial once,
-              from <Internal href="/pricing">Pricing</Internal> or Settings. When a Pro period ends the account goes
-              back to Free: your jobs and collections stay, and your API keys stay listed but stop working until you
-              are on Pro again.
+              Sheets and AI credits are counted per calendar month in UTC. Every account can start a {TRIAL_DAYS}-day Pro
+              trial once, from <Internal href="/pricing">Pricing</Internal> or Settings. When a Pro period ends the
+              account goes back to Free: your jobs and collections stay, your team becomes read-only, and your API
+              keys stay listed but stop working until you are on Pro again.
             </p>
           </>
         ),

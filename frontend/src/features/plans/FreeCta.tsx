@@ -9,7 +9,7 @@ import { useAuth } from "@/features/auth/context/AuthContext";
  * visitor, "Open app" (the Extract page) once signed in, since there is
  * nothing left to sign up for.
  */
-export function HobbyCta({ label, href }: { label: string; href: string }) {
+export function FreeCta({ label, href }: { label: string; href: string }) {
   const { user, loading } = useAuth();
   const signedIn = !loading && Boolean(user);
   return (

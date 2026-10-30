@@ -54,13 +54,13 @@ export default function PricingPage() {
               <h1 id="pricing-title" className="oa-display text-[clamp(36px,6.4vw,88px)] leading-[.95]">
                 Start free.
                 <br />
-                Pay when it ships.
+                Upgrade when it ships.
               </h1>
             </div>
             <div className="flex max-w-[420px] flex-col items-start gap-3">
               <p className="oa-lead">
-                Hobby is free. Pro adds unlimited sheets, finer controls and the API. Enterprise adds private
-                infrastructure and SSO.
+                Free is free. Pro adds unlimited sheets, finer controls, the API and team sharing. Enterprise is for
+                bigger limits and custom terms: contact sales.
               </p>
               <Link href="#startups" className="oa-link text-xs">
                 Startup program: 50% off Pro for a year
@@ -69,7 +69,7 @@ export default function PricingPage() {
           </div>
 
           <PricingTiers headingLevel="h2" />
-          <p className="text-xs leading-[18px] text-ink-2">Cancel or change plans at any time.</p>
+          <p className="text-xs leading-[18px] text-ink-2">Pro starts with a 14-day trial, no card needed. Billing is not switched on yet.</p>
         </section>
 
         <section
@@ -152,7 +152,7 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Button asChild variant="primary" size="lg" className="self-start shadow-[3px_3px_0_var(--oa-bg)] focus-visible:outline-page max-sm:w-full">
+              <Button asChild size="lg" className="self-start max-sm:w-full">
                 <a href={STARTUP_PROGRAM.apply.href} target="_blank" rel="noopener noreferrer">
                   {STARTUP_PROGRAM.apply.label}
                   <ArrowUpRight aria-hidden />

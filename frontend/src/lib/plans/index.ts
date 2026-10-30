@@ -39,6 +39,12 @@ export const TRIAL_RETURN_PATH = "/pricing?trial=1";
 /** Register link that comes back to the trial. The path is encoded into `next`. */
 export const TRIAL_REGISTER_HREF = `/register?next=${encodeURIComponent(TRIAL_RETURN_PATH)}`;
 
+/**
+ * AI credits (Studio and AniBuddy) every account gets each month, on every plan.
+ * Mirrors MONTHLY_GRANT in backend/src/modules/usage/usage.service.ts: change both together.
+ */
+export const AI_CREDITS_PER_MONTH = 150;
+
 /** Free sheets a month, from the entitlement table. */
 export const FREE_SHEETS_PER_MONTH = ENTITLEMENT_TABLE.free.sheetsPerMonth as number;
 

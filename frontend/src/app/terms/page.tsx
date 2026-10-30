@@ -109,7 +109,7 @@ const SECTIONS: LegalSectionData[] = [
           </Bullet>
           <Bullet>upload malware, or use the Service to attack, probe or overload anyone;</Bullet>
           <Bullet>
-            get around rate limits, plan limits or credits, scrape the Service, or resell access to the API without our
+            get around rate limits, plan limits or AI credits, scrape the Service, or resell access to the API without our
             written permission;
           </Bullet>
           <Bullet>reverse engineer the Service, except where the law lets you;</Bullet>
@@ -178,19 +178,19 @@ const SECTIONS: LegalSectionData[] = [
         </p>
         <p>
           If you add your own AI provider key, you pay that provider directly and its terms apply to your requests.
-          Credits shown in the app limit how much AI you can use on our keys, and can change.
+          AI credits shown in the app limit how much AI you can use on our keys, and can change.
         </p>
       </>
     ),
   },
   {
     id: "plans",
-    title: "Plans, credits and fees",
+    title: "Plans, AI credits and fees",
     body: (
       <>
         <p>
           The plans, their limits and their prices are shown on the <Internal href="/pricing">pricing page</Internal>.
-          Hobby is free. Pro and Enterprise are paid. For Enterprise, contact <Mail address={SALES_EMAIL} />. Plans and
+          The Free plan costs nothing. Pro and Enterprise are paid plans. For Enterprise, contact <Mail address={SALES_EMAIL} />. Plans and
           prices can change. If a price change affects a paid plan you are on, we will tell you <Fill>NOTICE PERIOD</Fill>{" "}
           before it applies.
         </p>

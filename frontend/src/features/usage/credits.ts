@@ -1,5 +1,5 @@
 // Credits shared by Studio and AniBuddy. The backend (modules/usage) owns the
-// balance: 150 free credits a month, granted on the 1st. Nothing here decides
+// balance: 150 AI credits a month for every plan, granted on the 1st. Nothing here decides
 // what a call costs; the client only reports and refreshes.
 
 export type CreditsInfo = {
@@ -38,10 +38,10 @@ export function formatResetDate(resetAt?: string | Date | null): string {
 }
 
 export function creditsLabel(count: number): string {
-  return `${count} ${count === 1 ? "credit" : "credits"}`;
+  return `${count} AI ${count === 1 ? "credit" : "credits"}`;
 }
 
 /** One sentence for inline errors and toasts. */
 export function creditsShortfallMessage(resetAt?: string | null): string {
-  return `You're out of credits. They reset on ${formatResetDate(resetAt)}.`;
+  return `You're out of AI credits. They reset on ${formatResetDate(resetAt)}.`;
 }

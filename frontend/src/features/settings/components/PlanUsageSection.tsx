@@ -47,7 +47,7 @@ function Credits({ usage }: { usage: Usage }) {
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <p>
             <span className="oa-h2">{left}</span>{" "}
-            <span className="text-xs text-ink-2">of {usage.monthlyGrant} credits left</span>
+            <span className="text-xs text-ink-2">of {usage.monthlyGrant} AI credits left</span>
           </p>
           {resetLabel && (
             <p className="text-xs text-ink-2">
@@ -55,12 +55,12 @@ function Credits({ usage }: { usage: Usage }) {
             </p>
           )}
         </div>
-        <Progress value={percent} label="Credits left this month" />
+        <Progress value={percent} label="AI credits left this month" />
       </div>
 
       {left === 0 && (
         <Notice tone="warning" role="status">
-          You have used all your credits for this month.
+          You have used all your AI credits for this month.
           {resetLabel ? ` They reset on ${resetLabel}.` : ""}
         </Notice>
       )}
@@ -95,7 +95,7 @@ function UsageHistory() {
       <div className="border-[1.5px] border-dashed border-line p-4">
         <p className="text-xs font-bold leading-[18px]">No usage yet</p>
         <p className="text-xs leading-[18px] text-ink-2">
-          Credits are spent when AI tools such as Studio and AniBuddy generate for you. Each use is listed here.
+          AI credits are spent when Studio and AniBuddy generate for you. Each use is listed here.
         </p>
       </div>
     );
@@ -109,13 +109,13 @@ function UsageHistory() {
     <div className="flex flex-col gap-3">
       <div className={cn("oa-table-box transition-opacity", loading && "opacity-60")} aria-busy={loading || undefined}>
         <table className="oa-table">
-          <caption className="sr-only">Recent credit usage, newest first</caption>
+          <caption className="sr-only">Recent AI credit usage, newest first</caption>
           <thead>
             <tr>
               <th scope="col">When</th>
               <th scope="col">Action</th>
               <th scope="col" className="text-right">
-                Credits
+                AI credits
               </th>
               <th scope="col">Status</th>
             </tr>
@@ -179,11 +179,11 @@ export function PlanUsageContent() {
       <SubSection first title="Plan" description="What your account includes right now.">
         <PlanOverview />
       </SubSection>
-      <SubSection title="AI credits" description="Studio and AniBuddy generations spend credits.">
+      <SubSection title="AI credits" description="Studio and AniBuddy generations spend AI credits.">
         {usage.status === "error" ? (
           <SectionError message={usage.error ?? ""} onRetry={usage.reload} />
         ) : usage.data === undefined ? (
-          <SectionLoading label="Loading credits" />
+          <SectionLoading label="Loading AI credits" />
         ) : (
           <Credits usage={usage.data} />
         )}

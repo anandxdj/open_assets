@@ -7,12 +7,12 @@ import { WRAP } from "@/components/marketing/site";
 
 const FAQ: FaqItem[] = [
   {
-    question: "Does my image need a transparent background?",
+    question: "Does my sheet need a transparent background?",
     answer: "No. If it has no alpha channel, we remove the background before detection.",
   },
   {
     question: "Which files can I upload?",
-    answer: "PNG, JPG and WebP, up to 20 MB, one image at a time.",
+    answer: "PNG, JPG and WebP, up to 20 MB, one sheet at a time.",
   },
   {
     question: "What if detection misses something?",
@@ -20,7 +20,7 @@ const FAQ: FaqItem[] = [
   },
   {
     question: "Who can see my assets?",
-    answer: "Only you. Collections stay private drafts until you publish them.",
+    answer: "Only you, and your team if you share a collection with it. Collections stay private drafts until you publish them.",
   },
 ];
 
@@ -36,7 +36,7 @@ export function PricingSection() {
         <SectionHeader
           eyebrow="Pricing"
           titleId="pricing-title"
-          title="Start free. Pay when it ships with you."
+          title="Start free. Upgrade when it ships with you."
           aside={
             <Link href="/pricing" className="oa-link text-xs">
               Compare every feature

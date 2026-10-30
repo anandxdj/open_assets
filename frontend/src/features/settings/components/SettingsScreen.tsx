@@ -72,7 +72,7 @@ export function SettingsScreen() {
             <ExportContent />
           </SettingsSection>
 
-          <SettingsSection id="plan" title="Plan and usage" description="Your plan, your credits for the month, and what spent them.">
+          <SettingsSection id="plan" title="Plan and usage" description="Your plan, your AI credits for the month, and what spent them.">
             <PlanUsageContent />
           </SettingsSection>
 

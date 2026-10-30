@@ -6,7 +6,7 @@ import { DOCS_URL } from "@/components/marketing/site";
 import { ENTITLEMENT_TABLE } from "@/lib/plans";
 
 export const metadata: Metadata = {
-  title: "API reference · OpenAssets Docs",
+  title: "API reference · Docs · OpenAssets",
   description:
     "The OpenAssets API v1: authenticate with an API key, upload a sheet, crop, export and download a ZIP. Curl examples, rate limits, error codes and plan limits.",
   alternates: { canonical: `${DOCS_URL}/api` },

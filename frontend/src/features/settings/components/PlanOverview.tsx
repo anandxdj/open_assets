@@ -9,7 +9,7 @@ import { Notice } from "@/components/ui/feedback";
 import { SectionLoading } from "@/features/settings/components/parts";
 import { usePlan } from "@/features/plans/PlanContext";
 import { UpgradeAction } from "@/features/plans/UpgradeAction";
-import { TRIAL_DAYS, type PlanStatus } from "@/lib/plans";
+import { AI_CREDITS_PER_MONTH, TRIAL_DAYS, type PlanStatus } from "@/lib/plans";
 
 /** Resets and plan ends are UTC dates, so they are shown as UTC dates. */
 const longDate = new Intl.DateTimeFormat("en", { dateStyle: "long", timeZone: "UTC" });
@@ -22,7 +22,7 @@ function planNote(plan: PlanStatus): string | null {
     if (plan.planSource === "billing") return `Billing${until}`;
     return `Granted by OpenAssets${until}`;
   }
-  return plan.trial.used ? "Trial used" : null;
+  return plan.trial.used ? "Pro trial ended" : null;
 }
 
 function Included({ yes }: { yes: boolean }) {
@@ -49,12 +49,18 @@ function TrialNotice({ plan }: { plan: PlanStatus }) {
       </Notice>
     );
   }
-  if (plan.effectivePlan === "free" && trial.eligible) {
+  if (plan.effectivePlan === "free") {
+    const lapsed = plan.plan === "pro" || trial.used;
+    if (!lapsed && !trial.eligible) return null;
     return (
-      <Notice tone="info">
+      <Notice tone={lapsed ? "warning" : "info"} role="status">
         <div className="flex flex-col items-start gap-2.5">
-          <p>Try Pro free for {TRIAL_DAYS} days: unlimited sheets, 4× upscale and finer detection controls.</p>
-          <UpgradeAction variant="primary" />
+          <p>
+            {lapsed
+              ? "Your Pro access has ended, so your account is on Free. Everything you made is still here. Team sharing turns read-only and API keys pause until you are on Pro again."
+              : `Try Pro for ${TRIAL_DAYS} days: unlimited sheets, 4× upscale, padding and threshold controls, custom naming, API keys and team sharing.`}
+          </p>
+          <UpgradeAction variant={trial.eligible ? "primary" : "secondary"} />
         </div>
       </Notice>
     );
@@ -92,7 +98,6 @@ export function PlanOverview() {
           {note && <span className="text-xs text-ink-2">{note}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          {!isPro && !plan.trial.eligible && <UpgradeAction />}
           <Button asChild>
             <Link href="/pricing">Compare plans</Link>
           </Button>
@@ -161,6 +166,12 @@ export function PlanOverview() {
               <td>
                 <Included yes={e.customNamingPatterns} />
               </td>
+            </tr>
+            <tr>
+              <th scope="row" className="border-b border-rule bg-transparent text-xs font-normal normal-case leading-[18px] tracking-normal text-ink">
+                AI credits per month
+              </th>
+              <td className="oa-value">{AI_CREDITS_PER_MONTH}</td>
             </tr>
             <tr>
               <th scope="row" className="border-b border-rule bg-transparent text-xs font-normal normal-case leading-[18px] tracking-normal text-ink">
