@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { BoundingBox } from "@/types";
+import { nextAssetLabel } from "../lib/names";
 
 export type Tool = "hand" | "select" | "draw";
 
@@ -89,6 +90,15 @@ export function useCanvasEditor() {
     setBoxes((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
   }, []);
 
+  /** Move several boxes at once as a single undo step (arrow-key nudge). */
+  const moveBoxes = useCallback((ids: Set<string>, dx: number, dy: number) => {
+    if (ids.size === 0) return;
+    setBoxes((prev) => {
+      saveStateToHistory(prev);
+      return prev.map((b) => (ids.has(b.id) ? { ...b, x: b.x + dx, y: b.y + dy } : b));
+    });
+  }, [saveStateToHistory]);
+
   const deleteBox = useCallback((id: string) => {
     setBoxes((prev) => {
       saveStateToHistory(prev);
@@ -113,7 +123,9 @@ export function useCanvasEditor() {
   const addBox = useCallback((box: BoundingBox) => {
     setBoxes((prev) => {
       saveStateToHistory(prev);
-      return [...prev, box];
+      // Drawn boxes have no label and Alt-drag copies share one: give each its own.
+      const needsLabel = !box.label || prev.some((b) => b.label === box.label);
+      return [...prev, needsLabel ? { ...box, label: nextAssetLabel(prev) } : box];
     });
   }, [saveStateToHistory]);
 
@@ -130,7 +142,7 @@ export function useCanvasEditor() {
     selectedIds, setSelectedIds,
     drawingBox, setDrawingBox,
     toggleId, clearSelection,
-    updateBox, updateBoxSilently, deleteBox, deleteSelected, addBox, initBoxes,
+    updateBox, updateBoxSilently, moveBoxes, deleteBox, deleteSelected, addBox, initBoxes,
     fitToScreen,
     saveHistory, undo, redo,
     canUndo: past.length > 0,

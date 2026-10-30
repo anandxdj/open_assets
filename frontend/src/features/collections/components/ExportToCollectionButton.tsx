@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { FolderPlus, Loader2, X, Check, Boxes } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { Folder, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
+import { Input, Select } from "@/components/ui/input";
 import {
   listMyCollections,
   getCollection,
@@ -21,44 +25,80 @@ interface Props {
 
 const NEW = "__new__";
 
+function assetsLabel(n: number) {
+  return `${n} asset${n === 1 ? "" : "s"}`;
+}
+
+/** "Save to collection" button and dialog for the export screen. */
 export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props) {
+  const ids = useId();
   const [open, setOpen] = useState(false);
   const [collections, setCollections] = useState<CollectionSummary[]>([]);
+  const [loadingCollections, setLoadingCollections] = useState(false);
   const [collectionId, setCollectionId] = useState<string>(NEW);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [folders, setFolders] = useState<CollectionFolder[]>([]);
   const [folderId, setFolderId] = useState<string>(NEW);
   const [newFolderName, setNewFolderName] = useState("Assets");
   const [loadingFolders, setLoadingFolders] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const folderRequest = useRef(0);
 
-  useEffect(() => {
-    if (!open) return;
+  const count = selectedIds.length;
+
+  function handleOpenChange(next: boolean) {
+    if (saving) return;
+    setOpen(next);
+    if (!next) return;
+    // Fresh form every time it opens.
+    setCollectionId(NEW);
+    setNewCollectionName("");
+    setFolders([]);
+    setFolderId(NEW);
+    setNewFolderName("Assets");
+    setNameError(null);
+    setLoadingCollections(true);
     listMyCollections()
       .then((res) => setCollections(res.data))
-      .catch(() => setCollections([]));
-  }, [open]);
+      .catch(() => setCollections([]))
+      .finally(() => setLoadingCollections(false));
+  }
 
   // When an existing collection is chosen, load its folders.
-  useEffect(() => {
-    if (!open || collectionId === NEW) {
+  function handleCollectionChange(next: string) {
+    setCollectionId(next);
+    setNameError(null);
+    const request = ++folderRequest.current;
+    if (next === NEW) {
       setFolders([]);
       setFolderId(NEW);
+      setLoadingFolders(false);
       return;
     }
     setLoadingFolders(true);
-    getCollection(collectionId)
+    getCollection(next)
       .then((res) => {
+        if (request !== folderRequest.current) return;
         setFolders(res.data.folders);
         setFolderId(res.data.folders[0]?._id ?? NEW);
       })
-      .catch(() => setFolders([]))
-      .finally(() => setLoadingFolders(false));
-  }, [collectionId, open]);
+      .catch(() => {
+        if (request === folderRequest.current) setFolders([]);
+      })
+      .finally(() => {
+        if (request === folderRequest.current) setLoadingFolders(false);
+      });
+  }
 
-  async function handleSave() {
-    if (selectedIds.length === 0) {
+  async function handleSave(event: React.FormEvent) {
+    event.preventDefault();
+    if (count === 0) {
       toast.error("Select at least one asset first.");
+      return;
+    }
+    if (collectionId === NEW && !newCollectionName.trim()) {
+      setNameError("Name your new collection.");
       return;
     }
     setSaving(true);
@@ -66,11 +106,6 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props
       // 1. Ensure collection.
       let targetCollection = collectionId;
       if (collectionId === NEW) {
-        if (!newCollectionName.trim()) {
-          toast.error("Name your new collection.");
-          setSaving(false);
-          return;
-        }
         targetCollection = (await createCollection({ name: newCollectionName.trim() })).data._id;
       }
 
@@ -82,108 +117,118 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props
 
       // 3. Push the selected crops.
       await exportJobToFolder(targetCollection, targetFolder, jobId, selectedIds);
-      toast.success(`Exported ${selectedIds.length} asset${selectedIds.length !== 1 ? "s" : ""} to collection`);
+      toast.success(`Saved ${assetsLabel(count)} to the collection`);
       setOpen(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Export failed");
+      toast.error("Could not save to the collection", {
+        description: err instanceof Error ? err.message : "Export failed",
+      });
     } finally {
       setSaving(false);
     }
   }
 
+  const collectionField = `${ids}-collection`;
+  const nameField = `${ids}-name`;
+  const folderField = `${ids}-folder`;
+  const folderNameField = `${ids}-folder-name`;
+  const creatingFolder = folderId === NEW || collectionId === NEW;
+
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        disabled={disabled || selectedIds.length === 0}
-        className="py-3 px-5 bg-[#ff7c00] text-black font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-1.5 hover:bg-[#ff8f24] hover:shadow-[0_0_20px_rgba(255,124,0,0.35)] border border-[#ff7c00] transition-all duration-200 cursor-pointer rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button size="sm" disabled={disabled || count === 0}>
+          <Folder aria-hidden />
+          Save {count} to collection
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        title={`Save ${assetsLabel(count)} to a collection`}
+        description="Only you can see it until you publish."
       >
-        <Boxes className="h-3.5 w-3.5" />
-        Export to Collection ({selectedIds.length})
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md grid place-items-center p-6 font-mono" onClick={() => !saving && setOpen(false)}>
-          <div className="bg-[#0a0a0c] border border-zinc-800 rounded-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-900">
-              <h3 className="text-sm font-black uppercase tracking-wide text-zinc-100 flex items-center gap-2">
-                <FolderPlus className="h-4 w-4 text-[#ff7c00]" /> Export to Collection
-              </h3>
-              <button onClick={() => !saving && setOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="p-5 flex flex-col gap-4">
-              {/* Collection */}
-              <div>
-                <label className="text-[9px] text-zinc-500 uppercase tracking-widest">Collection</label>
-                <select
-                  value={collectionId}
-                  onChange={(e) => setCollectionId(e.target.value)}
-                  className="w-full mt-1 bg-zinc-950 border border-zinc-800 focus:border-[#ff7c00] outline-none rounded px-3 py-2 text-sm text-zinc-100"
-                >
-                  <option value={NEW}>+ New collection…</option>
-                  {collections.map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.name} {c.isPublic ? "" : "(draft)"}
-                    </option>
-                  ))}
-                </select>
-                {collectionId === NEW && (
-                  <input
-                    value={newCollectionName}
-                    onChange={(e) => setNewCollectionName(e.target.value)}
-                    placeholder="New collection name"
-                    className="w-full mt-2 bg-zinc-950 border border-zinc-800 focus:border-[#ff7c00] outline-none rounded px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
-                  />
-                )}
-              </div>
-
-              {/* Folder */}
-              <div>
-                <label className="text-[9px] text-zinc-500 uppercase tracking-widest">Folder</label>
-                {loadingFolders ? (
-                  <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading folders…
-                  </div>
-                ) : (
-                  <select
-                    value={folderId}
-                    onChange={(e) => setFolderId(e.target.value)}
-                    disabled={collectionId === NEW}
-                    className="w-full mt-1 bg-zinc-950 border border-zinc-800 focus:border-[#ff7c00] outline-none rounded px-3 py-2 text-sm text-zinc-100 disabled:opacity-50"
-                  >
-                    <option value={NEW}>+ New folder…</option>
-                    {folders.map((f) => (
-                      <option key={f._id} value={f._id}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {(folderId === NEW || collectionId === NEW) && (
-                  <input
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    placeholder="New folder name"
-                    className="w-full mt-2 bg-zinc-950 border border-zinc-800 focus:border-[#ff7c00] outline-none rounded px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
-                  />
-                )}
-              </div>
-
-              <button
-                onClick={handleSave}
+        <form onSubmit={handleSave} noValidate className="contents">
+          <DialogBody>
+            <Field label="Collection" htmlFor={collectionField}>
+              <Select
+                id={collectionField}
+                value={collectionId}
+                onChange={(e) => handleCollectionChange(e.target.value)}
                 disabled={saving}
-                className="py-3 px-4 bg-[#ff7c00] text-black font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-1.5 hover:bg-[#ff8f24] border border-[#ff7c00] transition-colors rounded disabled:opacity-50"
+                aria-busy={loadingCollections || undefined}
               >
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                Save {selectedIds.length} asset{selectedIds.length !== 1 ? "s" : ""}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+                <option value={NEW}>New collection…</option>
+                {collections.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name}
+                    {c.isPublic ? "" : " (draft)"}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            {collectionId === NEW && (
+              <Field label="Name" htmlFor={nameField} error={nameError}>
+                <Input
+                  id={nameField}
+                  value={newCollectionName}
+                  placeholder="e.g. RPG pack v1"
+                  invalid={Boolean(nameError)}
+                  aria-describedby={nameError ? `${nameField}-note` : undefined}
+                  disabled={saving}
+                  onChange={(e) => {
+                    setNewCollectionName(e.target.value);
+                    if (nameError) setNameError(null);
+                  }}
+                />
+              </Field>
+            )}
+
+            <Field
+              label="Folder"
+              htmlFor={folderField}
+              help={loadingFolders ? "Loading folders…" : collectionId === NEW ? "A new collection starts with one folder." : undefined}
+            >
+              <Select
+                id={folderField}
+                value={folderId}
+                onChange={(e) => setFolderId(e.target.value)}
+                disabled={collectionId === NEW || loadingFolders || saving}
+                aria-describedby={loadingFolders || collectionId === NEW ? `${folderField}-note` : undefined}
+              >
+                <option value={NEW}>New folder…</option>
+                {folders.map((f) => (
+                  <option key={f._id} value={f._id}>
+                    {f.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            {creatingFolder && (
+              <Field label="Folder name" htmlFor={folderNameField}>
+                <Input
+                  id={folderNameField}
+                  value={newFolderName}
+                  placeholder="Assets"
+                  disabled={saving}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                />
+              </Field>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="ghost" disabled={saving}>
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button type="submit" variant="primary" disabled={saving} aria-busy={saving || undefined}>
+              {saving && <LoaderCircle aria-hidden className="animate-spin" />}
+              Save {assetsLabel(count)}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

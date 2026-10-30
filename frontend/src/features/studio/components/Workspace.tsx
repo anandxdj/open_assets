@@ -1,56 +1,52 @@
 "use client";
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
-// Image workspace: checkerboard frame, clickable edge handles per direction,
-// dimension pill, status, and result actions.
+// Extender stage: the image on a checkerboard with an extend button on each
+// edge, the size badge, and a slot for the floating review bar.
 
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, LoaderCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Direction } from "@/features/studio/lib/app";
-import { StatusPill } from "@/features/studio/components/StatusPill";
+
+export const EDGE_NAME: Record<Direction, string> = {
+  up: "top",
+  down: "bottom",
+  left: "left",
+  right: "right",
+};
+
+const EDGE_ICON = { up: ArrowUp, down: ArrowDown, left: ArrowLeft, right: ArrowRight } as const;
+
+const EDGE_KEY: Record<Direction, string> = { up: "↑", down: "↓", left: "←", right: "→" };
 
 export function EdgeHandle({
   direction,
   onClick,
   active,
   disabled,
+  className,
 }: {
   direction: Direction;
   onClick: (d: Direction) => void;
   active: boolean;
   disabled: boolean;
+  className?: string;
 }) {
-  const Icon = {
-    up: ArrowUp,
-    down: ArrowDown,
-    left: ArrowLeft,
-    right: ArrowRight,
-  }[direction];
-
-  const position: React.CSSProperties = {
-    up: { top: -22, left: "50%", transform: "translateX(-50%)" },
-    down: { bottom: -22, left: "50%", transform: "translateX(-50%)" },
-    left: { left: -22, top: "50%", transform: "translateY(-50%)" },
-    right: { right: -22, top: "50%", transform: "translateY(-50%)" },
-  }[direction];
-
+  const Icon = EDGE_ICON[direction];
+  const label = `Extend ${EDGE_NAME[direction]}`;
   return (
-    <button
+    <Button
+      variant="secondary"
+      icon
       onClick={() => onClick(direction)}
       disabled={disabled}
-      title={`Extend ${direction}`}
-      aria-label={`Extend ${direction}`}
-      style={position}
-      className={cn(
-        "absolute z-10 flex h-11 w-11 items-center justify-center border-2 rounded-none transition-all duration-150",
-        active
-          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-black animate-pulse"
-          : "border-zinc-950 dark:border-zinc-700 bg-background text-muted-foreground hover:bg-zinc-950 hover:text-white dark:hover:bg-white dark:hover:text-black",
-        disabled && !active && "opacity-40 cursor-not-allowed",
-        disabled && "cursor-not-allowed",
-      )}
+      aria-label={label}
+      title={`${label} (${EDGE_KEY[direction]})`}
+      className={cn(active && "bg-inverse text-inverse-fg disabled:opacity-100", className)}
     >
-      <Icon size={18} />
-    </button>
+      {active ? <LoaderCircle aria-hidden className="animate-spin" /> : <Icon aria-hidden />}
+    </Button>
   );
 }
 
@@ -60,68 +56,50 @@ export function Workspace({
   onExtend,
   activeDirection,
   loading,
-  progressMessage,
   isResult,
-  resultMessage,
-  variantSelector,
-  resultActions,
+  overlay,
 }: {
   image: string;
   dimensions: { width: number; height: number } | null;
   onExtend: (d: Direction) => void;
   activeDirection: Direction | null;
   loading: boolean;
-  progressMessage?: string | null;
   isResult: boolean;
-  resultMessage?: string;
-  variantSelector?: React.ReactNode;
-  resultActions?: React.ReactNode;
+  /** Floating bar pinned to the bottom of the stage (variant review). */
+  overlay?: React.ReactNode;
 }) {
+  const handle = (d: Direction) =>
+    isResult ? null : (
+      <EdgeHandle direction={d} onClick={onExtend} active={activeDirection === d} disabled={loading} />
+    );
+
   return (
-    <div className="relative flex flex-1 flex-col items-center justify-center px-6 pb-6 pt-2 font-mono">
-      <div className="relative max-h-[calc(100vh-280px)] max-w-[min(1200px,calc(100vw-96px))]">
-        <div className="relative overflow-hidden border-2 border-zinc-950 dark:border-zinc-700 bg-[repeating-conic-gradient(#80808033_0%_25%,transparent_0%_50%)] bg-[length:16px_16px]">
+    <div className="oa-stage flex min-h-[420px] flex-1 flex-col items-center justify-center px-4 pb-24 pt-12 md:px-6">
+      {dimensions && (
+        <Badge className="absolute left-3 top-3 bg-surface">
+          <span className="oa-value">
+            {dimensions.width} × {dimensions.height}
+          </span>
+        </Badge>
+      )}
+      <div className="grid max-w-full grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[auto_minmax(0,1fr)_auto] items-center justify-items-center gap-2">
+        <div className="col-start-2 row-start-1 h-8">{handle("up")}</div>
+        <div className="col-start-1 row-start-2 w-8">{handle("left")}</div>
+        <div className="oa-checker col-start-2 row-start-2 max-w-full border-[1.5px] border-line-strong">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={image}
-            alt=""
-            className="block max-h-[calc(100vh-280px)] max-w-[min(1200px,calc(100vw-96px))] object-contain"
+            alt={isResult ? "Extended image preview" : "Current image"}
             draggable={false}
+            className="block max-h-[max(220px,calc(100dvh-320px))] max-w-full object-contain"
           />
         </div>
-
-        {!isResult && (
-          <>
-            <EdgeHandle direction="up" onClick={onExtend} active={activeDirection === "up"} disabled={loading} />
-            <EdgeHandle direction="down" onClick={onExtend} active={activeDirection === "down"} disabled={loading} />
-            <EdgeHandle direction="left" onClick={onExtend} active={activeDirection === "left"} disabled={loading} />
-            <EdgeHandle direction="right" onClick={onExtend} active={activeDirection === "right"} disabled={loading} />
-          </>
-        )}
+        <div className="col-start-3 row-start-2 w-8">{handle("right")}</div>
+        <div className="col-start-2 row-start-3 h-8">{handle("down")}</div>
       </div>
-
-      <div className="mt-5 flex items-center gap-3">
-        {dimensions && (
-          <div className="border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-            {dimensions.width} × {dimensions.height}
-          </div>
-        )}
-        {isResult && variantSelector}
-        {isResult && resultMessage && <StatusPill status="ok" message={resultMessage} />}
-        {!isResult && !loading && (
-          <span className="text-[11px] uppercase text-muted-foreground">
-            Click an edge to extend · arrow keys work too
-          </span>
-        )}
-        {loading && (
-          <StatusPill
-            status="working"
-            message={progressMessage || (activeDirection ? `Extending ${activeDirection}…` : "Working…")}
-          />
-        )}
-      </div>
-
-      {isResult && resultActions && <div className="mt-4">{resultActions}</div>}
+      {overlay && (
+        <div className="absolute inset-x-0 bottom-4 flex justify-center px-3">{overlay}</div>
+      )}
     </div>
   );
 }

@@ -1,12 +1,21 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import { Check, FileImage, LoaderCircle, RotateCcw, Sparkles, Upload } from "lucide-react";
+import { ChangeEvent, useEffect, useId, useMemo, useRef, useState, type DragEvent } from "react";
+import { Check, ImageUp, LoaderCircle, RotateCcw, Sparkles } from "lucide-react";
 
 import { compileMotion } from "@/features/anibuddy/atlas/compiler";
 import { extractAtlasRevision } from "@/features/anibuddy/atlas/extract";
 import { blobAsDataUrl, readAtlasBlob, readProjectSnapshot, saveAtlasBlob, saveProjectSnapshot } from "@/features/anibuddy/atlas/storage";
 import { activeRevision, createAtlasProject, type AssetClassification, type AtlasProject, type SourceAtlas, validateAtlasProject } from "@/features/anibuddy/atlas/types";
+import { Crumbs, Topbar } from "@/components/layout/AppShell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/controls";
+import { Notice } from "@/components/ui/feedback";
+import { Field } from "@/components/ui/field";
+import { Input, Select } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { Hint, Inspector, PanelSection, Prop, StageArea } from "@/features/anibuddy/components/WorkspacePanels";
 
 type AtlasPixels = Record<string, string>;
 
@@ -37,7 +46,15 @@ function classLabel(value: AssetClassification["kind"]): string {
   return value === "body-part" ? "Body part" : value[0].toUpperCase() + value.slice(1);
 }
 
+function regionLabel(id: string): string {
+  return `Region ${id.split(":").pop()}`;
+}
+
+const KINDS = ["unclassified", "character", "pose", "body-part", "prop", "effect", "background"] as const;
+
 export function AtlasWorkspace() {
+  const id = useId();
+  const fileInput = useRef<HTMLInputElement | null>(null);
   const [project, setProject] = useState<AtlasProject>(() => createAtlasProject());
   const [pixels, setPixels] = useState<AtlasPixels>({});
   const [busy, setBusy] = useState(false);
@@ -45,6 +62,7 @@ export function AtlasWorkspace() {
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [motion, setMotion] = useState<"idle" | "loop" | "play">("loop");
   const [approvedConstraint, setApprovedConstraint] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const revision = activeRevision(project);
   const atlas = project.sourceAtlases[0] ?? null;
   const sourcePixels = atlas ? pixels[atlas.id] : undefined;
@@ -52,33 +70,44 @@ export function AtlasWorkspace() {
   const diagnostics = useMemo(() => validateAtlasProject(project), [project]);
 
   useEffect(() => {
-    const restored = readProjectSnapshot();
-    if (!restored) return;
-    setProject(restored);
-    void Promise.all(restored.sourceAtlases.map(async (source) => {
-      const blob = await readAtlasBlob(source.blobKey);
-      return blob ? [source.id, await blobAsDataUrl(blob)] as const : null;
-    })).then((entries) => setPixels(Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => entry !== null))));
+    let cancelled = false;
+    void (async () => {
+      const restored = readProjectSnapshot();
+      if (!restored) return;
+      const entries = await Promise.all(restored.sourceAtlases.map(async (source) => {
+        const blob = await readAtlasBlob(source.blobKey);
+        return blob ? [source.id, await blobAsDataUrl(blob)] as const : null;
+      }));
+      if (cancelled) return;
+      // Don't clobber an atlas the user added while the snapshot was loading.
+      setProject((current) => current.sourceAtlases.length ? current : restored);
+      setPixels((current) => Object.keys(current).length ? current : Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => entry !== null)));
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => { if (project.sourceAtlases.length) saveProjectSnapshot(project); }, [project]);
 
-  const addAtlas = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const addAtlasFile = async (file: File) => {
     setBusy(true); setMessage(null);
     try {
       if (!file.type.startsWith("image/")) throw new Error("Choose a PNG, WebP, or JPEG image.");
       const dataUrl = await blobAsDataUrl(file);
       const dimensions = await dimensionsOf(dataUrl);
-      const id = crypto.randomUUID();
-      const source: SourceAtlas = { id, name: file.name, ...dimensions, checksum: await checksum(file), blobKey: `anibuddy-atlas:${id}`, createdAt: new Date().toISOString(), rightsConfirmed: false, remoteVisionConsented: false };
+      const atlasId = crypto.randomUUID();
+      const source: SourceAtlas = { id: atlasId, name: file.name, ...dimensions, checksum: await checksum(file), blobKey: `anibuddy-atlas:${atlasId}`, createdAt: new Date().toISOString(), rightsConfirmed: false, remoteVisionConsented: false };
       await saveAtlasBlob(source.blobKey, file);
       setPixels({ [source.id]: dataUrl });
       setProject({ ...createAtlasProject(), sourceAtlases: [source], updatedAt: new Date().toISOString() });
       setSelectedRegionId(null);
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : "The atlas could not be saved locally."); }
-    finally { setBusy(false); event.target.value = ""; }
+    finally { setBusy(false); }
+  };
+
+  const addAtlas = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try { await addAtlasFile(file); } finally { event.target.value = ""; }
   };
 
   const editAtlas = (change: Partial<Pick<SourceAtlas, "rightsConfirmed" | "remoteVisionConsented">>) => {
@@ -114,15 +143,223 @@ export function AtlasWorkspace() {
     setMessage(outcome.message);
   };
 
-  const selected = revision?.regions.find((region) => region.id === selectedRegionId) ?? null;
+  const startOver = () => { setProject(createAtlasProject()); setPixels({}); setSelectedRegionId(null); };
 
-  return <main className="mx-auto w-full max-w-7xl px-5 py-8 text-zinc-900 dark:text-zinc-100 sm:px-8">
-    <header className="max-w-3xl"><p className="text-sm font-medium text-violet-700 dark:text-violet-300">AniBuddy</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Turn a sprite atlas into a scene.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">AniBuddy preserves every supplied region, classifies it into a reusable kit, and compiles motion from those pixels. It does not invent missing views, limbs, or props.</p></header>
-    <section className="mt-8 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-lg font-medium">Quick Animate</h2><p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Upload one mixed animation-kit sheet and review the component map.</p></div>{atlas && <button type="button" onClick={() => { setProject(createAtlasProject()); setPixels({}); setSelectedRegionId(null); }} className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"><RotateCcw className="h-4 w-4" /> New atlas</button>}</div>
-      {!atlas ? <label className="mt-6 flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-5 text-center transition hover:border-violet-500 hover:bg-violet-50 dark:border-zinc-700 dark:bg-zinc-900/40 dark:hover:bg-violet-950/20"><Upload className="h-6 w-6 text-violet-600" /><span className="mt-3 font-medium">Choose an animation-kit sheet</span><span className="mt-1 text-sm text-zinc-500">PNG, WebP, or JPEG. The original stays in this browser.</span><input className="sr-only" type="file" accept="image/png,image/webp,image/jpeg" onChange={(event) => void addAtlas(event)} /></label> : <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]"><div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900"><img src={sourcePixels} alt={`Source atlas ${atlas.name}`} className="max-h-[30rem] w-full object-contain" /></div><div className="space-y-4"><div><p className="flex items-center gap-2 text-sm font-medium"><FileImage className="h-4 w-4 text-violet-600" />{atlas.name}</p><p className="mt-1 text-xs text-zinc-500">{atlas.width} × {atlas.height}px · local source · checksum {atlas.checksum.slice(0, 10)}…</p></div><label className="flex gap-3 text-sm leading-5"><input type="checkbox" checked={atlas.rightsConfirmed} onChange={(event) => editAtlas({ rightsConfirmed: event.target.checked })} className="mt-0.5 h-4 w-4 accent-violet-600" /><span>I own this artwork or have permission to animate it.</span></label><label className="flex gap-3 text-sm leading-5"><input type="checkbox" checked={atlas.remoteVisionConsented} onChange={(event) => editAtlas({ remoteVisionConsented: event.target.checked })} className="mt-0.5 h-4 w-4 accent-violet-600" /><span>Allow remote vision analysis later. <span className="text-zinc-500">This local extraction sends nothing.</span></span></label><button type="button" onClick={() => void extract()} disabled={!atlas.rightsConfirmed || busy} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-violet-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-45">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{revision ? "Reanalyse as a candidate revision" : "Extract local candidates"}</button>{!atlas.rightsConfirmed && <p className="text-xs leading-5 text-amber-700 dark:text-amber-300">Confirm rights before extraction.</p>}</div></div>}
-    </section>
-    {revision && <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"><div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-medium">Component map</h2><p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Every candidate is retained. Confirm a role only when it is clear; unknown regions remain safe and excluded.</p></div><button type="button" onClick={accept} className="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"><Check className="h-4 w-4" /> Accept map</button></div><p aria-live="polite" className="mt-4 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">{revision.diagnostics.notes.join(" ")} {revision.diagnostics.overlappingPairs.length ? `${revision.diagnostics.overlappingPairs.length} overlapping candidates need review.` : "No overlapping candidates."}</p><div className="mt-5 grid gap-3 sm:grid-cols-2">{revision.regions.map((region) => <button key={region.id} type="button" onClick={() => setSelectedRegionId(region.id)} className={`rounded-lg border p-3 text-left transition ${selectedRegionId === region.id ? "border-violet-600 ring-2 ring-violet-100 dark:ring-violet-950" : "border-zinc-200 hover:border-zinc-400 dark:border-zinc-800"}`}><p className="font-medium">Region {region.id.split(":").pop()}</p><p className="mt-1 text-xs text-zinc-500">{region.rect.width} × {region.rect.height}px · {classLabel(region.classification.kind)}</p><p className="mt-2 text-xs text-zinc-500">{region.provenance.replaceAll("-", " ")}</p></button>)}</div></div><aside className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">{selected ? <><h2 className="text-lg font-medium">Classify region</h2><p className="mt-1 text-sm text-zinc-500">A correction creates a new candidate revision; accepted work is never overwritten.</p><label className="mt-5 block text-sm font-medium">Asset type<select value={selected.classification.kind} onChange={(event) => setClassification(selected.id, { kind: event.target.value as AssetClassification["kind"] })} className="mt-1 w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700">{(["unclassified", "character", "pose", "body-part", "prop", "effect", "background"] as const).map((kind) => <option key={kind} value={kind}>{classLabel(kind)}</option>)}</select></label><label className="mt-4 block text-sm font-medium">Character group<input value={selected.classification.characterGroup ?? ""} onChange={(event) => setClassification(selected.id, { characterGroup: event.target.value || null })} placeholder="hero" className="mt-1 w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700" /></label><label className="mt-4 block text-sm font-medium">Frame order<input type="number" min="0" value={selected.classification.frame ?? ""} onChange={(event) => setClassification(selected.id, { frame: event.target.value === "" ? null : Number(event.target.value), role: "frame" })} placeholder="0" className="mt-1 w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700" /></label></> : <p className="text-sm text-zinc-500">Select a candidate to classify it.</p>}</aside></section>}
-    {scene && revision && <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"><h2 className="text-lg font-medium">Motion compiler</h2><p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Motion requests are compiled against the accepted capability graph. The atlas pixels are not sent to a model for animation.</p><div className="mt-5 flex flex-wrap items-center gap-3"><label className="text-sm font-medium">Motion<select value={motion} onChange={(event) => { setMotion(event.target.value as typeof motion); setApprovedConstraint(false); }} className="ml-2 rounded-md border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700"><option value="idle">Idle</option><option value="loop">Loop supplied frames</option><option value="play">Play supplied frames once</option></select></label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={approvedConstraint} onChange={(event) => setApprovedConstraint(event.target.checked)} className="h-4 w-4 accent-violet-600" />Approve a constrained static preview if required</label><button type="button" onClick={compile} className="rounded-md bg-violet-700 px-4 py-2 text-sm font-medium text-white hover:bg-violet-800">Compile preview</button></div>{scene.activeProgramId && <p className="mt-4 text-sm text-emerald-700 dark:text-emerald-300">A deterministic program is ready locally. Repeating preview or export reuses this compiled program.</p>}</section>}
-    {(message || diagnostics.length > 0) && <p aria-live="polite" className="mt-5 rounded-md border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-100">{message}{diagnostics.length > 0 ? ` ${diagnostics.join(" ")}` : ""}</p>}
-  </main>;
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!dragOver) setDragOver(true);
+  };
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragOver(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file && !busy) void addAtlasFile(file);
+  };
+
+  const selected = revision?.regions.find((region) => region.id === selectedRegionId) ?? null;
+  const feedback = [message, ...diagnostics].filter(Boolean).join(" ");
+
+  return (
+    <>
+      <Topbar>
+        <Crumbs items={[{ label: "AniBuddy", href: "/anibuddy" }, { label: atlas ? atlas.name : "Quick animate" }]} />
+        <span className="flex-1" />
+        {atlas && (
+          <Button variant="ghost" size="sm" onClick={startOver}>
+            <RotateCcw aria-hidden />
+            New atlas
+          </Button>
+        )}
+      </Topbar>
+      <h1 className="sr-only">AniBuddy quick animate</h1>
+      <input ref={fileInput} className="sr-only" tabIndex={-1} aria-hidden type="file" accept="image/png,image/webp,image/jpeg" onChange={(event) => void addAtlas(event)} />
+
+      {!atlas ? (
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pb-20 md:p-6">
+          <div className="oa-drop flex-1" data-over={dragOver} onDragEnter={onDragOver} onDragOver={onDragOver} onDragLeave={() => setDragOver(false)} onDrop={onDrop}>
+            <span className="oa-icon-box size-12">
+              {busy ? <LoaderCircle aria-hidden className="size-6 animate-spin" /> : <ImageUp aria-hidden className="size-6" />}
+            </span>
+            <div className="flex max-w-md flex-col gap-1">
+              <h2 className="oa-section">Turn a sprite atlas into a scene</h2>
+              <p className="text-xs leading-[18px] text-ink-2">
+                Drop one animation-kit sheet here. AniBuddy keeps every region you supplied, sorts them into a kit and
+                builds motion from those pixels. It never invents missing views, limbs or props.
+              </p>
+            </div>
+            <Button variant="primary" size="lg" disabled={busy} onClick={() => fileInput.current?.click()}>
+              <ImageUp aria-hidden />
+              Choose a sheet
+            </Button>
+            <Hint>PNG, WebP or JPEG. The original stays in this browser.</Hint>
+            {message && <Notice tone="danger" role="alert" className="text-left">{message}</Notice>}
+          </div>
+        </main>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sunken pb-14 md:flex-row md:overflow-hidden md:pb-0">
+          <nav aria-label="Regions" className="flex flex-none flex-col border-b-[1.5px] border-line bg-surface md:w-[240px] md:border-b-0 md:border-r-[1.5px]">
+            <div className="oa-panel-head">
+              Regions
+              {revision && <span className="oa-count ml-auto mr-1.5 text-ink-2">{revision.regions.length}</span>}
+            </div>
+            <div className="max-h-[240px] overflow-y-auto p-1.5 md:max-h-none md:min-h-0 md:flex-1">
+              {revision ? (
+                <ul className="flex flex-col gap-px">
+                  {revision.regions.map((region) => (
+                    <li key={region.id}>
+                      <button
+                        type="button"
+                        className="oa-layer h-auto min-h-[34px] w-full flex-col items-start justify-center gap-0 py-1.5 text-left"
+                        data-selected={selectedRegionId === region.id}
+                        aria-pressed={selectedRegionId === region.id}
+                        onClick={() => setSelectedRegionId(region.id)}
+                      >
+                        <span className="text-xs font-bold">{regionLabel(region.id)}</span>
+                        <span className="oa-value text-[11px] text-ink-3">
+                          {region.rect.width} × {region.rect.height} · {classLabel(region.classification.kind)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Hint className="p-2">Extract candidates to list the regions here.</Hint>
+              )}
+            </div>
+          </nav>
+
+          <StageArea label="Atlas">
+            <div className="flex flex-1 items-center justify-center overflow-auto p-4 md:p-8">
+              {sourcePixels ? (
+                <div className="oa-checker relative inline-block max-w-full border border-line">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={sourcePixels} alt={`Source atlas ${atlas.name}`} className="block max-h-[70vh] max-w-full" />
+                  {revision?.regions.map((region) => {
+                    const isSelected = region.id === selectedRegionId;
+                    return (
+                      <button
+                        key={region.id}
+                        type="button"
+                        tabIndex={-1}
+                        aria-hidden
+                        onClick={() => setSelectedRegionId(region.id)}
+                        className={cn("absolute", isSelected ? "z-10 border-2 border-brand" : "border-[1.5px] border-ink/70 hover:border-ink")}
+                        style={{
+                          left: `${(region.rect.x / atlas.width) * 100}%`,
+                          top: `${(region.rect.y / atlas.height) * 100}%`,
+                          width: `${(region.rect.width / atlas.width) * 100}%`,
+                          height: `${(region.rect.height / atlas.height) * 100}%`,
+                        }}
+                      >
+                        {isSelected && (
+                          <span className="absolute -left-0.5 -top-[19px] h-[18px] whitespace-nowrap bg-brand px-1.5 text-[10px] font-bold leading-[18px] text-brand-fg">
+                            {regionLabel(region.id)}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Notice tone="warning">The atlas pixels could not be read from this browser. Choose the sheet again with New atlas.</Notice>
+              )}
+            </div>
+          </StageArea>
+
+          <Inspector title="Atlas">
+            <PanelSection title="Source">
+              <Prop label="File">
+                <span className="oa-value block truncate text-ink" title={atlas.name}>{atlas.name}</span>
+              </Prop>
+              <Prop label="Size">
+                <span className="oa-value text-ink">{atlas.width} × {atlas.height}</span>
+              </Prop>
+              <Prop label="Checksum">
+                <span className="oa-value block truncate text-ink-2" title={atlas.checksum}>{atlas.checksum.slice(0, 10)}…</span>
+              </Prop>
+              <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[18px]">
+                <Checkbox checked={atlas.rightsConfirmed} onChange={(event) => editAtlas({ rightsConfirmed: event.target.checked })} className="mt-px" />
+                <span>I own this artwork or have permission to animate it.</span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[18px]">
+                <Checkbox checked={atlas.remoteVisionConsented} onChange={(event) => editAtlas({ remoteVisionConsented: event.target.checked })} className="mt-px" />
+                <span className="flex flex-col gap-0.5">
+                  <span>Allow remote vision analysis later.</span>
+                  <span className="text-[11px] leading-4 text-ink-3">This local extraction sends nothing.</span>
+                </span>
+              </label>
+              <Button variant={revision ? "secondary" : "primary"} block disabled={!atlas.rightsConfirmed || busy} onClick={() => void extract()}>
+                {busy ? <LoaderCircle aria-hidden className="animate-spin" /> : <Sparkles aria-hidden />}
+                {revision ? "Reanalyse as a new revision" : "Extract regions"}
+              </Button>
+              {!atlas.rightsConfirmed && <Hint>Confirm your rights to the artwork before extracting.</Hint>}
+            </PanelSection>
+
+            {revision && (
+              <PanelSection title="Component map" aside={revision.accepted ? <Badge tone="success"><Check aria-hidden />Accepted</Badge> : undefined}>
+                <p aria-live="polite" className="text-xs leading-[18px] text-ink-2">
+                  {revision.diagnostics.notes.join(" ")} {revision.diagnostics.overlappingPairs.length ? `${revision.diagnostics.overlappingPairs.length} overlapping candidates need review.` : "No overlapping candidates."}
+                </p>
+                <Hint>Every candidate is kept. Set a role only when it&apos;s clear; unknown regions stay safe and excluded.</Hint>
+                <Button variant={scene ? "secondary" : "primary"} size="sm" className="self-start" onClick={accept}>
+                  <Check aria-hidden />
+                  Accept map
+                </Button>
+              </PanelSection>
+            )}
+
+            {revision && (
+              <PanelSection title="Classify region">
+                {selected ? (
+                  <>
+                    <Hint>A correction creates a new revision. Accepted work is never overwritten.</Hint>
+                    <Field label="Asset type" htmlFor={`${id}-kind`}>
+                      <Select id={`${id}-kind`} size="sm" value={selected.classification.kind} onChange={(event) => setClassification(selected.id, { kind: event.target.value as AssetClassification["kind"] })}>
+                        {KINDS.map((kind) => <option key={kind} value={kind}>{classLabel(kind)}</option>)}
+                      </Select>
+                    </Field>
+                    <Field label="Character group" htmlFor={`${id}-group`}>
+                      <Input id={`${id}-group`} size="sm" value={selected.classification.characterGroup ?? ""} onChange={(event) => setClassification(selected.id, { characterGroup: event.target.value || null })} placeholder="hero" />
+                    </Field>
+                    <Field label="Frame order" htmlFor={`${id}-frame`}>
+                      <Input id={`${id}-frame`} size="sm" type="number" min="0" value={selected.classification.frame ?? ""} onChange={(event) => setClassification(selected.id, { frame: event.target.value === "" ? null : Number(event.target.value), role: "frame" })} placeholder="0" />
+                    </Field>
+                  </>
+                ) : (
+                  <Hint>Select a region to classify it.</Hint>
+                )}
+              </PanelSection>
+            )}
+
+            {scene && revision && (
+              <PanelSection title="Motion">
+                <Hint>Motion is compiled from the accepted map. The atlas pixels aren&apos;t sent to a model to animate.</Hint>
+                <Field label="Motion" htmlFor={`${id}-motion`}>
+                  <Select id={`${id}-motion`} size="sm" value={motion} onChange={(event) => { setMotion(event.target.value as typeof motion); setApprovedConstraint(false); }}>
+                    <option value="idle">Idle</option>
+                    <option value="loop">Loop supplied frames</option>
+                    <option value="play">Play supplied frames once</option>
+                  </Select>
+                </Field>
+                <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[18px]">
+                  <Checkbox checked={approvedConstraint} onChange={(event) => setApprovedConstraint(event.target.checked)} className="mt-px" />
+                  <span>Approve a constrained static preview if needed</span>
+                </label>
+                <Button variant="primary" block onClick={compile}>Compile preview</Button>
+                {scene.activeProgramId && (
+                  <Notice tone="success">A deterministic program is ready in this browser. Previewing or exporting again reuses it.</Notice>
+                )}
+              </PanelSection>
+            )}
+
+            {feedback && (
+              <PanelSection className="border-b-0">
+                <Notice tone="info" role="status">{feedback}</Notice>
+              </PanelSection>
+            )}
+          </Inspector>
+        </div>
+      )}
+    </>
+  );
 }

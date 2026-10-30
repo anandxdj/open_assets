@@ -1,28 +1,10 @@
-"use client";
+import { AuthGate } from "@/components/layout/AuthGate";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/features/auth/context/AuthContext";
-
+/** Full-height workspace frame for the editor and export screens: no sidebar. */
 export default function EditorLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
-  }, [user, loading, router]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!user) return null;
-
-  return <>{children}</>;
+  return (
+    <div className="flex h-dvh min-h-[560px] flex-col overflow-hidden bg-page">
+      <AuthGate label="Opening editor">{children}</AuthGate>
+    </div>
+  );
 }

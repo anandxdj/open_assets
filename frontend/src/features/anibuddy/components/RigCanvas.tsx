@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Circle, Image as KonvaImage, Layer, Line, Stage } from "react-konva";
+import { Circle, Image as KonvaImage, Layer, Line, Rect, Stage } from "react-konva";
 import type Konva from "konva";
 import { type Joint, type PreparedAsset, type Rig, getBones } from "@/features/anibuddy/types";
 import { loadImageElement } from "@/features/anibuddy/lib/raster";
 import { normalizeRows } from "@/features/anibuddy/lib/mesh";
-import { roleColor } from "@/features/anibuddy/lib/skeleton";
+import { useCanvasTokens, withAlpha } from "@/features/anibuddy/components/useCanvasTokens";
 
-const JOINT_RADIUS = 7;
+const JOINT_RADIUS = 6;
+const SELECTED_SIZE = 14;
 const HIT_RADIUS = 16;
 const MAX_STAGE_EDGE = 520;
 
@@ -38,6 +39,9 @@ export function RigCanvas({ prepared, rig, tool, selectedBone, selectedJointId, 
   const [draftCut, setDraftCut] = useState<[number, number][]>([]);
   const painting = useRef(false);
   const drawingCut = useRef<[number, number][] | null>(null);
+  // Bones and joints are drawn in ink; the selection is orange. Read from the
+  // design tokens so both themes work.
+  const tokens = useCanvasTokens();
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +118,8 @@ export function RigCanvas({ prepared, rig, tool, selectedBone, selectedJointId, 
     if (points && points.length >= 2) onAddCut(points);
   };
 
+  const meshStroke = withAlpha(tokens.ink, 0.35);
+
   return (
     <Stage width={stageWidth} height={stageHeight}
       onPointerDown={(event: Konva.KonvaEventObject<PointerEvent>) => {
@@ -136,7 +142,7 @@ export function RigCanvas({ prepared, rig, tool, selectedBone, selectedJointId, 
           const indices = [rig.mesh.tris[triangle * 3], rig.mesh.tris[triangle * 3 + 1], rig.mesh.tris[triangle * 3 + 2]];
           const points = indices.flatMap((index) => [rig.mesh.verts[index * 2] * stageWidth, rig.mesh.verts[index * 2 + 1] * stageHeight]);
           const heat = weightColour ? indices.reduce((sum, index) => sum + weightColour(index), 0) / 3 : 0;
-          return <Line key={triangle} points={points} closed stroke="rgba(24,24,27,0.35)" strokeWidth={0.5} fill={heat > 0.01 ? `rgba(192,38,211,${Math.min(0.6, heat * 0.6)})` : undefined} />;
+          return <Line key={triangle} points={points} closed stroke={meshStroke} strokeWidth={0.5} fill={heat > 0.01 ? withAlpha(tokens.accent, Math.min(0.6, heat * 0.6)) : undefined} />;
         })}
       </Layer>}
 
@@ -144,26 +150,37 @@ export function RigCanvas({ prepared, rig, tool, selectedBone, selectedJointId, 
         const from = toStage(bone.parentJoint);
         const to = toStage(bone.childJoint);
         const active = tool === "weights" && index === selectedBone;
-        return <Line key={bone.id} points={[from.x, from.y, to.x, to.y]} stroke={active ? "#c026d3" : roleColor(bone.childJoint.role)} strokeWidth={active ? 4 : 2.5} lineCap="round" />;
+        return <Line key={bone.id} points={[from.x, from.y, to.x, to.y]} stroke={active ? tokens.accent : tokens.ink} strokeWidth={active ? 4 : 2.5} lineCap="square" />;
       })}</Layer>
 
       <Layer listening={tool === "cuts"}>
-        {rig.cuts.map((cut) => <Line key={cut.id} points={cut.points.flatMap(([x, y]) => [x * stageWidth, y * stageHeight])} stroke={cut.id === selectedCutId ? "#c026d3" : "#ef4444"} strokeWidth={cut.id === selectedCutId ? 3 : 2} lineCap="round" hitStrokeWidth={14}
+        {rig.cuts.map((cut) => <Line key={cut.id} points={cut.points.flatMap(([x, y]) => [x * stageWidth, y * stageHeight])} stroke={cut.id === selectedCutId ? tokens.accent : tokens.danger} strokeWidth={cut.id === selectedCutId ? 3 : 2} lineCap="square" hitStrokeWidth={14}
           onPointerDown={(event: Konva.KonvaEventObject<PointerEvent>) => { event.cancelBubble = true; }}
           onClick={(event: Konva.KonvaEventObject<MouseEvent>) => { event.cancelBubble = true; onCutSelect(cut.id); }} />)}
-        {draftCut.length > 1 && <Line points={draftCut.flatMap(([x, y]) => [x * stageWidth, y * stageHeight])} stroke="#c026d3" strokeWidth={2} dash={[5, 4]} lineCap="round" />}
+        {draftCut.length > 1 && <Line points={draftCut.flatMap(([x, y]) => [x * stageWidth, y * stageHeight])} stroke={tokens.accent} strokeWidth={2} dash={[5, 4]} lineCap="square" />}
       </Layer>
 
       <Layer listening={tool === "joints"}>
         {rig.joints.map((joint) => {
           const position = toStage(joint);
           const selected = selectedJointId === joint.id;
-          return <Circle key={joint.id} x={position.x} y={position.y} radius={JOINT_RADIUS} hitStrokeWidth={HIT_RADIUS} fill={roleColor(joint.role)} opacity={selectedJointId === null || selected ? 1 : 0.7} stroke={selected || hovered === joint.id ? "#c026d3" : "#fafafa"} strokeWidth={selected ? 3 : 2} draggable={tool === "joints"}
-            onClick={(event: Konva.KonvaEventObject<MouseEvent>) => { event.cancelBubble = true; onJointSelect(joint.id); }}
-            onMouseEnter={() => setHovered(joint.id)}
-            onMouseLeave={() => setHovered((current) => current === joint.id ? null : current)}
-            dragBoundFunc={(position) => ({ x: Math.max(0, Math.min(stageWidth, position.x)), y: Math.max(0, Math.min(stageHeight, position.y)) })}
-            onDragMove={(event: Konva.KonvaEventObject<DragEvent>) => onJointDrag(joint.id, event.target.x() / stageWidth, event.target.y() / stageHeight)} />;
+          const shared = {
+            x: position.x,
+            y: position.y,
+            hitStrokeWidth: HIT_RADIUS,
+            stroke: tokens.ink,
+            opacity: selectedJointId === null || selected ? 1 : 0.7,
+            draggable: tool === "joints",
+            onClick: (event: Konva.KonvaEventObject<MouseEvent>) => { event.cancelBubble = true; onJointSelect(joint.id); },
+            onMouseEnter: () => setHovered(joint.id),
+            onMouseLeave: () => setHovered((current) => current === joint.id ? null : current),
+            dragBoundFunc: (point: Konva.Vector2d) => ({ x: Math.max(0, Math.min(stageWidth, point.x)), y: Math.max(0, Math.min(stageHeight, point.y)) }),
+            onDragMove: (event: Konva.KonvaEventObject<DragEvent>) => onJointDrag(joint.id, event.target.x() / stageWidth, event.target.y() / stageHeight),
+          };
+          // The selected joint is an orange square; the rest are ink rings.
+          return selected
+            ? <Rect key={joint.id} {...shared} width={SELECTED_SIZE} height={SELECTED_SIZE} offsetX={SELECTED_SIZE / 2} offsetY={SELECTED_SIZE / 2} fill={tokens.accent} strokeWidth={2} />
+            : <Circle key={joint.id} {...shared} radius={JOINT_RADIUS} fill={tokens.surface} strokeWidth={hovered === joint.id ? 3 : 2} />;
         })}
       </Layer>
     </Stage>

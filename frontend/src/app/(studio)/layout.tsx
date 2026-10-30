@@ -1,19 +1,19 @@
-"use client";
-
-import { Navbar } from "@/components/layout/Navbar";
+import { AppShell } from "@/components/layout/AppShell";
 import { ComingSoonPage } from "@/components/layout/ComingSoonPage";
 
 // Studio works signed-out too (BYOK), so unlike (dashboard) this layout does
-// not redirect unauthenticated users — generation prompts sign-in/BYOK instead.
+// not gate on auth. It stays behind ComingSoonPage until release. To ungate,
+// render children wrapped as:
+//   <AppShell><StudioSettingsProvider><StudioShell>{children}</StudioShell></StudioSettingsProvider></AppShell>
+// (useStudioSettings throws without the provider).
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
   void children;
   return (
-    <div className="flex h-screen flex-col">
-      <Navbar />
+    <AppShell>
       <ComingSoonPage
         name="Studio"
-        description="Our asset-generation workspace is still being prepared for release. It is not available in this deployment yet."
+        description="Generate animated sprites, tile sets, prop atlases and parallax backgrounds that drop straight into your library."
       />
-    </div>
+    </AppShell>
   );
 }

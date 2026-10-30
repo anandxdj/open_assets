@@ -1,10 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Grid3x3, Loader2, Plus, RotateCcw, Sparkles, Trash2, TriangleAlert } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { CircleAlert, Droplet, Grid3x3, LoaderCircle, Plus, RotateCcw, Scissors, Sparkles, Spline, Trash2 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import {
   type CutLine,
   type Joint,
@@ -18,14 +17,32 @@ import {
 } from "@/features/anibuddy/types";
 import { type Raster, loadRaster } from "@/features/anibuddy/lib/raster";
 import { buildMesh, buildWeights } from "@/features/anibuddy/lib/mesh";
-import { buildRig, rebindWeights, roleColor } from "@/features/anibuddy/lib/skeleton";
+import { buildRig, rebindWeights } from "@/features/anibuddy/lib/skeleton";
 import { requestRigAnalysis, AniBuddyApiError } from "@/features/anibuddy/api/anibuddyClient";
 import type { RigTool } from "@/features/anibuddy/components/RigCanvas";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/feedback";
+import { Field } from "@/components/ui/field";
+import { Input, Select } from "@/components/ui/input";
+import { Hint, Inspector, PanelSection, Prop, StageArea } from "@/features/anibuddy/components/WorkspacePanels";
 
 const RigCanvas = dynamic(
   () => import("@/features/anibuddy/components/RigCanvas").then((mod) => mod.RigCanvas),
-  { ssr: false, loading: () => <div className="grid h-72 place-items-center font-mono text-[10px] uppercase tracking-wider text-zinc-500">Loading editor</div> },
+  { ssr: false, loading: () => <div className="oa-label grid h-72 w-72 place-items-center">Loading editor</div> },
 );
+
+const TOOLS: { id: RigTool; label: string; icon: typeof Spline }[] = [
+  { id: "joints", label: "Joints", icon: Spline },
+  { id: "cuts", label: "Cuts", icon: Scissors },
+  { id: "weights", label: "Weights", icon: Droplet },
+];
+
+const TOOL_HELP: Record<RigTool, string> = {
+  joints: "Click empty artwork to add a joint under the selected one. Drag a joint to move it, or click it to select it.",
+  cuts: "Draw a line between parts. Select a cut to delete it with Delete or the trash button.",
+  weights: "Paint influence for the selected bone.",
+};
 
 interface RigStepProps {
   prepared: PreparedAsset;
@@ -50,6 +67,7 @@ function manualJoints(prepared: PreparedAsset): Joint[] {
 }
 
 export function RigStep({ prepared, rig, onRig, onContinue }: RigStepProps) {
+  const id = useId();
   const [loaded, setLoaded] = useState<{ url: string; raster: Raster } | null>(null);
   const raster = loaded?.url === prepared.dataUrl ? loaded.raster : null;
   const [busy, setBusy] = useState(false);
@@ -206,33 +224,241 @@ export function RigStep({ prepared, rig, onRig, onContinue }: RigStepProps) {
   const invalidReason = rigInvalidReason(rig);
 
   return (
-    <section className="border-2 border-zinc-950 bg-card p-5 text-card-foreground dark:border-zinc-100 sm:p-7">
-      <div className="mb-5 flex items-start justify-between gap-4"><div><p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">03 / rig</p><h2 className="mt-1 text-xl font-black uppercase tracking-tight">Edit the rig</h2></div>{rig && <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">{rig.source === "model" ? "Model draft" : "Edited by you"}</span>}</div>
-
-      {!rig ? <div className="space-y-4"><p className="max-w-2xl text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Detect joint locations with vision analysis or start with a three-joint spine.</p><div className="flex flex-wrap gap-3"><button type="button" onClick={() => void analyze()} disabled={!raster || busy} className="flex items-center gap-2 bg-fuchsia-700 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-white disabled:opacity-40">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}Analyse rig</button><button type="button" onClick={() => startManual()} disabled={!raster} className="border-2 border-zinc-950 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider disabled:opacity-40 dark:border-zinc-100">Place joints myself</button></div></div> : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
-          <div className="justify-self-center border border-zinc-300 dark:border-zinc-700" onPointerUp={tool === "joints" ? rebind : undefined}>
-            <RigCanvas prepared={prepared} rig={rig} tool={tool} selectedBone={selectedBone} selectedJointId={activeSelectedJointId} selectedCutId={activeSelectedCutId} showMesh={showMesh} brushRadius={0.08} brushStrength={0.35} onJointDrag={moveJoint} onJointSelect={setSelectedJointId} onAddJoint={addJoint} onWeights={(weights) => onRig({ ...rig, weights, source: "edited" })} onAddCut={addCut} onCutSelect={setSelectedCutId} />
-          </div>
-          <div className="space-y-4">
-            <div><p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">Tool</p><div className="flex flex-wrap gap-2">{(["joints", "cuts", "weights"] as const).map((option) => <button key={option} type="button" onClick={() => setTool(option)} aria-pressed={tool === option} className={cn("border px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider", tool === option ? "border-fuchsia-700 bg-fuchsia-700 text-white" : "border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300")}>{option}</button>)}</div><p className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300">{tool === "joints" ? "Click empty artwork to add under the selected joint; drag or select a joint." : tool === "cuts" ? "Draw a line between parts. Select a red line, then delete it with Delete or the trash button." : "Paint influence for the selected bone."}</p></div>
-
-            {tool === "joints" && <><button type="button" onClick={() => addJoint(0.5, 0.5)} className="flex w-full items-center gap-2 border border-zinc-300 px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider dark:border-zinc-700"><Plus className="h-3.5 w-3.5" />Add joint</button>{selectedJoint && <div className="space-y-2 border border-zinc-300 p-3 dark:border-zinc-700"><div className="flex items-center justify-between"><span className="font-mono text-[10px] font-bold uppercase tracking-wider">Selected joint</span><span className="h-3 w-3" style={{ background: roleColor(selectedJoint.role) }} /></div><input aria-label="Joint name" value={selectedJoint.name} onChange={(event) => renameJoint(selectedJoint.id, event.target.value)} className="w-full border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700" /><select aria-label="Joint role" value={selectedJoint.role} onChange={(event) => setRole(selectedJoint.id, event.target.value as JointRole)} className="w-full border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700">{JOINT_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select><select aria-label="Joint parent" value={selectedJoint.parent ?? ""} onChange={(event) => reparent(selectedJoint.id, event.target.value || null)} className="w-full border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700"><option value="">No parent (root)</option>{rig.joints.filter((joint) => joint.id !== selectedJoint.id).map((joint) => <option key={joint.id} value={joint.id}>{joint.name}</option>)}</select><button type="button" onClick={() => deleteJoint(selectedJoint.id)} disabled={rig.joints.length <= MIN_JOINTS} className="flex items-center gap-2 text-xs text-red-600 disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" />Delete joint</button></div>}</>}
-
-            {tool === "cuts" && <div className="space-y-2">{rig.cuts.map((cut) => <button key={cut.id} type="button" onClick={() => setSelectedCutId(cut.id)} className={cn("flex w-full items-center justify-between border px-2 py-1.5 text-left font-mono text-xs", cut.id === selectedCutId ? "border-fuchsia-700 text-fuchsia-700" : "border-zinc-300 dark:border-zinc-700")}><span>{cut.id}</span><Trash2 className="h-3.5 w-3.5" onClick={(event) => { event.stopPropagation(); deleteCut(cut.id); }} /></button>)}</div>}
-
-            {tool === "weights" && <div><label htmlFor="anibuddy-bone" className="mb-2 block font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">Bone</label><select id="anibuddy-bone" value={selectedBone} onChange={(event) => setSelectedBone(Number(event.target.value))} className="w-full border border-zinc-300 bg-transparent px-2 py-1.5 text-sm dark:border-zinc-700">{bones.map((bone, index) => <option key={bone.id} value={index}>{bone.parentJoint.name} to {bone.childJoint.name}</option>)}</select></div>}
-
-            <button type="button" onClick={() => setShowMesh((current) => !current)} aria-pressed={showMesh} className={cn("flex w-full items-center gap-2 border px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider", showMesh ? "border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-300" : "border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300")}><Grid3x3 className="h-3.5 w-3.5" />{showMesh ? "Hide mesh" : "Show mesh"}</button>
-            <button type="button" onClick={() => onRig(null)} className="flex w-full items-center gap-2 border border-zinc-300 px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"><RotateCcw className="h-3.5 w-3.5" />Start rig over</button>
-            <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">{rig.mesh.tris.length / 3} triangles / {bones.length} bones</p>
-          </div>
+    <>
+      <StageArea label="Rig editor">
+        <p role="status" aria-live="polite" className="sr-only">
+          {busy ? "Analysing the rig…" : ""}
+        </p>
+        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 pb-20 md:p-8 md:pb-20">
+          {rig ? (
+            <div className="oa-checker flex-none border border-line" onPointerUp={tool === "joints" ? rebind : undefined}>
+              <RigCanvas prepared={prepared} rig={rig} tool={tool} selectedBone={selectedBone} selectedJointId={activeSelectedJointId} selectedCutId={activeSelectedCutId} showMesh={showMesh} brushRadius={0.08} brushStrength={0.35} onJointDrag={moveJoint} onJointSelect={setSelectedJointId} onAddJoint={addJoint} onWeights={(weights) => onRig({ ...rig, weights, source: "edited" })} onAddCut={addCut} onCutSelect={setSelectedCutId} />
+            </div>
+          ) : (
+            <div className="oa-checker relative h-full min-h-[300px] w-full max-w-[520px] border border-line">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={prepared.dataUrl} alt="Prepared artwork, not rigged yet" className="absolute inset-0 size-full object-contain p-6" />
+              {busy && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-[color-mix(in_srgb,var(--oa-surface)_70%,transparent)]">
+                  <LoaderCircle aria-hidden className="size-8 animate-spin text-brand" />
+                  <span className="text-xs leading-[18px] text-ink-2">Finding joints…</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
 
-      {error && <p className="mt-4 border border-red-500 bg-red-50 px-3 py-2 text-sm leading-6 dark:bg-red-950/30">{error}</p>}
-      {rig && rig.warnings.length > 0 && <ul className="mt-5 space-y-2 border-l-2 border-amber-500 pl-4">{rig.warnings.map((warning) => <li key={warning} className="flex gap-2 text-sm leading-6 text-zinc-700 dark:text-zinc-200"><TriangleAlert className="mt-1 h-3.5 w-3.5 shrink-0 text-amber-600" />{warning}</li>)}</ul>}
-      {rig && <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-700"><button type="button" onClick={() => { onRig(rebindWeights(rig)); onContinue(); }} disabled={invalidReason !== null} className="bg-fuchsia-700 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-40">Continue to animation</button>{invalidReason && <span className="font-mono text-[10px] uppercase tracking-wider text-red-600 dark:text-red-400">{invalidReason}</span>}</div>}
-    </section>
+        {rig && (
+          <div role="toolbar" aria-label="Rig tools" className="oa-float absolute bottom-4 left-1/2 -translate-x-1/2">
+            {TOOLS.map(({ id: option, label, icon: Icon }) => (
+              <button
+                key={option}
+                type="button"
+                className="oa-tool"
+                aria-label={label}
+                title={label}
+                aria-pressed={tool === option}
+                onClick={() => setTool(option)}
+              >
+                <Icon aria-hidden />
+              </button>
+            ))}
+            <span aria-hidden className="oa-vsep" />
+            <button
+              type="button"
+              className="oa-tool"
+              aria-label="Show mesh"
+              title="Show mesh"
+              aria-pressed={showMesh}
+              onClick={() => setShowMesh((current) => !current)}
+            >
+              <Grid3x3 aria-hidden />
+            </button>
+          </div>
+        )}
+      </StageArea>
+
+      <Inspector
+        title="Rig"
+        footer={
+          rig && (
+            <>
+              <Button
+                variant="primary"
+                block
+                disabled={invalidReason !== null}
+                aria-describedby={invalidReason ? `${id}-invalid` : undefined}
+                onClick={() => { onRig(rebindWeights(rig)); onContinue(); }}
+              >
+                Continue to animation
+              </Button>
+              {invalidReason && (
+                <span id={`${id}-invalid`} className="oa-field-error">
+                  <CircleAlert aria-hidden className="size-3.5 flex-none" />
+                  {invalidReason}
+                </span>
+              )}
+            </>
+          )
+        }
+      >
+        {!rig ? (
+          <PanelSection>
+            <div className="flex flex-wrap gap-1.5">
+              <Button variant="primary" size="sm" className="flex-1" disabled={!raster || busy} onClick={() => void analyze()}>
+                {busy ? <LoaderCircle aria-hidden className="animate-spin" /> : <Sparkles aria-hidden />}
+                Analyse rig
+              </Button>
+              <Button variant="secondary" size="sm" disabled={!raster} onClick={() => startManual()}>
+                Place joints myself
+              </Button>
+            </div>
+            <Hint>Find joints with vision analysis, or start from a three-joint spine and place the rest yourself.</Hint>
+          </PanelSection>
+        ) : (
+          <>
+            <PanelSection
+              title={TOOLS.find((option) => option.id === tool)?.label}
+              aside={<Badge>{rig.source === "model" ? "Model draft" : "Edited by you"}</Badge>}
+            >
+              <Hint>{TOOL_HELP[tool]}</Hint>
+              <span className="oa-value text-ink-3">
+                {rig.joints.length} joints · {bones.length} bones · {rig.mesh.tris.length / 3} triangles
+              </span>
+            </PanelSection>
+
+            {tool === "joints" && (
+              <PanelSection title="Selected joint">
+                {selectedJoint ? (
+                  <>
+                    <Prop label="Name" htmlFor={`${id}-name`}>
+                      <Input id={`${id}-name`} size="sm" value={selectedJoint.name} onChange={(event) => renameJoint(selectedJoint.id, event.target.value)} />
+                    </Prop>
+                    <Prop label="Role" htmlFor={`${id}-role`}>
+                      <Select id={`${id}-role`} size="sm" value={selectedJoint.role} onChange={(event) => setRole(selectedJoint.id, event.target.value as JointRole)}>
+                        {JOINT_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
+                      </Select>
+                    </Prop>
+                    <Prop label="Parent" htmlFor={`${id}-parent`}>
+                      <Select id={`${id}-parent`} size="sm" value={selectedJoint.parent ?? ""} onChange={(event) => reparent(selectedJoint.id, event.target.value || null)}>
+                        <option value="">No parent (root)</option>
+                        {rig.joints.filter((joint) => joint.id !== selectedJoint.id).map((joint) => <option key={joint.id} value={joint.id}>{joint.name}</option>)}
+                      </Select>
+                    </Prop>
+                    <Prop label="Position">
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {(["x", "y"] as const).map((axis) => (
+                          <label key={axis} className="oa-unit-input">
+                            <span>{axis.toUpperCase()}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={1}
+                              aria-label={axis === "x" ? "X position, percent of width" : "Y position, percent of height"}
+                              value={Math.round(selectedJoint[axis] * 100)}
+                              onChange={(event) => {
+                                const value = Number(event.target.value);
+                                if (!Number.isFinite(value)) return;
+                                moveJoint(
+                                  selectedJoint.id,
+                                  axis === "x" ? value / 100 : selectedJoint.x,
+                                  axis === "y" ? value / 100 : selectedJoint.y,
+                                );
+                              }}
+                              onBlur={rebind}
+                            />
+                            <span>%</span>
+                          </label>
+                        ))}
+                      </div>
+                    </Prop>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Button variant="secondary" size="sm" disabled={rig.joints.length >= 48} onClick={() => addJoint(0.5, 0.5)}>
+                        <Plus aria-hidden />
+                        Add joint
+                      </Button>
+                      <Button variant="danger" size="sm" disabled={rig.joints.length <= MIN_JOINTS} onClick={() => deleteJoint(selectedJoint.id)}>
+                        <Trash2 aria-hidden />
+                        Delete
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Hint>Select a joint on the artwork to edit it.</Hint>
+                    <Button variant="secondary" size="sm" className="self-start" disabled={rig.joints.length >= 48} onClick={() => addJoint(0.5, 0.5)}>
+                      <Plus aria-hidden />
+                      Add joint
+                    </Button>
+                  </>
+                )}
+              </PanelSection>
+            )}
+
+            {tool === "cuts" && (
+              <PanelSection title="Cuts">
+                {rig.cuts.length === 0 ? (
+                  <Hint>No cuts yet. Draw one on the artwork.</Hint>
+                ) : (
+                  <ul className="flex flex-col gap-px">
+                    {rig.cuts.map((cut) => (
+                      <li key={cut.id} className="oa-layer pr-1" data-selected={cut.id === activeSelectedCutId}>
+                        <button
+                          type="button"
+                          aria-pressed={cut.id === activeSelectedCutId}
+                          onClick={() => setSelectedCutId(cut.id)}
+                          className="oa-value h-full flex-1 truncate text-left"
+                        >
+                          {cut.id}
+                        </button>
+                        <Button variant="ghost" size="sm" icon aria-label={`Delete ${cut.id}`} onClick={() => deleteCut(cut.id)}>
+                          <Trash2 aria-hidden />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </PanelSection>
+            )}
+
+            {tool === "weights" && (
+              <PanelSection title="Weights">
+                <Field label="Bone" htmlFor={`${id}-bone`}>
+                  <Select id={`${id}-bone`} size="sm" value={selectedBone} onChange={(event) => setSelectedBone(Number(event.target.value))}>
+                    {bones.map((bone, index) => <option key={bone.id} value={index}>{bone.parentJoint.name} to {bone.childJoint.name}</option>)}
+                  </Select>
+                </Field>
+              </PanelSection>
+            )}
+
+            {rig.warnings.length > 0 && (
+              <PanelSection title="Warnings">
+                <Notice tone="warning">
+                  <ul className="flex flex-col gap-1">
+                    {rig.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+                  </ul>
+                </Notice>
+              </PanelSection>
+            )}
+
+            <PanelSection className="border-b-0">
+              <Button variant="ghost" size="sm" className="self-start px-1 text-danger" onClick={() => onRig(null)}>
+                <RotateCcw aria-hidden />
+                Start rig over
+              </Button>
+            </PanelSection>
+          </>
+        )}
+
+        {error && (
+          <PanelSection className="border-b-0">
+            <Notice tone="danger" role="alert">
+              {error}
+            </Notice>
+          </PanelSection>
+        )}
+      </Inspector>
+    </>
   );
 }

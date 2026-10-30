@@ -1,0 +1,108 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useAuth } from "@/features/auth/context/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Notice } from "@/components/ui/feedback";
+import { AuthIntro, GoogleButton, OrDivider } from "@/components/auth/AuthParts";
+
+export function RegisterForm() {
+  const { register } = useAuth();
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (loading) return;
+    setError(null);
+    setLoading(true);
+    try {
+      await register(name, email, password);
+      toast.success("Account created. Check your email to verify it, then sign in.");
+      router.push("/login");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not create your account. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <>
+      <AuthIntro title="Create your account">Free plan includes 5 sheets a month.</AuthIntro>
+
+      <div className="flex flex-col gap-4">
+        <GoogleButton>Sign up with Google</GoogleButton>
+        <OrDivider />
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {error && (
+            <Notice tone="danger" role="alert">
+              {error}
+            </Notice>
+          )}
+
+          <Field label="Name" htmlFor="name">
+            <Input
+              id="name"
+              type="text"
+              size="lg"
+              autoComplete="name"
+              required
+              minLength={2}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </Field>
+
+          <Field label="Email" htmlFor="email">
+            <Input
+              id="email"
+              type="email"
+              size="lg"
+              autoComplete="email"
+              placeholder="you@studio.com"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </Field>
+
+          <Field label="Password" htmlFor="password" help="8+ characters with an uppercase letter and a digit.">
+            <Input
+              id="password"
+              type="password"
+              size="lg"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              aria-describedby="password-note"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </Field>
+
+          <Button type="submit" variant="primary" size="lg" block aria-disabled={loading || undefined}>
+            {loading ? "Creating account…" : "Create account"}
+          </Button>
+        </form>
+      </div>
+
+      <p className="text-xs leading-[18px] text-ink-2">
+        Already have an account?{" "}
+        <Link href="/login" className="oa-link">
+          Sign in
+        </Link>
+      </p>
+    </>
+  );
+}

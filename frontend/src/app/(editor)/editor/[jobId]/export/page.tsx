@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { ExportScreen } from "@/features/editor/components/ExportScreen";
+
+export const metadata: Metadata = { title: "Export · OpenAssets" };
 
 export default async function ExportPage({
   params,
