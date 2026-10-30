@@ -2,6 +2,10 @@ import type { Request, Response, NextFunction } from 'express';
 import { ZodError, type ZodType } from 'zod';
 import { ApiError } from '../utils/ApiError';
 
+function formatIssues(error: ZodError): string {
+  return error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+}
+
 export const validate = (schema: ZodType) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -10,8 +14,22 @@ export const validate = (schema: ZodType) => {
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const errorMessage = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
-        return next(ApiError.badRequest(errorMessage));
+        return next(ApiError.badRequest(formatIssues(error)));
+      }
+      next(error);
+    }
+  };
+};
+
+/** Same as `validate`, for the query string (pagination, filters). */
+export const validateQuery = (schema: ZodType) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      req.query = schema.parse(req.query) as Request['query']; // coerced + defaulted values
+      next();
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return next(ApiError.badRequest(formatIssues(error)));
       }
       next(error);
     }

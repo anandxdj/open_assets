@@ -48,4 +48,7 @@ const UsageEventSchema = new Schema<IUsageEvent>({
   timestamps: true,
 });
 
+// Settings → usage history: one user's events, newest first, paginated.
+UsageEventSchema.index({ user: 1, createdAt: -1 });
+
 export const UsageEventModel = mongoose.model<IUsageEvent>('UsageEvent', UsageEventSchema);

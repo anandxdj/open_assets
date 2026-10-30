@@ -87,6 +87,35 @@ export async function refund(eventId: string) {
   return { refunded: true, cost: event.cost };
 }
 
+/** One page of a user's spend history, newest first. */
+export async function listEvents(userId: string, page = 1, limit = 20) {
+  const filter = { user: userId };
+  const [rows, total] = await Promise.all([
+    UsageEventModel.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    UsageEventModel.countDocuments(filter),
+  ]);
+
+  return {
+    items: rows.map((e) => ({
+      id: String(e._id),
+      op: e.op,
+      modelId: e.modelId,
+      units: e.units,
+      cost: e.cost,
+      status: e.status,
+      createdAt: e.createdAt.toISOString(),
+    })),
+    total,
+    page,
+    limit,
+    hasMore: page * limit < total,
+  };
+}
+
 /** Current balance + plan, applying the lazy monthly reset first. */
 export async function getUsage(userId: string) {
   await UserModel.updateOne(
