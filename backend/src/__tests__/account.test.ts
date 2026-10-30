@@ -573,7 +573,7 @@ describe('account API (MongoDB)', { skip: needsMongo }, () => {
 
     assert.equal(res.status, 200);
     assert.equal(res.body.success, true);
-    assert.deepEqual(res.body.data, { collections: 1, imagesDeleted: 1, imagesFailed: 1 });
+    assert.deepEqual(res.body.data, { collections: 1, imagesDeleted: 1, imagesFailed: 1, teamDissolved: false, teamMembersRemoved: 0 });
     assert.ok(res.setCookies.some((c) => c.startsWith('refreshToken=;')), 'refresh cookie cleared');
 
     // Each distinct stored file is asked for once, as an image, and only the user's own files.
@@ -620,7 +620,7 @@ describe('account API (MongoDB)', { skip: needsMongo }, () => {
     const u = await makeUser({ password: null });
     const res = await call(server.url, 'DELETE', '/api/account', { token: u.token, body: { confirmation: u.email } });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body.data, { collections: 0, imagesDeleted: 0, imagesFailed: 0 });
+    assert.deepEqual(res.body.data, { collections: 0, imagesDeleted: 0, imagesFailed: 0, teamDissolved: false, teamMembersRemoved: 0 });
     assert.equal(await UserModel.exists({ _id: u.id }), null);
   });
 });

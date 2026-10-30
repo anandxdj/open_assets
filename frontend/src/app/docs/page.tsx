@@ -108,6 +108,7 @@ export default function DocsOverviewPage() {
                   FREE.customNamingPatterns ? "Yes" : "No",
                   PRO.customNamingPatterns ? "Yes" : "No",
                 ],
+                ["Team sharing", FREE.teamSharing ? "Yes" : "No", PRO.teamSharing ? "Yes" : "No"],
                 ["API keys", FREE.apiKeys > 0 ? String(FREE.apiKeys) : "None", String(PRO.apiKeys)],
               ]}
             />
