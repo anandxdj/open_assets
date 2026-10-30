@@ -12,3 +12,9 @@ export function safeNextPath(raw: string | null | undefined): string {
   }
   return raw;
 }
+
+/** Adds `?next=` to an auth path when there is a destination to carry along. */
+export function withNext(path: string, raw: string | null | undefined): string {
+  if (!raw) return path;
+  return `${path}?next=${encodeURIComponent(safeNextPath(raw))}`;
+}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/features/auth/context/AuthContext";
+import { PlanProvider } from "@/features/plans/PlanContext";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -34,8 +35,10 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            {children}
-            <Toaster />
+            <PlanProvider>
+              {children}
+              <Toaster />
+            </PlanProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

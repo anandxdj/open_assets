@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Ghost, Grid2x2, Shapes, type LucideIcon } from "lucide-react";
 import { Crumbs, PageBody, PageTitle, Topbar } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/feedback";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { usePlan } from "@/features/plans/PlanContext";
 import { RecentJobsTable } from "@/features/jobs/components/RecentJobsTable";
 import { useRecentJobs } from "@/features/jobs/recentJobs";
 import { DropZone, PHASE_TEXT } from "@/features/upload/components/DropZone";
+import { UsageMeter, useSheetLimitReached } from "@/features/upload/components/UsageMeter";
 import { useFileUpload } from "@/features/upload/hooks/useFileUpload";
 import { createSampleFile, SAMPLES, type Sample, type SampleId } from "@/features/upload/samples";
 
@@ -53,10 +55,25 @@ function RecentExtractions() {
 }
 
 export function ExtractScreen() {
-  const { upload, cancel, status, progress, error, file } = useFileUpload();
+  const { upload, cancel, status, progress, error, errorCode, file } = useFileUpload();
+  const { plan, refresh: refreshPlan } = usePlan();
+  const limitReached = useSheetLimitReached();
   const [localError, setLocalError] = useState<{ title: string; message: string } | null>(null);
   const busy = status === "uploading" || status === "processing" || status === "success";
-  const problem = localError ?? (status === "error" && error ? { title: "Upload failed.", message: error } : null);
+  // The server refusing an upload for the monthly limit is explained by the usage
+  // notice, so it is not shown a second time as a generic failure (and does not
+  // linger once the plan changes). Without a plan to explain it, the error stays.
+  const sheetLimitHit = errorCode === "SHEET_LIMIT" && plan !== null;
+  const problem =
+    localError ?? (status === "error" && error && !sheetLimitHit ? { title: "Upload failed.", message: error } : null);
+
+  // Usage changes whenever a sheet is uploaded elsewhere or the month turns over.
+  useEffect(() => {
+    void refreshPlan();
+  }, [refreshPlan]);
+  useEffect(() => {
+    if (errorCode === "SHEET_LIMIT") void refreshPlan();
+  }, [errorCode, refreshPlan]);
 
   function handleFile(next: File) {
     setLocalError(null);
@@ -64,7 +81,7 @@ export function ExtractScreen() {
   }
 
   async function handleSample(sample: Sample) {
-    if (busy) return;
+    if (busy || limitReached) return;
     setLocalError(null);
     try {
       const sampleFile = await createSampleFile(sample);
@@ -92,7 +109,10 @@ export function ExtractScreen() {
             description="Drop a sprite sheet, icon grid or UI mockup. We detect, name and cut every asset on it."
           />
 
+          <UsageMeter />
+
           <DropZone
+            locked={limitReached}
             status={status}
             progress={progress}
             file={file}
@@ -116,7 +136,7 @@ export function ExtractScreen() {
             {SAMPLES.map((sample) => {
               const Icon = SAMPLE_ICON[sample.id];
               return (
-                <Button key={sample.id} size="sm" disabled={busy} onClick={() => handleSample(sample)}>
+                <Button key={sample.id} size="sm" disabled={busy || limitReached} onClick={() => handleSample(sample)}>
                   <Icon aria-hidden />
                   {sample.label}
                 </Button>

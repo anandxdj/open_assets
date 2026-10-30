@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/layout/Logo";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { TrialBadge } from "@/features/plans/TrialBadge";
 import { cn } from "@/lib/utils";
 
 type NavEntry = {
@@ -86,6 +87,7 @@ function Sidebar() {
         <NavLink key={e.href} entry={e} path={path} />
       ))}
       <span className="flex-1" />
+      <TrialBadge className="mx-2 mb-1" />
       <div className="flex items-center justify-between px-2 py-2">
         <span className="oa-label text-ink-3">Theme</span>
         <ThemeToggle />

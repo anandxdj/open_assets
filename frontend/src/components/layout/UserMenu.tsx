@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { ChevronsUpDown, Folder, LogOut, Moon, Sun } from "lucide-react";
+import { ChevronsUpDown, Folder, LogOut, Moon, ShieldCheck, Sun } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
@@ -74,6 +74,14 @@ export function UserMenu({ variant = "row" }: { variant?: "row" | "compact" }) {
             My collections
           </Link>
         </MenuItem>
+        {user.role === "admin" && (
+          <MenuItem asChild>
+            <Link href="/admin">
+              <ShieldCheck aria-hidden />
+              Admin
+            </Link>
+          </MenuItem>
+        )}
         <MenuItem onSelect={() => setTheme(isDark ? "light" : "dark")}>
           {isDark ? <Sun aria-hidden /> : <Moon aria-hidden />}
           {isDark ? "Light theme" : "Dark theme"}

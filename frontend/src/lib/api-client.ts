@@ -1,3 +1,4 @@
+import { apiErrorFrom } from "@/lib/api-error";
 import { tokenStore } from "@/lib/token-store";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -67,8 +68,7 @@ async function requestWithRetry<T>(
   }
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { message?: string }).message ?? `HTTP ${res.status}`);
+    throw apiErrorFrom(res.status, await res.json().catch(() => ({})));
   }
 
   return res.json() as Promise<T>;
@@ -87,8 +87,7 @@ async function postFormBlobWithRetry(path: string, form: FormData): Promise<Blob
     if (token) res = await send();
   }
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { message?: string }).message ?? `HTTP ${res.status}`);
+    throw apiErrorFrom(res.status, await res.json().catch(() => ({})));
   }
   return res.blob();
 }

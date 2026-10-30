@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ProTrialCta } from "@/features/plans/ProTrialCta";
 import { PLANS, type Plan } from "./pricing";
 
 function PlanCta({ plan }: { plan: Plan }) {
+  // The Pro plan's button is live: it starts the trial or shows its state.
+  if (plan.id === "pro") return <ProTrialCta />;
   const variant = plan.featured ? "primary" : "secondary";
   const isMail = plan.cta.href.startsWith("mailto:");
   return (

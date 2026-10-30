@@ -4,7 +4,9 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth/context/AuthContext";
-import { safeNextPath } from "@/features/auth/lib/next-path";
+import { safeNextPath, withNext } from "@/features/auth/lib/next-path";
+import { hasTrialIntent } from "@/features/plans/trial-intent";
+import { TRIAL_RETURN_PATH } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -27,7 +29,10 @@ export function LoginForm() {
     setLoading(true);
     try {
       await login(email, password);
-      router.push(safeNextPath(searchParams.get("next")));
+      const next = searchParams.get("next");
+      // Email verification can break the `next` chain; this browser still
+      // remembers a click on "Start 14-day trial", so finish that.
+      router.push(next || !hasTrialIntent() ? safeNextPath(next) : TRIAL_RETURN_PATH);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Sign in failed. Try again.");
     } finally {
@@ -91,7 +96,7 @@ export function LoginForm() {
 
       <p className="text-xs leading-[18px] text-ink-2">
         New to OpenAssets?{" "}
-        <Link href="/register" className="oa-link">
+        <Link href={withNext("/register", searchParams.get("next"))} className="oa-link">
           Create an account
         </Link>
       </p>

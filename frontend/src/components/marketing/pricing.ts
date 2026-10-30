@@ -3,6 +3,7 @@
  * the /pricing page. Change prices and features here only.
  */
 
+import { ENTITLEMENT_TABLE, FREE_SHEETS_PER_MONTH, TRIAL_DAYS, TRIAL_REGISTER_HREF } from "@/lib/plans";
 import { SALES_EMAIL, SOCIAL } from "./site";
 
 export type PlanId = "hobby" | "pro" | "enterprise";
@@ -20,13 +21,16 @@ export type Plan = {
   features: string[];
 };
 
-export const FREE_SHEETS_PER_MONTH = 5;
-
 /*
- * Pro price is pending owner confirmation. The old landing page said $19 a
- * month and the old /pricing page said $150 a month; $19 is used until the
- * owner confirms.
+ * Limits (sheets, upscale factor, API keys, trial length) are not written here:
+ * they come from the entitlement table in @/lib/plans, which the backend
+ * enforces, so the page cannot promise something the server does not do.
  */
+const FREE = ENTITLEMENT_TABLE.free;
+const PRO = ENTITLEMENT_TABLE.pro;
+
+export { FREE_SHEETS_PER_MONTH };
+
 export const PRO_PRICE = "$19";
 
 export const PLANS: Plan[] = [
@@ -40,7 +44,7 @@ export const PLANS: Plan[] = [
     features: [
       `${FREE_SHEETS_PER_MONTH} sheets a month`,
       "Detection and AI naming",
-      "2× upscale on export",
+      `${FREE.maxUpscale}× upscale on export`,
       "Community support",
     ],
   },
@@ -51,13 +55,15 @@ export const PLANS: Plan[] = [
     price: PRO_PRICE,
     period: "Per month",
     featured: true,
-    cta: { label: "Start 14-day trial", href: "/register" },
+    // The tier renders a live button for this (see PricingTiers); the href is
+    // the signed-out path: register, then back to /pricing?trial=1.
+    cta: { label: `Start ${TRIAL_DAYS}-day trial`, href: TRIAL_REGISTER_HREF },
     features: [
-      "Unlimited sheets",
+      PRO.sheetsPerMonth === null ? "Unlimited sheets" : `${PRO.sheetsPerMonth} sheets a month`,
       "Padding and threshold controls",
-      "4× upscale on export",
+      `${PRO.maxUpscale}× upscale on export`,
       "Custom naming patterns",
-      "5 API keys",
+      `${PRO.apiKeys} API keys`,
       "Team sharing",
     ],
   },
@@ -88,23 +94,30 @@ export const COMPARISON: ComparisonGroup[] = [
   {
     label: "Extraction",
     rows: [
-      { feature: "Sheets per month", values: { hobby: String(FREE_SHEETS_PER_MONTH), pro: "Unlimited", enterprise: "Unlimited" } },
+      {
+        feature: "Sheets per month",
+        values: {
+          hobby: String(FREE_SHEETS_PER_MONTH),
+          pro: PRO.sheetsPerMonth === null ? "Unlimited" : String(PRO.sheetsPerMonth),
+          enterprise: "Unlimited",
+        },
+      },
       { feature: "Detection and AI naming", values: { hobby: true, pro: true, enterprise: true } },
-      { feature: "Padding and threshold controls", values: { hobby: false, pro: true, enterprise: true } },
-      { feature: "Custom naming patterns", values: { hobby: false, pro: true, enterprise: true } },
+      { feature: "Padding and threshold controls", values: { hobby: FREE.paddingThresholdControls, pro: PRO.paddingThresholdControls, enterprise: true } },
+      { feature: "Custom naming patterns", values: { hobby: FREE.customNamingPatterns, pro: PRO.customNamingPatterns, enterprise: true } },
     ],
   },
   {
     label: "Export",
     rows: [
-      { feature: "Upscale on export", values: { hobby: "2×", pro: "4×", enterprise: "4×" } },
+      { feature: "Upscale on export", values: { hobby: `${FREE.maxUpscale}×`, pro: `${PRO.maxUpscale}×`, enterprise: `${PRO.maxUpscale}×` } },
     ],
   },
   {
     label: "Teams and API",
     rows: [
-      { feature: "API keys", values: { hobby: false, pro: "5", enterprise: "Custom" } },
-      { feature: "Team sharing", values: { hobby: false, pro: true, enterprise: true } },
+      { feature: "API keys", values: { hobby: FREE.apiKeys > 0 ? String(FREE.apiKeys) : false, pro: String(PRO.apiKeys), enterprise: "Custom" } },
+      { feature: "Team sharing", values: { hobby: FREE.teamSharing, pro: PRO.teamSharing, enterprise: true } },
       { feature: "SAML SSO and roles", values: { hobby: false, pro: false, enterprise: true } },
     ],
   },

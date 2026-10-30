@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { recordRecentJob } from "@/features/jobs/recentJobs";
+import { ApiRequestError } from "@/lib/api-error";
 import { UploadAbortedError, uploadImageWithProgress } from "@/features/upload/services/uploadApi";
 
 /**
@@ -25,6 +26,8 @@ export function useFileUpload() {
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  /** Machine code of the last failure, for example SHEET_LIMIT. */
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [file, setFile] = useState<UploadingFile | null>(null);
 
   const busy = useRef(false);
@@ -53,6 +56,7 @@ export function useFileUpload() {
 
       setFile({ name: next.name, size: next.size, previewUrl });
       setError(null);
+      setErrorCode(null);
       setProgress(0);
       setStatus("uploading");
 
@@ -79,6 +83,7 @@ export function useFileUpload() {
         } else {
           setStatus("error");
           setError(err instanceof Error ? err.message : "Upload failed");
+          setErrorCode(err instanceof ApiRequestError ? (err.code ?? null) : null);
         }
       } finally {
         controller.current = null;
@@ -92,5 +97,5 @@ export function useFileUpload() {
     controller.current?.abort();
   }, []);
 
-  return { upload, cancel, status, progress, error, file };
+  return { upload, cancel, status, progress, error, errorCode, file };
 }
