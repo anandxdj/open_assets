@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Building blocks for the AniBuddy workspace row: a dotted stage in the middle
- * and a 288px inspector on the right. On phones both stack under the step list.
+ * and a 288px inspector on the right. Below lg both stack under the step list.
  */
 export function StageArea({
   label,
@@ -17,7 +17,7 @@ export function StageArea({
   return (
     <section
       aria-label={label}
-      className={cn("oa-stage flex min-h-[420px] flex-col md:min-h-0 md:min-w-0 md:flex-1", className)}
+      className={cn("oa-stage flex min-h-[420px] shrink-0 flex-col lg:min-h-0 lg:min-w-0 lg:flex-1 lg:shrink", className)}
     >
       {children}
     </section>
@@ -37,12 +37,12 @@ export function Inspector({
   return (
     <aside
       aria-labelledby={id}
-      className="flex flex-none flex-col border-t-[1.5px] border-line bg-surface md:w-[288px] md:border-l-[1.5px] md:border-t-0"
+      className="flex flex-none flex-col border-t-[1.5px] border-line bg-surface lg:w-[288px] lg:border-l-[1.5px] lg:border-t-0"
     >
       <h2 id={id} className="oa-panel-head">
         {title}
       </h2>
-      <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">{children}</div>
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">{children}</div>
       {footer && (
         <div className="flex flex-none flex-col gap-2 border-t-[1.5px] border-line bg-surface px-3.5 py-3">{footer}</div>
       )}

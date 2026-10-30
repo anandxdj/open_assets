@@ -177,7 +177,15 @@ export function ParallaxScreen() {
       message={runningMessage}
       onStop={px.autoExtending ? px.handleStopAutoExtend : undefined}
       stopLabel="Stop auto-extend"
-      hint={isResult ? undefined : isEmpty ? runHint : `${runHint} a step`}
+      hint={
+        isResult
+          ? undefined
+          : isEmpty
+            ? runHint
+            : px.targetWidth
+              ? `${runHint} a step`
+              : "Set a target width above to auto-extend."
+      }
       announce={isResult ? "Extension ready. Review it on the stage." : undefined}
     >
       {isResult ? (
