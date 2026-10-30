@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { costPerUnit } from '../modules/usage/usage.service';
+import { costPerUnit, startOfMonth, startOfNextMonth } from '../modules/usage/usage.service';
 import { consumeSchema, refundSchema } from '../modules/usage/dto/consume.schema';
 
 // Pure-function guards for the studio credits system. The atomic-deduct race
@@ -55,6 +55,19 @@ test('consumeSchema rejects unknown op and clamps units', () => {
 test('refundSchema only accepts ObjectId-shaped ids', () => {
   assert.throws(() => refundSchema.parse({ eventId: 'not-an-id' }));
   assert.doesNotThrow(() => refundSchema.parse({ eventId: 'a'.repeat(24) }));
+});
+
+// The grant resets on the 1st, 00:00 UTC. The user-facing reset date comes from
+// startOfNextMonth, so it must not depend on the server's timezone.
+test('monthly boundary is the 1st at 00:00 UTC', () => {
+  const mid = new Date('2026-10-30T23:59:59Z');
+  assert.equal(startOfMonth(mid).toISOString(), '2026-10-01T00:00:00.000Z');
+  assert.equal(startOfNextMonth(mid).toISOString(), '2026-11-01T00:00:00.000Z');
+});
+
+test('monthly boundary rolls over the year', () => {
+  const dec = new Date('2026-12-31T23:00:00Z');
+  assert.equal(startOfNextMonth(dec).toISOString(), '2027-01-01T00:00:00.000Z');
 });
 
 test(
