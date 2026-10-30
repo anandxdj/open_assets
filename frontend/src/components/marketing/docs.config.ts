@@ -51,6 +51,7 @@ export const DOCS_PAGES = {
       { id: "get-job", title: "GET /jobs/{jobId}" },
       { id: "crop", title: "POST /jobs/{jobId}/crop" },
       { id: "export", title: "POST /jobs/{jobId}/export" },
+      { id: "naming", title: "Naming patterns" },
       { id: "download", title: "GET /jobs/{jobId}/download" },
       { id: "rate-limits", title: "Rate limits" },
       { id: "errors", title: "Errors" },

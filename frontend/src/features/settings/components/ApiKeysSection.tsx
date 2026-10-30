@@ -238,7 +238,11 @@ function RevokeKey({ apiKey, onRevoked }: { apiKey: ApiKey; onRevoked: (id: stri
         </Button>
       </DialogTrigger>
       <DialogContent
-        title={`Revoke “${apiKey.name}”?`}
+        title={
+          <>
+            Revoke <span className="normal-case">“{apiKey.name}”</span>?
+          </>
+        }
         description="Anything using this key stops working immediately. This cannot be undone."
       >
         {error && (

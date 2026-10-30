@@ -312,10 +312,11 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
         "id": "box_1",
         "name": "fire_sword",
         "url": "https://…/fire_sword.png",
-        "upscaledUrl": null
+        "upscaledUrl": null,
+        "fileName": null
       }
     ],
-    "export": { "scale": null, "ready": false },
+    "export": { "scale": null, "namingPattern": null, "ready": false },
     "error": null
   }
 }`}</Code>
@@ -326,7 +327,9 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
                 [<Ic key="a">boxes</Ic>, <>What detection found, in pixels. <Ic>label</Ic> is its placeholder name.</>],
                 [<Ic key="b">assets</Ic>, <>Empty until the crop finishes. <Ic>id</Ic> is the id of the box it was cut from; <Ic>name</Ic> is the file name used in the ZIP.</>],
                 [<Ic key="c">assets[].upscaledUrl</Ic>, "Set per asset once the export has upscaled it."],
-                [<Ic key="d">export.scale</Ic>, "The upscale factor chosen for the export, once it has started."],
+                [<Ic key="g">assets[].fileName</Ic>, <>The file name (with <Ic>.png</Ic>) the export gave the asset. <Ic>null</Ic> until the export has started.</>],
+                [<Ic key="h">export.namingPattern</Ic>, "The naming pattern the export follows, once it has started."],
+                [<Ic key="d">export.scale</Ic>, <>The upscale factor of the export once it has started: <Ic>2</Ic> or <Ic>4</Ic>, or <Ic>1</Ic> when it skipped upscaling.</>],
                 [<Ic key="e">export.ready</Ic>, <><Ic>true</Ic> when the ZIP can be downloaded.</>],
                 [<Ic key="f">error</Ic>, <>Why the job failed, when its status is <Ic>failed</Ic>.</>],
               ]}
@@ -382,20 +385,86 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
                 [<Ic key="n">names</Ic>, <>Optional. Rename assets for this export: <Ic>{`{ "box_1": "big_sword" }`}</Ic>. Names are used as file names in the ZIP.</>],
                 [<Ic key="c">scale</Ic>, <><Ic>2</Ic> or <Ic>4</Ic>. Default <Ic>2</Ic>. The factor is checked against your plan&apos;s upscale limit.</>],
                 [<Ic key="u">upscale</Ic>, <><Ic>false</Ic> exports the crops as they are, with no AI upscaling. Default <Ic>true</Ic>.</>],
+                [
+                  <Ic key="p">namingPattern</Ic>,
+                  <>
+                    How the files are named, for example <Ic>{"{sheet}_{index:03}_{name}"}</Ic>. Default: the pattern
+                    saved in Settings, Export, otherwise <Ic>{"{name}"}</Ic>. See <a className="oa-link" href="#naming">Naming patterns</a>.
+                  </>,
+                ],
               ]}
             />
             <Label>Request</Label>
             <Code label="POST /jobs/{jobId}/export request">{`curl -X POST "$OPENASSETS_API/api/v1/jobs/$JOB/export" \\
   ${AUTH} \\
   -H "Content-Type: application/json" \\
-  -d '{ "selectedIds": ["box_1"], "names": { "box_1": "big_sword" }, "scale": 4 }'`}</Code>
+  -d '{ "selectedIds": ["box_1"], "names": { "box_1": "big_sword" }, "scale": 4, "namingPattern": "{name}@{scale}x" }'`}</Code>
             <Label>Response: 201</Label>
-            <Code label="POST /jobs/{jobId}/export response">{`{ "success": true, "message": "Finalize started", "data": { "jobId": "7c1e9d52-…" } }`}</Code>
+            <Code label="POST /jobs/{jobId}/export response">{`{
+  "success": true,
+  "message": "Export started",
+  "data": {
+    "jobId": "7c1e9d52-…",
+    "namingPattern": "{name}@{scale}x",
+    "scale": 4,
+    "files": [
+      { "id": "box_1", "name": "big_sword", "fileName": "big_sword@4x.png" }
+    ]
+  }
+}`}</Code>
+            <p>
+              <Ic>files</Ic> lists the file names the export will use, one per selected asset: <Ic>name</Ic> is the
+              asset&apos;s name and <Ic>fileName</Ic> what it is called in the ZIP. <Ic>scale</Ic> is the upscale factor
+              (<Ic>1</Ic> when <Ic>upscale</Ic> is <Ic>false</Ic>). The same names appear as <Ic>assets[].fileName</Ic>{" "}
+              on the job once the export is under way.
+            </p>
             <p>
               Errors: <Ic>404 JOB_NOT_FOUND</Ic>, <Ic>409 INVALID_JOB_STATE</Ic> (the job is not <Ic>cropped</Ic>),{" "}
-              <Ic>400 VALIDATION_ERROR</Ic>, <Ic>400 BAD_REQUEST</Ic> (no selected id matches an asset),{" "}
-              <Ic>403 PLAN_LIMIT</Ic> (the scale is above your plan&apos;s limit).
+              <Ic>400 VALIDATION_ERROR</Ic>, <Ic>400 INVALID_PATTERN</Ic> (the naming pattern is not valid),{" "}
+              <Ic>400 BAD_REQUEST</Ic> (no selected id matches an asset), <Ic>403 PLAN_LIMIT</Ic> (the scale is above
+              your plan&apos;s limit).
             </p>
+          </>
+        ),
+        naming: (
+          <>
+            <p>
+              A naming pattern is literal text with tokens in braces. It sets the name of each file in the export. The
+              default, <Ic>{"{name}"}</Ic>, is the asset&apos;s name.
+            </p>
+            <LegalTable
+              caption="Naming pattern tokens"
+              columns={["Token", "Is", "Example"]}
+              rows={[
+                [<Ic key="1">{"{name}"}</Ic>, "The asset name", "fire_sword"],
+                [<Ic key="2">{"{index}"}</Ic>, "Position in this export, from 1", "1"],
+                [<Ic key="3">{"{index:03}"}</Ic>, "The same, zero-padded to 1 to 8 digits", "001"],
+                [<Ic key="4">{"{sheet}"}</Ic>, "The uploaded file name without its extension", "rpg_pack_v1"],
+                [<><Ic key="5">{"{w}"}</Ic> <Ic key="6">{"{h}"}</Ic></>, "Width and height in pixels of the exported image, after upscaling", "128, 96"],
+                [<Ic key="7">{"{scale}"}</Ic>, "The upscale factor: 1 when not upscaled, else 2 or 4", "2"],
+                [<Ic key="8">{"{date}"}</Ic>, "The export date in UTC", "2026-10-30"],
+              ]}
+            />
+            <Bullets>
+              <Bullet>
+                1 to 100 characters, and it must contain <Ic>{"{name}"}</Ic> or <Ic>{"{index}"}</Ic> so names differ.
+                Unknown tokens, unmatched braces and slashes are errors (<Ic>400 INVALID_PATTERN</Ic>, with{" "}
+                <Ic>details.issues</Ic>).
+              </Bullet>
+              <Bullet>
+                Names are cleaned for use as files: letters, digits, <Ic>-</Ic>, <Ic>_</Ic>, <Ic>.</Ic> and{" "}
+                <Ic>@</Ic> are kept and anything else becomes <Ic>_</Ic>. Names that still collide get{" "}
+                <Ic>_2</Ic>, <Ic>_3</Ic>.
+              </Bullet>
+              <Bullet>
+                Custom patterns are part of Pro, like the API itself. Without a <Ic>namingPattern</Ic> in the request,
+                the default saved in Settings, Export applies.
+              </Bullet>
+            </Bullets>
+            <Code label="Naming pattern examples">{`{name}                       fire_sword.png
+{sheet}_{index:03}_{name}    rpg_pack_v1_001_fire_sword.png
+{name}@{scale}x              fire_sword@2x.png
+icon-{index}-{w}x{h}         icon-1-128x96.png`}</Code>
           </>
         ),
         download: (
@@ -403,7 +472,8 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
             <Endpoint method="GET" path="/api/v1/jobs/{jobId}/download" />
             <p>
               The ZIP of the exported PNGs, built when you ask for it, with a <Ic>metadata.json</Ic> next to the
-              images. It holds the assets you selected, upscaled if you asked for that. The job must be <Ic>ready</Ic>.
+              images. It holds the assets you selected, upscaled if you asked for that, each named as the export&apos;s
+              naming pattern says (<Ic>assets[].fileName</Ic>). The job must be <Ic>ready</Ic>.
             </p>
             <Label>Request</Label>
             <Code label="GET /jobs/{jobId}/download request">{`curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
@@ -476,6 +546,7 @@ Retry-After: 23
               ["400", <Ic key="11">VALIDATION_ERROR</Ic>, <>The body failed validation. <Ic>details.issues</Ic> lists what was wrong.</>],
               ["400", <Ic key="12">IMAGE_REQUIRED</Ic>, <>No file in the <Ic>image</Ic> field.</>],
               ["400", <Ic key="13">INVALID_IMAGE</Ic>, "The image is not PNG, JPEG or WebP, or is outside 64 to 12,000 pixels."],
+              ["400", <Ic key="22">INVALID_PATTERN</Ic>, <>The naming pattern is not valid. <Ic>details.issues</Ic> lists the problems.</>],
               ["400", <Ic key="14">INVALID_JSON</Ic>, "The body is not valid JSON."],
               ["400", <Ic key="15">INVALID_UPLOAD</Ic>, "The multipart request is malformed or sends the file in the wrong field."],
               ["400", <Ic key="16">BAD_REQUEST</Ic>, "Anything else wrong with the request, such as a bad query parameter."],

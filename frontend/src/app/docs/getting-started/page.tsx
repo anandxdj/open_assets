@@ -47,7 +47,9 @@ export default function GettingStartedPage() {
               </Step>
               <Step n={4}>
                 On the export screen choose the assets you want. Turn on upscaling for 2× (or 4× on Pro) and download the
-                ZIP of PNGs.
+                ZIP of PNGs. On Pro the Naming control sets how the files are named, for example{" "}
+                <Ic>{"{sheet}_{index:03}_{name}"}</Ic>. Save a default pattern under{" "}
+                <Internal href="/settings#export">Settings, Export</Internal>.
               </Step>
             </Steps>
             <p>

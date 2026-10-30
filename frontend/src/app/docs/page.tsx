@@ -48,8 +48,8 @@ export default function DocsOverviewPage() {
                 names it. If naming is not available the assets keep plain names such as <Ic>asset_001</Ic>.
               </Step>
               <Step n={4}>
-                <strong>Export.</strong> Pick the assets you want, rename any, choose an upscale factor if you like and
-                download the ZIP.
+                <strong>Export.</strong> Pick the assets you want, rename any, choose an upscale factor and, on Pro, a
+                naming pattern for the files. Then download the ZIP.
               </Step>
             </Steps>
             <p>
@@ -102,6 +102,11 @@ export default function DocsOverviewPage() {
                   "Padding and threshold controls",
                   FREE.paddingThresholdControls ? "Yes" : "No",
                   PRO.paddingThresholdControls ? "Yes" : "No",
+                ],
+                [
+                  "Custom naming patterns",
+                  FREE.customNamingPatterns ? "Yes" : "No",
+                  PRO.customNamingPatterns ? "Yes" : "No",
                 ],
                 ["API keys", FREE.apiKeys > 0 ? String(FREE.apiKeys) : "None", String(PRO.apiKeys)],
               ]}
