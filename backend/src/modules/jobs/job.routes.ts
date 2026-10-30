@@ -2,15 +2,52 @@ import { Router } from 'express';
 import type { Response } from 'express';
 import { authenticate } from '../auth/auth.middleware';
 import type { AuthRequest } from '../auth/auth.middleware';
-import { getJob, parseBoxes, parseAssets, updateJob } from './job.store';
+import { clearUserJobs, getJob, listUserJobs, parseBoxes, parseAssets, removeUserJob, updateJob } from './job.store';
+import { parseListQuery } from './job.list';
 import { detectAssets, type DetectionOptions } from '../../lib/py.client';
 import { ApiError } from '../../common/utils/ApiError';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
 import { assertOwner } from '../../common/utils/authz';
-import type { JobResponse } from './job.types';
+import type { JobListPage, JobResponse } from './job.types';
 
 const router = Router();
+
+/**
+ * The signed-in user's jobs, newest first, one page at a time. Only jobs made
+ * by the upload flow are listed, and a job drops out when it expires.
+ *   ?limit=1..100 (default 50)   ?cursor=<nextCursor of the previous page>
+ */
+router.get('/jobs', authenticate(), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) throw ApiError.unauthorized('Not authenticated');
+  const query = parseListQuery(req.query);
+
+  const { jobs, nextCursor } = await listUserJobs(userId, query);
+  const page: JobListPage = {
+    jobs: jobs.map((job) => ({
+      jobId: job.id,
+      status: job.status,
+      fileName: job.fileName || undefined,
+      assetCount: Number(job.assetCount) || Number(job.boxCount) || 0,
+      createdAt: job.createdAt,
+      imageUrl: job.cloudinaryUrl,
+      error: job.error || undefined,
+    })),
+    nextCursor,
+  };
+
+  ApiResponse.ok(res, 'Jobs fetched', page);
+}));
+
+// Clears the requester's whole list. Like the single-job removal below, it only
+// touches the list: the jobs stay until they expire.
+router.delete('/jobs/history', authenticate(), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) throw ApiError.unauthorized('Not authenticated');
+  const removed = await clearUserJobs(userId);
+  ApiResponse.ok(res, 'History cleared', { removed });
+}));
 
 router.get('/jobs/:jobId', authenticate(), asyncHandler(async (req: AuthRequest, res: Response) => {
   const job = await getJob(req.params['jobId'] ?? '');
@@ -20,6 +57,7 @@ router.get('/jobs/:jobId', authenticate(), asyncHandler(async (req: AuthRequest,
   const response: JobResponse = {
     jobId: job.id,
     status: job.status,
+    fileName: job.fileName || undefined,
     cloudinaryUrl: job.cloudinaryUrl,
     workingUrl: job.workingUrl || undefined,
     isTransparent: job.isTransparent ? job.isTransparent === 'true' : undefined,
@@ -91,6 +129,16 @@ router.get('/jobs/:jobId/download', authenticate(), asyncHandler(async (req: Aut
     throw ApiError.badRequest(`Export not ready (status: ${job.status})`);
   }
   res.redirect(job.downloadUrl);
+}));
+
+// Removes one job from the requester's list. Idempotent. Only the requester's
+// own index is touched, so no ownership lookup is needed and another user's job
+// id can neither be removed nor probed; the job stays until it expires.
+router.delete('/jobs/:jobId/history', authenticate(), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) throw ApiError.unauthorized('Not authenticated');
+  const removed = await removeUserJob(userId, req.params['jobId'] ?? '');
+  ApiResponse.ok(res, 'Job removed from history', { removed: removed ? 1 : 0 });
 }));
 
 export { router as jobRouter };

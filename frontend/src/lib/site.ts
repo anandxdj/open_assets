@@ -77,6 +77,7 @@ export const PRIVATE_PATHS = [
   "/api/",
   "/upload",
   "/history",
+  "/settings",
   "/editor/",
   "/enhance",
   "/studio",

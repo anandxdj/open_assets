@@ -32,6 +32,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  async redirects() {
+    // AniBuddy is a top-level tool at /anibuddy; /enhance/anibuddy was its first address.
+    return [{ source: "/enhance/anibuddy", destination: "/anibuddy", permanent: true }];
+  },
 };
 
 export default nextConfig;

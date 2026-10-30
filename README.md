@@ -95,8 +95,8 @@ Four deployable surfaces around two data stores and one object-storage provider.
   edited list is sent once at crop time, not synced incrementally.
 - **Filename *is* the asset name.** The LLM's chosen name becomes the storage
   `public_id`, so a crop downloads as `fire_sword.png` with no extra mapping.
-- **One worker per stage.** Three BullMQ workers (detection → crop → finalize) run
-  inside the backend process and advance jobs asynchronously.
+- **One worker per stage.** BullMQ workers (detection → crop → finalize, plus `enhance` for
+  AI enhance) run inside the backend process and advance jobs asynchronously.
 
 ---
 
@@ -154,7 +154,7 @@ open_assets/
 │       └── lib/             api-client (fetch + Bearer), token store, utils
 │
 ├── backend/                 Express API + BullMQ workers
-│   ├── index.ts             entry: validate env, connect Mongo + Redis, start 3 workers, listen, shut down gracefully
+│   ├── index.ts             entry: validate env, connect Mongo + Redis, start the 4 workers, listen, shut down gracefully
 │   └── src/
 │       ├── app.ts           Express factory: helmet, CORS, /health, rate-limit, routes
 │       ├── common/          config (env check, cors, cookies, db, redis, email, bullmq), health,
@@ -162,7 +162,7 @@ open_assets/
 │       ├── modules/
 │       │   ├── auth/        register/login/OAuth/verify/reset — JWT (complete)
 │       │   ├── upload/      POST /api/upload
-│       │   ├── jobs/        GET /api/jobs/:id  ·  Redis job store + types
+│       │   ├── jobs/        GET /api/jobs, /api/jobs/:id  ·  Redis job store + per-user index + types
 │       │   ├── crop/        POST /api/crop
 │       │   ├── finalize/    POST /api/finalize
 │       │   ├── collections/ public galleries: folders, images, likes, downloads
@@ -207,6 +207,9 @@ limited) reports MongoDB and Redis for Docker and load balancers.
 | GET | `/api/auth/google` · `/google/callback` | Google OAuth |
 | GET/POST/PUT | `/api/auth/me`, `verify-email/:t`, `forgot-password`, `reset-password/:t` | Account lifecycle |
 | POST | `/api/upload` | Multipart image → starts detection pipeline |
+| GET | `/api/jobs?limit=&cursor=` | The signed-in user's jobs (history), newest first, `{ jobs, nextCursor }`; `limit` 1–100, default 50 |
+| DELETE | `/api/jobs/:jobId/history` | Remove one job from the user's history (the job itself stays until it expires) |
+| DELETE | `/api/jobs/history` | Clear the user's history |
 | GET | `/api/jobs/:jobId` | Full job state (status, boxes, assets, downloadUrl) |
 | GET | `/api/jobs/:jobId/download` | 302 → ZIP URL (when `ready`) |
 | POST | `/api/crop` | `{ jobId, boxes }` → name + crop pipeline |
@@ -321,7 +324,7 @@ uvicorn app.main:app --reload --port 8000
 cd backend
 pnpm install
 cp .env.example .env     # set MONGO_URI; fill CLOUDINARY_*; defaults cover the rest
-pnpm dev                 # tsx watch: the API and the 3 workers in one process
+pnpm dev                 # tsx watch: the API and the 4 workers in one process
 ```
 
 On start it checks its environment and prints what is missing or wrong. In development
@@ -367,7 +370,7 @@ and push to a registry. Two scripts drive it:
 Both read `OA_REGISTRY` and `OA_VERSION` from `.env`, which is why a single `.env` format
 serves local runs and the VPS.
 
-**What the stack contains.** `frontend` and `backend` (Express API plus the three BullMQ
+**What the stack contains.** `frontend` and `backend` (Express API plus the four BullMQ
 workers, one process) publish ports on `127.0.0.1` only. `py_backend`, `mongo` and `redis`
 publish nothing and are reachable only inside the stack. MongoDB and Redis keep their data
 in the named volumes `mongo-data` and `redis-data`. Every service restarts
@@ -398,7 +401,7 @@ in the named volumes `mongo-data` and `redis-data`. Every service restarts
    | `FRONTEND_URL`, `NEXT_PUBLIC_SITE_URL` | `https://openassets.example.com` |
    | `NEXT_PUBLIC_API_URL` | `https://api.openassets.example.com` |
    | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_API_TOKEN`, `INTERNAL_SERVICE_TOKEN` | four different values of `openssl rand -hex 32` |
-   | `CLOUDINARY_*` (or `STORAGE_PROVIDER=imagekit` and `IMAGEKIT_*`) | storage credentials |
+   | `CLOUDINARY_*` (or `STORAGE_PROVIDER=imagekit` and `IMAGEKIT_*`) | storage credentials. Without them the stack starts, but uploads fail and AI enhance reports "not configured" |
    | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | email, or verification links are only logged |
    | `GOOGLE_*` | optional Google sign-in; the callback URL is `<API URL>/api/auth/google/callback` |
    | `EXTENSION_ORIGINS` | `chrome-extension://<id>` once the extension has an ID |
@@ -410,8 +413,8 @@ in the named volumes `mongo-data` and `redis-data`. Every service restarts
 
 In production the backend validates its environment on start and exits with the full list
 of problems: missing secrets, placeholder or short JWT secrets, `SameSite=None` without
-`Secure`, bad CORS origins. It logs warnings for degraded features such as a missing
-`RESEND_API_KEY`.
+`Secure`, bad CORS origins. It only logs warnings for degraded features such as missing
+storage credentials or `RESEND_API_KEY`.
 
 ### Release
 

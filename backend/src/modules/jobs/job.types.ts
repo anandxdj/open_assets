@@ -33,6 +33,7 @@ export interface JobHash {
   status: JobStatus;
   cloudinaryUrl: string;
   publicId: string;
+  fileName?: string;      // original upload name; empty on jobs created before it was stored
   workingUrl: string;
   isTransparent: string;
   imageWidth: string;
@@ -43,6 +44,8 @@ export interface JobHash {
   boxes: string;          // JSON.stringify(BoundingBox[])
   nameMap: string;        // JSON.stringify(Record<string,string>)
   assets: string;         // JSON.stringify(Asset[])
+  assetCount?: string;    // length of assets, kept in step by updateJob() so lists need not parse them
+  boxCount?: string;      // length of boxes, same
   selectedIds: string;    // JSON.stringify(string[])
   skipUpscale?: string;   // 'true' | 'false'
   downloadUrl: string;
@@ -54,6 +57,7 @@ export interface JobHash {
 export interface JobResponse {
   jobId: string;
   status: JobStatus;
+  fileName?: string;
   cloudinaryUrl: string;
   workingUrl?: string;
   isTransparent?: boolean;
@@ -66,4 +70,21 @@ export interface JobResponse {
   assets: Asset[];
   downloadUrl?: string;
   error?: string;
+}
+
+/** One row of GET /jobs: what a job list shows, without boxes or assets. */
+export interface JobSummary {
+  jobId: string;
+  status: JobStatus;
+  fileName?: string;
+  assetCount: number;
+  createdAt: string;      // ISO 8601
+  imageUrl: string;
+  error?: string;
+}
+
+/** A page of GET /jobs. `nextCursor` is null on the last page. */
+export interface JobListPage {
+  jobs: JobSummary[];
+  nextCursor: string | null;
 }

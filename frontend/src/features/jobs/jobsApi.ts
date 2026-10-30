@@ -1,54 +1,29 @@
-import { refreshAccessToken } from "@/lib/api-client";
-import { tokenStore } from "@/lib/token-store";
-import type { JobResponse } from "@/types";
+import { apiClient } from "@/lib/api-client";
+import type { JobListPage } from "@/types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-export type JobLookup =
-  | { kind: "found"; job: JobResponse }
-  /** The server forgot the job: jobs expire 24 hours after their last update. */
-  | { kind: "expired" };
-
-export class JobLookupError extends Error {
-  constructor(
-    message: string,
-    readonly status: number
-  ) {
-    super(message);
-    this.name = "JobLookupError";
-  }
+interface ApiWrap<T> {
+  success: boolean;
+  message: string;
+  data: T;
 }
 
-function send(path: string, signal?: AbortSignal) {
-  const token = tokenStore.get();
-  return fetch(`${BASE_URL}${path}`, {
-    method: "GET",
-    credentials: "include",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    signal,
-  });
+/** The most rows one GET /api/jobs request returns. */
+export const JOB_LIST_MAX = 100;
+
+/** GET /api/jobs: the signed-in user's jobs, newest first, one page at a time. */
+export async function listJobs({ limit, cursor }: { limit: number; cursor?: string | null }): Promise<JobListPage> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (cursor) query.set("cursor", cursor);
+  const res = await apiClient.get<ApiWrap<JobListPage>>(`/api/jobs?${query}`);
+  return res.data;
 }
 
-/**
- * GET /api/jobs/:jobId, keeping the HTTP status so a 404 can be told apart
- * from other failures (the shared api client only surfaces a message).
- */
-export async function lookupJob(jobId: string, signal?: AbortSignal): Promise<JobLookup> {
-  const path = `/api/jobs/${encodeURIComponent(jobId)}`;
-  let res = await send(path, signal);
+/** DELETE /api/jobs/:jobId/history: drops one job from the list. The job itself stays until it expires. */
+export async function removeJobFromHistory(jobId: string): Promise<void> {
+  await apiClient.del(`/api/jobs/${encodeURIComponent(jobId)}/history`);
+}
 
-  if (res.status === 401) {
-    const token = await refreshAccessToken();
-    if (token) res = await send(path, signal);
-  }
-
-  if (res.status === 404) return { kind: "expired" };
-
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new JobLookupError(body?.message ?? `HTTP ${res.status}`, res.status);
-  }
-
-  const body = (await res.json()) as { data: JobResponse };
-  return { kind: "found", job: body.data };
+/** DELETE /api/jobs/history: empties the list. The jobs themselves stay until they expire. */
+export async function clearJobHistory(): Promise<void> {
+  await apiClient.del("/api/jobs/history");
 }

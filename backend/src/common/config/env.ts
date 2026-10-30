@@ -197,9 +197,13 @@ export function checkEnv(env: Env = process.env): EnvReport {
     storageProvider === 'imagekit'
       ? ['IMAGEKIT_PRIVATE_KEY', 'IMAGEKIT_URL_ENDPOINT']
       : ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+  // Not fatal, even in production: the API runs without storage and the features that need it
+  // answer "not configured" (503 STORAGE_NOT_CONFIGURED for AI enhance) instead of crashing.
   const missingStorage = storageKeys.filter((key) => !read(env, key));
   if (missingStorage.length) {
-    need(`${missingStorage.join(', ')} ${missingStorage.length > 1 ? 'are' : 'is'} required for STORAGE_PROVIDER=${storageProvider}: uploads will fail until set`);
+    warnings.push(
+      `${missingStorage.join(', ')} ${missingStorage.length > 1 ? 'are' : 'is'} not set for STORAGE_PROVIDER=${storageProvider}: uploads fail and AI enhance reports "not configured" until ${missingStorage.length > 1 ? 'they are' : 'it is'} set`,
+    );
   }
 
   // ── Email and Google sign-in ────────────────────────────────────────────

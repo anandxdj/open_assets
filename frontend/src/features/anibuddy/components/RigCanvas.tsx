@@ -11,7 +11,8 @@ import { useCanvasTokens, withAlpha } from "@/features/anibuddy/components/useCa
 const JOINT_RADIUS = 6;
 const SELECTED_SIZE = 14;
 const HIT_RADIUS = 16;
-const MAX_STAGE_EDGE = 520;
+/** Longest edge of the rig canvas when the stage has room to spare. */
+export const MAX_STAGE_EDGE = 520;
 
 export type RigTool = "joints" | "cuts" | "weights";
 
@@ -25,6 +26,8 @@ interface RigCanvasProps {
   showMesh: boolean;
   brushRadius: number;
   brushStrength: number;
+  /** Longest edge to draw at; the stage passes less when it is short on room. */
+  maxEdge?: number;
   onJointDrag: (jointId: string, x: number, y: number) => void;
   onJointSelect: (jointId: string | null) => void;
   onAddJoint: (x: number, y: number) => void;
@@ -33,7 +36,7 @@ interface RigCanvasProps {
   onCutSelect: (cutId: string | null) => void;
 }
 
-export function RigCanvas({ prepared, rig, tool, selectedBone, selectedJointId, selectedCutId, showMesh, brushRadius, brushStrength, onJointDrag, onJointSelect, onAddJoint, onWeights, onAddCut, onCutSelect }: RigCanvasProps) {
+export function RigCanvas({ prepared, rig, tool, selectedBone, selectedJointId, selectedCutId, showMesh, brushRadius, brushStrength, maxEdge = MAX_STAGE_EDGE, onJointDrag, onJointSelect, onAddJoint, onWeights, onAddCut, onCutSelect }: RigCanvasProps) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [draftCut, setDraftCut] = useState<[number, number][]>([]);
@@ -49,7 +52,7 @@ export function RigCanvas({ prepared, rig, tool, selectedBone, selectedJointId, 
     return () => { cancelled = true; };
   }, [prepared.dataUrl]);
 
-  const scale = Math.min(1, MAX_STAGE_EDGE / Math.max(prepared.width, prepared.height));
+  const scale = Math.min(1, maxEdge / Math.max(prepared.width, prepared.height));
   const stageWidth = Math.round(prepared.width * scale);
   const stageHeight = Math.round(prepared.height * scale);
   const toStage = (joint: Joint) => ({ x: joint.x * stageWidth, y: joint.y * stageHeight });

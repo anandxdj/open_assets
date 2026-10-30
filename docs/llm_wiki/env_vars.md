@@ -16,10 +16,10 @@ to repeat the values and drifted out of date.)
 
 - **Backend validates on start.** `backend/src/common/config/env.ts` checks the
   environment before any other module loads and exits with a list of every problem.
-  In production it requires `MONGO_URI`, `REDIS_URL`, `FRONTEND_URL`, `PY_BACKEND_URL`,
-  two different JWT secrets of 32+ characters (not the `.env.example` placeholders) and
-  the credentials of the selected `STORAGE_PROVIDER`. Missing optional pieces (email,
-  extension origin, shared tokens) are logged as warnings.
+  In production it requires `MONGO_URI`, `REDIS_URL`, `FRONTEND_URL`, `PY_BACKEND_URL` and
+  two different JWT secrets of 32+ characters (not the `.env.example` placeholders). Missing
+  optional pieces (storage credentials, email, extension origin, shared tokens) are logged
+  as warnings: the API still starts and the affected features report "not configured".
 - **CORS and cookies are env-driven.** Allowed origins are `FRONTEND_URL`, `CORS_ORIGINS`
   and `EXTENSION_ORIGINS`; outside production any localhost port and unpacked extension
   also pass. `COOKIE_SECURE`, `COOKIE_SAMESITE` and `COOKIE_DOMAIN` control the refresh-token

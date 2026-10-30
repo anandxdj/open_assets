@@ -85,11 +85,38 @@ test('ApiError 4xx keeps its status and message', () => {
   assert.equal(logged.length, 0, 'client errors are not logged as unhandled');
 });
 
-test('ApiError 5xx messages are masked (they are written for logs, not users)', () => {
+test('a plain 500 ApiError is masked: its message is written for logs, not users', () => {
   process.env.NODE_ENV = 'production';
   const { status, body } = run(ApiError.internal('INTERNAL_SERVICE_TOKEN not configured'));
   assert.equal(status, 500);
-  assert.equal(body?.['message'], 'Internal Server Error');
+  assert.deepEqual(body, { success: false, message: 'Internal Server Error' });
+  assert.equal(logged.length, 1, 'internal errors are still logged');
+});
+
+test('an ApiError code reaches the client on 4xx', () => {
+  process.env.NODE_ENV = 'production';
+  const { status, body } = run(ApiError.badRequest('Pick a smaller image', 'IMAGE_TOO_LARGE'));
+  assert.equal(status, 400);
+  assert.deepEqual(body, { success: false, message: 'Pick a smaller image', code: 'IMAGE_TOO_LARGE' });
+});
+
+test('a coded 503 (STORAGE_NOT_CONFIGURED) keeps status, message and code in production', () => {
+  process.env.NODE_ENV = 'production';
+  const { status, body } = run(ApiError.serviceUnavailable('Image storage is not set up yet.', 'STORAGE_NOT_CONFIGURED'));
+  assert.equal(status, 503);
+  assert.deepEqual(body, { success: false, message: 'Image storage is not set up yet.', code: 'STORAGE_NOT_CONFIGURED' });
+  assert.equal(logged.length, 0, 'a deliberate 503 is not an unhandled error');
+});
+
+test('a 502 / 413 ApiError keeps its user-facing message and has no code field when none was given', () => {
+  process.env.NODE_ENV = 'production';
+  const bad = run(ApiError.badGateway("The result couldn't be fetched. Try again in a moment."));
+  assert.equal(bad.status, 502);
+  assert.deepEqual(bad.body, { success: false, message: "The result couldn't be fetched. Try again in a moment." });
+
+  const big = run(ApiError.payloadTooLarge('This file is larger than 10 MB.'));
+  assert.equal(big.status, 413);
+  assert.equal('code' in (big.body ?? {}), false);
 });
 
 test('body-parser errors map to 413 and 400', () => {

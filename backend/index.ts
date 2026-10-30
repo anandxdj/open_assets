@@ -6,11 +6,12 @@ import { createApp } from './src/app';
 import { getConfig } from './src/common/config/env';
 import { connectDB } from './src/common/config/db';
 import { redis } from './src/common/config/redis';
-import { detectionQueue, cropQueue, finalizeQueue } from './src/common/config/bullmq';
+import { queues } from './src/common/config/bullmq';
 import { createShutdown } from './src/common/lifecycle';
 import { startDetectionWorker } from './src/modules/workers/detection.worker';
 import { startCropWorker } from './src/modules/workers/crop.worker';
 import { startFinalizeWorker } from './src/modules/workers/finalize.worker';
+import { startEnhanceWorker } from './src/modules/workers/enhance.worker';
 
 async function main() {
   const config = getConfig();
@@ -24,7 +25,7 @@ async function main() {
   await redis.ping();
   console.log('[Redis] Ping OK');
 
-  const workers = [startDetectionWorker(), startCropWorker(), startFinalizeWorker()];
+  const workers = [startDetectionWorker(), startCropWorker(), startFinalizeWorker(), startEnhanceWorker()];
 
   const app = createApp({ isShuttingDown: shutdown.isShuttingDown });
   const server = app.listen(config.port, () => {
@@ -43,7 +44,7 @@ async function main() {
     }),
   );
   shutdown.register('workers', () => Promise.all(workers.map((worker) => worker.close())));
-  shutdown.register('queues', () => Promise.all([detectionQueue, cropQueue, finalizeQueue].map((queue) => queue.close())));
+  shutdown.register('queues', () => Promise.all(queues.map((queue) => queue.close())));
   shutdown.register('redis', () => redis.quit());
   shutdown.register('mongo', () => mongoose.disconnect());
 

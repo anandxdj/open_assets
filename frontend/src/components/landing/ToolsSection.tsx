@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { SECTION_TITLE, WRAP } from "@/components/marketing/site";
 
 const TOOLS = [
-  { name: "Extract", href: "/upload", desc: "Detect, name and cut every asset on a sheet.", live: true },
-  { name: "Enhance", href: "/enhance", desc: "Clean strokes, remove specks, export at up to 3×.", live: true },
-  { name: "Studio", href: "/studio", desc: "Generate sprites, tiles, props and parallax backgrounds.", live: false },
-  { name: "AniBuddy", href: "/anibuddy", desc: "Rig a character you drew and animate it.", live: false },
+  { name: "Extract", href: "/upload", desc: "Detect, name and cut every asset on a sheet." },
+  { name: "Enhance", href: "/enhance", desc: "Clean strokes, remove specks, export at up to 3×." },
+  { name: "Studio", href: "/studio", desc: "Generate sprites, tiles, props and parallax backgrounds." },
+  { name: "AniBuddy", href: "/anibuddy", desc: "Rig a character you drew and animate it." },
 ];
 
 /* Focus rings on the inverted band use the page colour so they stay visible. */
@@ -37,7 +36,7 @@ export function ToolsSection() {
             <li key={tool.name}>
               <Link
                 href={tool.href}
-                className={`group grid grid-cols-[32px_minmax(0,1fr)_auto_20px] items-center gap-x-4 gap-y-1.5 border-b-[1.5px] border-page py-[22px] md:grid-cols-[64px_minmax(0,1fr)_minmax(0,1.4fr)_90px_28px] ${FOCUS}`}
+                className={`group grid grid-cols-[32px_minmax(0,1fr)_20px] items-center gap-x-4 gap-y-1.5 border-b-[1.5px] border-page py-[22px] md:grid-cols-[64px_minmax(0,1fr)_minmax(0,1.4fr)_28px] ${FOCUS}`}
               >
                 <span aria-hidden className="oa-value opacity-60">
                   {String(i + 1).padStart(2, "0")}
@@ -45,19 +44,12 @@ export function ToolsSection() {
                 <span className="oa-h3 group-hover:underline group-hover:decoration-2 group-hover:underline-offset-4">
                   {tool.name}
                 </span>
-                <span className="col-start-2 col-end-5 row-start-2 text-xs leading-[18px] opacity-75 md:col-auto md:row-auto">
+                <span className="col-start-2 col-end-4 row-start-2 text-xs leading-[18px] opacity-75 md:col-auto md:row-auto">
                   {tool.desc}
-                </span>
-                <span className="col-start-3 row-start-1 md:col-auto md:row-auto">
-                  {tool.live ? (
-                    <Badge tone="accent">Live</Badge>
-                  ) : (
-                    <Badge className="text-inherit">Soon</Badge>
-                  )}
                 </span>
                 <ArrowRight
                   aria-hidden
-                  className="col-start-4 row-start-1 size-5 md:col-auto md:row-auto"
+                  className="col-start-3 row-start-1 size-5 md:col-auto md:row-auto"
                 />
               </Link>
             </li>

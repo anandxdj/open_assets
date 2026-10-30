@@ -55,9 +55,10 @@ export async function resolveKeyAndCredits(
   }
 
   // Local development should not depend on the Express usage service or
-  // consume a developer's free-tier balance. Provider configuration still
-  // applies when a real LLM call is made.
-  if (process.env.NODE_ENV === 'development') {
+  // consume a developer's free-tier balance. Mock mode is the exception: it
+  // exists to exercise auth and credits end to end without provider spend.
+  // Provider configuration still applies when a real LLM call is made.
+  if (process.env.NODE_ENV === 'development' && !isMockMode()) {
     return { ok: true, key: process.env.OPENROUTER_API_KEY ?? '', byok: false };
   }
 
@@ -87,7 +88,10 @@ export async function resolveKeyAndCredits(
       ok: false,
       status: 402,
       code: 'INSUFFICIENT_CREDITS',
-      error: 'You are out of free credits. Add your own OpenRouter key in Settings to continue.',
+      error:
+        options.allowByok === false
+          ? 'You are out of credits for this month.'
+          : 'You are out of free credits. Add your own OpenRouter key in Settings to continue.',
     };
   }
   if (consumeRes.status === 401) {

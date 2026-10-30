@@ -37,7 +37,7 @@ test('a complete production environment has no errors or warnings', () => {
 test('an empty production environment lists every required value at once', () => {
   const { errors } = checkEnv({ NODE_ENV: 'production' });
   const text = errors.join('\n');
-  for (const name of ['MONGO_URI', 'REDIS_URL', 'FRONTEND_URL', 'PY_BACKEND_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'CLOUDINARY_CLOUD_NAME']) {
+  for (const name of ['MONGO_URI', 'REDIS_URL', 'FRONTEND_URL', 'PY_BACKEND_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET']) {
     assert.match(text, new RegExp(name), `${name} should be reported`);
   }
 });
@@ -72,18 +72,21 @@ test('legacy JWT_SECRET still counts as the access secret', () => {
   assert.deepEqual(errors, []);
 });
 
-test('storage provider typos are caught and each provider needs its own keys', () => {
+test('storage provider typos are caught', () => {
   assert.match(checkEnv({ ...validProduction, STORAGE_PROVIDER: 'imagekt' }).errors.join('\n'), /STORAGE_PROVIDER must be/);
-
-  const imagekit = checkEnv({ ...validProduction, STORAGE_PROVIDER: 'imagekit' }).errors.join('\n');
-  assert.match(imagekit, /IMAGEKIT_PRIVATE_KEY, IMAGEKIT_URL_ENDPOINT/);
-  assert.doesNotMatch(imagekit, /CLOUDINARY/);
 });
 
-test('missing storage keys are only a warning in development', () => {
-  const { errors, warnings } = checkEnv({ MONGO_URI: 'mongodb://127.0.0.1:27017' });
-  assert.deepEqual(errors, []);
-  assert.match(warnings.join('\n'), /CLOUDINARY_CLOUD_NAME/);
+test('missing storage keys only warn, in production too: the API runs and features report "not configured"', () => {
+  const { CLOUDINARY_CLOUD_NAME: _a, CLOUDINARY_API_KEY: _b, CLOUDINARY_API_SECRET: _c, ...rest } = validProduction;
+  const cloudinary = checkEnv(rest);
+  assert.deepEqual(cloudinary.errors, []);
+  assert.match(cloudinary.warnings.join('\n'), /CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET are not set/);
+
+  const imagekit = checkEnv({ ...rest, STORAGE_PROVIDER: 'imagekit' });
+  assert.deepEqual(imagekit.errors, []);
+  const text = imagekit.warnings.join('\n');
+  assert.match(text, /IMAGEKIT_PRIVATE_KEY, IMAGEKIT_URL_ENDPOINT/);
+  assert.doesNotMatch(text, /CLOUDINARY/);
 });
 
 test('RESEND_API_KEY without a sender address fails in production', () => {

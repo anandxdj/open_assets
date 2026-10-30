@@ -10,18 +10,21 @@ import { Crumbs, Topbar } from "@/components/layout/AppShell";
 /**
  * Error boundary body for signed-in app pages. It renders inside the group's
  * layout, so the sidebar (or the workspace frame) stays and only the page is
- * replaced by a top bar, the failure and the way back.
+ * replaced by a top bar (unless the layout draws one), the failure and the way back.
  */
 export function RouteError({
   error,
   retry,
   homeHref = "/upload",
   homeLabel = "Back to Extract",
+  topbar = true,
 }: {
   error: Error & { digest?: string };
   retry: () => void;
   homeHref?: string;
   homeLabel?: string;
+  /** Turn off when the layout already draws its own top bar (Studio's tool tabs). */
+  topbar?: boolean;
 }) {
   useEffect(() => {
     console.error(error);
@@ -31,9 +34,11 @@ export function RouteError({
     <>
       {/* Client error boundaries cannot export metadata; React hoists this into <head>. */}
       <title>Something went wrong · OpenAssets</title>
-      <Topbar>
-        <Crumbs items={[{ label: "Error" }]} />
-      </Topbar>
+      {topbar && (
+        <Topbar>
+          <Crumbs items={[{ label: "Error" }]} />
+        </Topbar>
+      )}
       <main className="flex flex-1 items-center justify-center overflow-auto px-4 py-12 pb-24 md:pb-12">
         <div role="alert" className="flex w-full max-w-lg flex-col gap-3">
           <EmptyState

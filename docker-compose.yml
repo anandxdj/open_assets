@@ -10,7 +10,7 @@
 # proxy in front, see docker-compose.traefik.yml). MongoDB, Redis and the AI service
 # are reachable only from inside the stack's network and publish nothing.
 #
-# The workers run inside the `backend` process (3 BullMQ workers), so there is no
+# The workers run inside the `backend` process (4 BullMQ workers), so there is no
 # separate worker service.
 
 x-logging: &logging
@@ -85,7 +85,7 @@ services:
       retries: 3
       start_period: 20s
 
-  # Express API and the three BullMQ workers (detection, crop, finalize).
+  # Express API and the four BullMQ workers (detection, crop, finalize, enhance).
   backend:
     build:
       context: ./backend

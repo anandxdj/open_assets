@@ -3,15 +3,18 @@ import { ApiError } from '../utils/ApiError';
 
 /**
  * Last middleware in the chain. Every failure is answered with
- * `{ success: false, message }`.
+ * `{ success: false, message }`, plus `code` when the error carries one.
  *
  * Rules:
  * - The full error (with stack) is logged on the server, never sent in production.
- * - 4xx errors we recognise (our own ApiError, body-parser, multer, Mongoose
- *   validation) keep a short, safe message so clients can show it.
- * - Anything else is a 500 with a fixed message. A 5xx ApiError is masked in
- *   production too, because its message is written for logs, not users.
- * - Outside production, 5xx responses add the stack to speed up debugging.
+ * - An ApiError is deliberate: its status, message and optional machine-readable `code`
+ *   (for example 503 STORAGE_NOT_CONFIGURED) reach the client unchanged. The one
+ *   exception is a plain 500 (`ApiError.internal`), whose message is written for logs,
+ *   not users, so it is replaced by a fixed one.
+ * - Errors from libraries we recognise (body-parser, multer, Mongoose) become 4xx with
+ *   a short fixed message.
+ * - Anything else is a 500 with a fixed message.
+ * - Outside production, a 500 adds the stack to speed up debugging.
  */
 
 const GENERIC: Record<number, string> = {
@@ -27,9 +30,12 @@ const GENERIC: Record<number, string> = {
   429: 'Too many requests',
 };
 
+const INTERNAL = 'Internal Server Error';
+
 interface Classified {
   status: number;
   message: string;
+  code?: string;
 }
 
 /** Narrow an unknown thrown value to something we can read fields from. */
@@ -39,7 +45,10 @@ function asRecord(err: unknown): Record<string, unknown> {
 
 function classify(err: unknown): Classified {
   if (err instanceof ApiError) {
-    return { status: err.statusCode, message: err.message };
+    if (err.statusCode === 500) return { status: 500, message: INTERNAL };
+    return err.code
+      ? { status: err.statusCode, message: err.message, code: err.code }
+      : { status: err.statusCode, message: err.message };
   }
 
   const e = asRecord(err);
@@ -67,7 +76,7 @@ function classify(err: unknown): Classified {
     return { status, message: GENERIC[status] ?? 'Bad request' };
   }
 
-  return { status: 500, message: 'Internal Server Error' };
+  return { status: 500, message: INTERNAL };
 }
 
 export const errorHandler = (err: unknown, req: Request, res: Response, next: NextFunction): void => {
@@ -78,17 +87,17 @@ export const errorHandler = (err: unknown, req: Request, res: Response, next: Ne
   }
 
   const isProduction = process.env.NODE_ENV === 'production';
-  const { status, message } = classify(err);
+  const { status, message, code } = classify(err);
 
-  if (status >= 500) {
+  // Deliberate 502/503 ApiErrors are expected conditions the thrower already handled;
+  // everything else that ends in a 500 is a bug or an outage worth a log line.
+  if (status === 500) {
     console.error(`[Unhandled Error] ${req.method} ${req.originalUrl.split('?')[0]}`, err);
   }
 
-  const body: { success: false; message: string; stack?: string } = {
-    success: false,
-    message: status >= 500 ? 'Internal Server Error' : message,
-  };
-  if (status >= 500 && !isProduction && err instanceof Error && err.stack) {
+  const body: { success: false; message: string; code?: string; stack?: string } = { success: false, message };
+  if (code) body.code = code;
+  if (status === 500 && !isProduction && err instanceof Error && err.stack) {
     body.stack = err.stack;
   }
 

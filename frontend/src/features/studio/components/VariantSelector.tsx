@@ -45,7 +45,8 @@ export function VariantSelector({
       className={cn("oa-float max-w-[calc(100%-24px)] flex-wrap justify-center gap-y-1", className)}
     >
       {multi && (
-        <>
+        // Own row, so the bar never wraps with a divider stranded mid-line.
+        <div className="flex basis-full flex-wrap items-center justify-center gap-x-1.5 border-b border-rule pb-1">
           <div role="group" aria-label="Variants" className="flex items-center gap-0.5">
             <button
               type="button"
@@ -85,8 +86,7 @@ export function VariantSelector({
               Seam {score.toFixed(1)}
             </span>
           )}
-          <span className="oa-vsep" aria-hidden />
-        </>
+        </div>
       )}
       <Button variant="ghost" size="sm" onClick={onDiscard} disabled={loading} title="Discard (Esc)">
         <X aria-hidden />
