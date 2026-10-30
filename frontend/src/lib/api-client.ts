@@ -120,7 +120,10 @@ export const apiClient = {
     });
   },
 
-  del<T>(path: string): Promise<T> {
-    return requestWithRetry<T>(path, { method: "DELETE" });
+  del<T>(path: string, body?: unknown): Promise<T> {
+    return requestWithRetry<T>(path, {
+      method: "DELETE",
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
   },
 };

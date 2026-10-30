@@ -1,4 +1,5 @@
 import rateLimit from 'express-rate-limit';
+import type { AuthRequest } from '../../modules/auth/auth.middleware';
 
 /**
  * Rate limiting (SECURITY #5). `app.set('trust proxy', 1)` is set in app.ts,
@@ -43,6 +44,25 @@ export const enhanceAiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'AI enhance limit reached, please try again in a few minutes.' },
+});
+
+/**
+ * Sensitive account actions behind a signed-in session: changing the password
+ * (guards the current-password check against guessing), signing out everywhere
+ * and deleting the account.
+ *
+ * Keyed by user id, so it must run after `authenticate()`. Only failed requests
+ * (4xx/5xx) are counted: a user who gets it right is never throttled, a script
+ * guessing passwords or confirmations is.
+ */
+export const accountLimiter = rateLimit({
+  windowMs: FIFTEEN_MIN,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => (req as AuthRequest).user?.id ?? req.ip ?? 'unknown',
+  message: { success: false, message: 'Too many attempts, please try again in 15 minutes.' },
 });
 
 /**

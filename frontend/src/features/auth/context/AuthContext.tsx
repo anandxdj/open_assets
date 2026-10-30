@@ -33,6 +33,8 @@ interface AuthContextValue {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   setTokenAndUser: (token: string, user: User) => void;
+  /** Merge fields into the signed-in user (e.g. after a profile edit) without a refetch. */
+  updateUser: (patch: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -44,6 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setTokenAndUser = useCallback((token: string, u: User) => {
     tokenStore.set(token);
     setUser(u);
+  }, []);
+
+  const updateUser = useCallback((patch: Partial<User>) => {
+    setUser((current) => (current ? { ...current, ...patch } : current));
   }, []);
 
   useEffect(() => {
@@ -88,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, setTokenAndUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, setTokenAndUser, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

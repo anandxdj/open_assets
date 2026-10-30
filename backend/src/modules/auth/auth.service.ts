@@ -279,7 +279,8 @@ export class AuthService {
           sub: googleUser.sub,
         });
       } else {
-        user.name = googleUser.name || googleUser.given_name;
+        // The name is only taken from Google at signup; after that it belongs
+        // to the user (Settings → Profile) and must survive later sign-ins.
         user.picture = googleUser.picture;
         user.isVerified = true;
         user.lastLogin = new Date();
