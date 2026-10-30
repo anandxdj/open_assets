@@ -25,12 +25,15 @@ export async function startFinalize(
   selectedIds: string[],
   updatedNames?: Record<string, string>,
   skipUpscale?: boolean,
+  /** Upscale factor, 2 or 4. 4 needs Pro; the server answers 403 PLAN_LIMIT otherwise. */
+  scale: 2 | 4 = 2,
 ): Promise<{ jobId: string }> {
   const envelope = await apiClient.post<ApiEnvelope<{ jobId: string }>>("/api/finalize", {
     jobId,
     selectedIds,
     updatedNames,
     skipUpscale: skipUpscale ?? false,
+    scale,
   });
   return envelope.data;
 }

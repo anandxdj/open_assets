@@ -41,6 +41,8 @@ export interface JobResponse {
   boxes: BoundingBox[];
   assets?: Asset[];
   downloadUrl?: string;
+  /** Upscale factor chosen for the export (2 or 4), once finalize has started. */
+  upscaleScale?: number;
   error?: string;
 }
 

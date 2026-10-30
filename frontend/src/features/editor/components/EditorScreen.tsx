@@ -11,7 +11,10 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/controls";
 import { EmptyState } from "@/components/ui/feedback";
+import { useEntitlement, usePlan } from "@/features/plans/PlanContext";
 import { redetectJob, type DetectionMode } from "@/features/upload/services/uploadApi";
+import { ApiRequestError } from "@/lib/api-error";
+import { DETECTION_LIMITS, isPlanErrorCode } from "@/lib/plans";
 import { useJobPolling } from "../hooks/useJobPolling";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { startExport } from "../services/exportApi";
@@ -57,6 +60,11 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   const [detectMode, setDetectMode] = useState<DetectionMode>("auto");
   // Starting value for the colour picker; the user picks the real sheet background.
   const [customBackground, setCustomBackground] = useState("#000000");
+  // Pro controls. Free accounts always detect with the defaults.
+  const [threshold, setThreshold] = useState<number>(DETECTION_LIMITS.threshold.default);
+  const [padding, setPadding] = useState<number>(DETECTION_LIMITS.padding.default);
+  const { allowed: tuningAllowed, ready: planReady } = useEntitlement("paddingThresholdControls");
+  const { refresh: refreshPlan } = usePlan();
   // Result of the last re-detect in this session; null until the user re-detects.
   const [redetected, setRedetected] = useState<{ warning?: string } | null>(null);
   const [reviewDismissed, setReviewDismissed] = useState(false);
@@ -113,6 +121,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       const result = await redetectJob(jobId, {
         mode: detectMode,
         backgroundColor: detectMode === "sampled" ? customBackground : undefined,
+        ...(tuningAllowed ? { threshold, padding } : {}),
       });
       initBoxes(result.boxes);
       clearSelection();
@@ -123,6 +132,10 @@ export function EditorScreen({ jobId }: { jobId: string }) {
         description: `Detected with the ${result.detectionMode} background setting, ${confidence}% confidence.`,
       });
     } catch (err) {
+      if (err instanceof ApiRequestError && isPlanErrorCode(err.code)) {
+        // The plan changed under us (for example the trial ended): re-read it so the controls lock.
+        void refreshPlan();
+      }
       toast.error("Detection failed", { description: errorMessage(err, "Try another background setting.") });
     } finally {
       setRedetecting(false);
@@ -243,6 +256,14 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     onColourChange: setCustomBackground,
     redetecting,
     onRedetect: () => void handleRedetect(),
+    tuning: {
+      allowed: tuningAllowed,
+      ready: planReady,
+      threshold,
+      onThresholdChange: setThreshold,
+      padding,
+      onPaddingChange: setPadding,
+    },
   };
 
   let badge: React.ReactNode;

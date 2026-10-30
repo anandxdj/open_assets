@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Check, ChevronLeft, CircleAlert, CircleCheck, Download, ImageOff, LoaderCircle, Plus } from "lucide-react";
+import { Check, ChevronLeft, CircleAlert, CircleCheck, Download, ImageOff, Lock, LoaderCircle, Plus } from "lucide-react";
 import type { Asset, JobStatus } from "@/types";
 import { Crumbs, Topbar } from "@/components/layout/AppShell";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox, Progress, Segmented, Switch } from "@/components/ui/controls";
 import { EmptyState, Notice } from "@/components/ui/feedback";
 import { ExportToCollectionButton } from "@/features/collections/components/ExportToCollectionButton";
+import { usePlan, useEntitlement } from "@/features/plans/PlanContext";
+import { UpgradeAction } from "@/features/plans/UpgradeAction";
+import { ApiRequestError } from "@/lib/api-error";
+import { isPlanErrorCode } from "@/lib/plans";
 import { useJobPolling } from "../hooks/useJobPolling";
 import { startFinalize } from "../services/exportApi";
 import { sanitize, zipImageUrls } from "../services/localExport";
@@ -92,6 +96,7 @@ function AssetTile({
   asset,
   selected,
   upscaled,
+  scale,
   dims,
   onToggle,
   onMeasure,
@@ -99,6 +104,7 @@ function AssetTile({
   asset: Asset;
   selected: boolean;
   upscaled: boolean;
+  scale: number;
   dims?: { w: number; h: number };
   onToggle: (id: string) => void;
   onMeasure: (id: string, w: number, h: number) => void;
@@ -129,7 +135,7 @@ function AssetTile({
           )}
           {upscaled && (
             <Badge tone="accent" className="absolute right-1.5 top-1.5">
-              2×
+              {scale}×
             </Badge>
           )}
         </span>
@@ -153,6 +159,10 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   const [tileSize, setTileSize] = useState<TileSize>("m");
   const [dims, setDims] = useState<Record<string, { w: number; h: number }>>({});
   const [upscaleOn, setUpscaleOn] = useState(false);
+  // 2× for everyone; 4× is a Pro entitlement (the server enforces it too).
+  const [upscaleScale, setUpscaleScale] = useState<2 | 4>(2);
+  const { refresh: refreshPlan } = usePlan();
+  const { value: maxUpscale, ready: planReady } = useEntitlement("maxUpscale");
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [upscaleTotal, setUpscaleTotal] = useState<number | null>(null);
   const [localDownloading, setLocalDownloading] = useState(false);
@@ -265,16 +275,21 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
     }
   }
 
-  // Upscale and export: server-side 2× upscale, streamed per asset. One time per job
+  // Upscale and export: server-side AI upscale (2× or 4×), streamed per asset. One time per job
   // (the backend rejects a second finalize once the job has left "cropped").
   async function handleUpscale() {
     if (selectedCount === 0 || isFinalizing) return;
     setIsFinalizing(true);
     setUpscaleTotal(selectedCount);
     try {
-      await startFinalize(jobId, Array.from(selectedIds), undefined, false);
+      await startFinalize(jobId, Array.from(selectedIds), undefined, false, upscaleScale);
     } catch (err) {
       console.error("Finalize failed:", err);
+      if (err instanceof ApiRequestError && isPlanErrorCode(err.code)) {
+        // The plan changed under us (for example the trial ended): fall back to 2× and re-read it.
+        setUpscaleScale(2);
+        void refreshPlan();
+      }
       toast.error("Couldn't start upscaling", { description: errorMessage(err, "Try again in a moment.") });
       setIsFinalizing(false);
     }
@@ -349,10 +364,13 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
     badge = <StatusBadge status={status} />;
   }
 
-  let upscaleHelp = "Runs once per sheet. Tiles show 2× as they finish.";
+  let upscaleHelp = `Runs once per sheet. Tiles show ${upscaleScale}× as they finish.`;
   if (upscaleDone) upscaleHelp = "Done. Your upscaled assets are ready.";
   else if (cropInProgress) upscaleHelp = "Available when cropping finishes.";
   else if (!canUpscale && !upscaling) upscaleHelp = "This sheet is already packaged, so upscaling is off.";
+
+  const scaleLocked = planReady && maxUpscale < 4;
+  const showScale = !autoRaw && (canUpscale || (upscaleOn && !upscaleDone));
 
   const topbar = (
     <Topbar className="gap-2 pl-2 md:gap-3 md:pl-2">
@@ -488,6 +506,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                     asset={asset}
                     selected={selectedIds.has(asset.id)}
                     upscaled={upscaledIds.has(asset.id)}
+                    scale={job.upscaleScale ?? upscaleScale}
                     dims={dims[asset.id]}
                     onToggle={handleToggle}
                     onMeasure={handleMeasure}
@@ -532,7 +551,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span id="upscale-label" className="text-xs font-medium">
-                      Upscale 2× with AI
+                      Upscale {upscaleDone ? (job.upscaleScale ?? upscaleScale) : upscaleScale}× with AI
                     </span>
                     <span id="upscale-help" className="text-[11px] leading-4 text-ink-2">
                       {upscaleHelp}
@@ -546,6 +565,37 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                     aria-describedby="upscale-help"
                   />
                 </div>
+                {showScale && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <span className="oa-field-label">Factor</span>
+                    <Segmented<"2" | "4">
+                      ariaLabel="Upscale factor"
+                      value={String(upscaleScale) as "2" | "4"}
+                      onChange={(v) => setUpscaleScale(v === "4" ? 4 : 2)}
+                      options={[
+                        { value: "2", label: "2×", disabled: !canUpscale },
+                        {
+                          value: "4",
+                          label: "4×",
+                          icon: scaleLocked ? <Lock aria-hidden /> : undefined,
+                          ariaLabel: scaleLocked ? "4×, needs Pro" : undefined,
+                          disabled: !canUpscale || scaleLocked || !planReady,
+                        },
+                      ]}
+                    />
+                    {scaleLocked && (
+                      <div className="flex flex-col items-start gap-2">
+                        <p className="text-[11px] leading-4 text-ink-2">
+                          4× is part of Pro.{" "}
+                          <Link href="/pricing" className="oa-link">
+                            See plans
+                          </Link>
+                        </p>
+                        <UpgradeAction />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

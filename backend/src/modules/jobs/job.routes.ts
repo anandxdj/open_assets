@@ -32,6 +32,7 @@ router.get('/jobs/:jobId', authenticate(), asyncHandler(async (req: AuthRequest,
     boxes: parseBoxes(job.boxes),
     assets: parseAssets(job.assets),
     downloadUrl: job.downloadUrl || undefined,
+    upscaleScale: job.upscaleScale ? Number(job.upscaleScale) : undefined,
     error: job.error || undefined,
   };
 
