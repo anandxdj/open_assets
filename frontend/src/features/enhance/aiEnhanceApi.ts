@@ -32,7 +32,8 @@ export interface AiCapabilities {
   reason?: string;
   /** Plain-language reason when `available` is false. */
   message?: string;
-  operations: { upscale: { scales: AiScale[] }; backgroundRemoval: boolean };
+  /** `maxScale` is the highest factor this account's plan allows (free 2, Pro 4). */
+  operations: { upscale: { scales: AiScale[]; maxScale?: AiScale }; backgroundRemoval: boolean };
   limits: AiEnhanceLimits;
 }
 

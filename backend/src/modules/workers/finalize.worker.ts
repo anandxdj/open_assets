@@ -5,21 +5,10 @@ import { storage } from '../../lib/storage';
 import { extractError } from '../../common/utils/extractError';
 import { mapLimit } from '../../common/utils/mapLimit';
 import { replaceImageWithUpscaled } from '../collections/collection.service';
-import { UPSCALE_SCALES } from '../plans/upscale';
+import { croppedWidth, UPSCALE_SCALES } from '../plans/upscale';
 import type { UpscaleScale } from '../plans/upscale';
 
 const UPSCALE_CONCURRENCY = 4;
-
-/**
- * Width in px of the crop for a box, as the crop service cuts it: the rounded
- * box clamped to the sheet. The provider's AI upscale is a fixed 4x, so the
- * export resizes to exactly `scale` times this width.
- */
-function croppedWidth(box: { x: number; width: number }, sheetWidth: number): number {
-  const x = Math.max(0, Math.round(box.x));
-  const x2 = Math.round(box.x) + Math.round(box.width);
-  return Math.max(1, (sheetWidth > 0 ? Math.min(sheetWidth, x2) : x2) - x);
-}
 
 interface FinalizeJobData {
   jobId: string;

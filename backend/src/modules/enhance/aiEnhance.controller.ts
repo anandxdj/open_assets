@@ -4,6 +4,7 @@ import { ApiError } from '../../common/utils/ApiError';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { assertOwner } from '../../common/utils/authz';
 import type { AuthRequest } from '../auth/auth.middleware';
+import { assertWithinLimit, getEntitlements } from '../plans/entitlements';
 import { getAiEnhanceLimits, parseAiEnhanceOptions, providerLabel } from './aiEnhance.limits';
 import {
   STORAGE_NOT_CONFIGURED,
@@ -23,7 +24,7 @@ const RESULT_FETCH_TIMEOUT_MS = 60_000;
  * now, so the page can degrade before the user uploads anything.
  */
 export function createCapabilitiesHandler(getDeps: GetAiEnhanceDeps) {
-  return async (_req: AuthRequest, res: Response): Promise<void> => {
+  return async (req: AuthRequest, res: Response): Promise<void> => {
     const deps = await getDeps();
     const status = deps.getStorageStatus();
     const limits = getAiEnhanceLimits(status.provider);
@@ -37,7 +38,8 @@ export function createCapabilitiesHandler(getDeps: GetAiEnhanceDeps) {
       // Variable names help whoever runs the server; users don't need them.
       missing: available || process.env['NODE_ENV'] === 'production' ? undefined : status.missing,
       operations: {
-        upscale: { scales: [2, 4] },
+        // `scales` is what the pipeline supports; `maxScale` is what this user's plan allows.
+        upscale: { scales: [2, 4], maxScale: getEntitlements(req.user ?? {}).maxUpscale },
         backgroundRemoval: true,
       },
       limits: {
@@ -60,6 +62,9 @@ export function createStartHandler(getDeps: GetAiEnhanceDeps) {
     if (!req.file) throw ApiError.badRequest('Provide a PNG, JPEG or WebP image.');
 
     const options = parseAiEnhanceOptions(req.body);
+    // Plan gate: 403 PLAN_LIMIT when the factor is above the plan's maxUpscale
+    // (free: 2x, Pro: 4x). Checked before anything is probed or stored.
+    if (options.scale !== null) assertWithinLimit(req.user ?? {}, 'maxUpscale', options.scale);
     const probe = probeImage(req.file.buffer);
     if (!probe) throw ApiError.badRequest('Provide a PNG, JPEG or WebP image.');
 

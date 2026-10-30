@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from "react";
 import Link from "next/link";
-import { ImageUp, LoaderCircle, Sparkles } from "lucide-react";
+import { ImageUp, LoaderCircle, Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Segmented, Switch } from "@/components/ui/controls";
 import { EmptyState, Notice } from "@/components/ui/feedback";
@@ -10,6 +10,9 @@ import { STORAGE_NOT_CONFIGURED, type AiEnhanceLimits, type AiEnhanceOptions } f
 import { AiComparePane } from "@/features/enhance/components/AiComparePane";
 import { EnhanceTopbar } from "@/features/enhance/components/EnhanceTopbar";
 import { useAiCapabilities, useAiEnhance } from "@/features/enhance/hooks/useAiEnhance";
+import { useEntitlement, usePlan } from "@/features/plans/PlanContext";
+import { UpgradeAction } from "@/features/plans/UpgradeAction";
+import { isPlanErrorCode } from "@/lib/plans";
 import {
   baseName,
   checkAiLimits,
@@ -31,7 +34,7 @@ const FALLBACK_MAX_BYTES = 10 * 1024 * 1024;
 const SCALE_OPTIONS = [
   { value: "off" as const, label: "Off" },
   { value: "2" as const, label: "2×" },
-  // 4x will later be gated to the Pro plan. Plan gating isn't built yet, so it is open to everyone.
+  // 4× is a Pro entitlement (maxUpscale): locked for free accounts, and the server enforces it too.
   { value: "4" as const, label: "4×" },
 ];
 
@@ -59,7 +62,12 @@ export function AiEnhanceWorkspace() {
   const [source, setSource] = useState<{ file: File; url: string } | null>(null);
   const [sourceSize, setSourceSize] = useState<Size | null>(null);
   const [resultSize, setResultSize] = useState<Size | null>(null);
-  const [scale, setScale] = useState<ScaleChoice>(DEFAULT_SCALE);
+  const [chosenScale, setScale] = useState<ScaleChoice>(DEFAULT_SCALE);
+  const { value: maxUpscale, ready: planReady } = useEntitlement("maxUpscale");
+  const { refresh: refreshPlan } = usePlan();
+  const scaleLocked = planReady && maxUpscale < 4;
+  // A free account (or a trial that just ended) never carries 4× into a request.
+  const scale: ScaleChoice = scaleLocked && chosenScale === "4" ? DEFAULT_SCALE : chosenScale;
   const [removeBackground, setRemoveBackground] = useState(false);
   const [pickError, setPickError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -118,6 +126,8 @@ export function AiEnhanceWorkspace() {
     const failure = await enhance.run(source.file, options);
     // The server can lose its credentials after the page loaded; refresh what we know.
     if (failure?.code === STORAGE_NOT_CONFIGURED) capabilities.retry();
+    // The plan changed under us (for example the trial ended): re-read it so 4× locks.
+    if (isPlanErrorCode(failure?.code)) void refreshPlan();
   }
 
   function resetOptions() {
@@ -265,10 +275,26 @@ export function AiEnhanceWorkspace() {
                 ariaLabel="Upscale"
                 block
                 value={scale}
-                options={SCALE_OPTIONS.map((option) => ({ ...option, disabled: controlsDisabled }))}
+                options={SCALE_OPTIONS.map((option) => ({
+                  ...option,
+                  disabled: controlsDisabled || (option.value === "4" && (scaleLocked || !planReady)),
+                  icon: option.value === "4" && scaleLocked ? <Lock aria-hidden /> : undefined,
+                  ariaLabel: option.value === "4" && scaleLocked ? "4×, needs Pro" : undefined,
+                }))}
                 onChange={setScale}
               />
               <span className="text-[11px] leading-4 text-ink-3">{upscaleHelp}</span>
+              {scaleLocked && (
+                <div className="flex flex-col items-start gap-2">
+                  <p className="text-[11px] leading-4 text-ink-2">
+                    4× is part of Pro.{" "}
+                    <Link href="/pricing" className="oa-link">
+                      See plans
+                    </Link>
+                  </p>
+                  <UpgradeAction />
+                </div>
+              )}
               {limits && options.scale !== null && (
                 <span className="text-[11px] leading-4 text-ink-3">
                   Takes images under {formatMegapixels(limits.maxUpscaleInputPixels)}.

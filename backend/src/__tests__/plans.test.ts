@@ -20,6 +20,7 @@ import { padBoxes, resolveDetectionTuning } from '../modules/plans/detectionTuni
 import { nextResetDate, periodKey } from '../modules/plans/sheetUsage.service';
 import { buildPlanStatus } from '../modules/plans/plans.service';
 import { parseAdminGrantArgs, parsePlanSetArgs } from '../modules/plans/cli';
+import { croppedWidth } from '../modules/plans/upscale';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-03-15T12:00:00Z');
@@ -250,6 +251,17 @@ test('plan status: admin Pro with no end date is not a trial and has no end', ()
   assert.equal(s.trial.active, false);
   assert.equal(s.trial.eligible, false);
   assert.equal(s.proEndsAt, null);
+});
+
+// ── Export upscale: source width ────────────────────────────────────────────
+
+test('croppedWidth mirrors how the crop service cuts a box (rounded, clamped to the sheet)', () => {
+  assert.equal(croppedWidth({ x: 10, width: 80 }, 800), 80);
+  assert.equal(croppedWidth({ x: 10.4, width: 79.6 }, 800), 80);
+  assert.equal(croppedWidth({ x: -20, width: 100 }, 800), 80, 'a box hanging off the left edge');
+  assert.equal(croppedWidth({ x: 760, width: 100 }, 800), 40, 'a box hanging off the right edge');
+  assert.equal(croppedWidth({ x: 10, width: 80 }, 0), 80, 'unknown sheet width: no clamp');
+  assert.equal(croppedWidth({ x: 900, width: 50 }, 800), 1, 'never below 1 px');
 });
 
 // ── CLI argument parsing ────────────────────────────────────────────────────

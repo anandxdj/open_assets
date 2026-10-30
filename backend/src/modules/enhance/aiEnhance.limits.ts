@@ -74,8 +74,8 @@ export function providerLabel(provider: StorageProviderName): string {
  * Multipart text fields arrive as strings. `scale` is "2" or "4" (omit it, or
  * send "1", to keep the resolution) and `removeBackground` is "true" or "false".
  *
- * Note: 4x will later be gated to the Pro plan. Plan gating isn't built yet, so
- * every signed-in user may request it.
+ * 4x is a Pro entitlement (`maxUpscale`). The schema only checks the shape; the
+ * plan gate is in the submit handler, which knows the user.
  */
 export const aiEnhanceOptionsSchema = z
   .object({

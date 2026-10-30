@@ -22,14 +22,21 @@ after(() => {
   for (const server of servers) server.close();
 });
 
-/** Stand-in for the JWT check: `x-test-user` is the signed-in user's id. */
+/** Stand-in for the JWT check: `x-test-user` is the signed-in user's id, `x-test-plan` its stored plan. */
 const fakeAuth: RequestHandler = (req, _res, next) => {
   const id = req.headers['x-test-user'];
   if (typeof id !== 'string') {
     next(ApiError.unauthorized('Not authenticated'));
     return;
   }
-  (req as AuthRequest).user = { id, email: `${id}@example.test`, name: id, role: 'user' };
+  const plan = req.headers['x-test-plan'];
+  (req as AuthRequest).user = {
+    id,
+    email: `${id}@example.test`,
+    name: id,
+    role: 'user',
+    ...(plan === 'pro' || plan === 'free' ? { plan } : {}),
+  };
   next();
 };
 
@@ -83,11 +90,11 @@ function form(file: Buffer | null, fields: Record<string, string> = {}, type = '
   return data;
 }
 
-async function post(base: string, body: FormData, user: string | null = 'user-1') {
+async function post(base: string, body: FormData, user: string | null = 'user-1', plan: 'free' | 'pro' = 'free') {
   const response = await fetch(`${base}/api/enhance/ai`, {
     method: 'POST',
     body,
-    headers: user ? { 'x-test-user': user } : {},
+    headers: user ? { 'x-test-user': user, 'x-test-plan': plan } : {},
   });
   return { status: response.status, body: (await response.json()) as Record<string, any> };
 }
@@ -182,7 +189,8 @@ test('capabilities lists the supported operations and limits when configured', a
   const { data } = (await response.json()) as { data: Record<string, any> };
   assert.equal(data.available, true);
   assert.equal(data.reason, undefined);
-  assert.deepEqual(data.operations, { upscale: { scales: [2, 4] }, backgroundRemoval: true });
+  // The default test user is on the free plan, whose ceiling is 2x.
+  assert.deepEqual(data.operations, { upscale: { scales: [2, 4], maxScale: 2 }, backgroundRemoval: true });
   assert.equal(data.limits.maxBackgroundRemovalSide, 6144);
   assert.equal(data.limits.maxBytes, 10 * 1024 * 1024);
 });
@@ -232,7 +240,7 @@ test('dimensions over the provider limit are a 400 that explains the cap', async
   assert.equal(big.status, 400);
   assert.match(big.body.message, /Cloudinary upscales images under 4\.2 megapixels/);
 
-  const bg = await post(base, form(fakePng(1600, 1000), { scale: '4', removeBackground: 'true' }));
+  const bg = await post(base, form(fakePng(1600, 1000), { scale: '4', removeBackground: 'true' }), 'user-1', 'pro');
   assert.equal(bg.status, 400);
   assert.match(bg.body.message, /6,144 px per side/);
 
@@ -254,7 +262,12 @@ test('a file over the size limit is a 413 with a readable message', async () => 
 
 test('a valid submit is a 202 with a job to poll, and the source goes to the enhance folder', async () => {
   const { base, storage, store, queued } = await start();
-  const { status, body } = await post(base, form(fakeJpeg(800, 600), { scale: '4', removeBackground: 'true' }, 'image/jpeg', 'photo.jpg'));
+  const { status, body } = await post(
+    base,
+    form(fakeJpeg(800, 600), { scale: '4', removeBackground: 'true' }, 'image/jpeg', 'photo.jpg'),
+    'user-1',
+    'pro',
+  );
   assert.equal(status, 202);
   assert.equal(body.success, true);
   assert.equal(body.data.kind, 'ai');
@@ -346,4 +359,37 @@ test('the result route refuses unfinished jobs and streams a finished PNG', asyn
 
   const gone = await fetch(`${base}/api/enhance/ai/gone/result`, { headers: { 'x-test-user': 'user-1' } });
   assert.equal(gone.status, 502);
+});
+
+// ── plan gate: 4x is Pro ────────────────────────────────────────────────────
+
+test('a free user asking for 4x is refused with 403 PLAN_LIMIT before anything is stored or queued', async () => {
+  const { base, storage, queued } = await start();
+  const { status, body } = await post(base, form(fakePng(64, 64), { scale: '4' }));
+  assert.equal(status, 403);
+  assert.equal(body.code, 'PLAN_LIMIT');
+  assert.equal(body.details.entitlement, 'maxUpscale');
+  assert.equal(body.details.limit, 2);
+  assert.equal(body.details.requested, 4);
+  assert.equal(storage.uploads.length, 0);
+  assert.equal(queued.length, 0);
+});
+
+test('a free user can still enhance at 2x, and Pro can enhance at 4x', async () => {
+  const { base, queued } = await start();
+  assert.equal((await post(base, form(fakePng(64, 64), { scale: '2' }))).status, 202);
+  assert.equal((await post(base, form(fakePng(64, 64), { scale: '4' }), 'user-2', 'pro')).status, 202);
+  assert.equal(queued.length, 2);
+});
+
+test('a free user can remove a background without an upscale', async () => {
+  const { base } = await start();
+  assert.equal((await post(base, form(fakePng(64, 64), { removeBackground: 'true' }))).status, 202);
+});
+
+test('capabilities reports 4x as the ceiling for Pro', async () => {
+  const { base } = await start();
+  const response = await fetch(`${base}/api/enhance/capabilities`, { headers: { 'x-test-user': 'user-1', 'x-test-plan': 'pro' } });
+  const { data } = (await response.json()) as { data: Record<string, any> };
+  assert.equal(data.operations.upscale.maxScale, 4);
 });

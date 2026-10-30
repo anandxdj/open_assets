@@ -24,6 +24,8 @@ interface Ctx {
   token: (userId: unknown) => string;
   makeUser: (extra?: Record<string, unknown>) => Promise<{ id: string; token: string; email: string }>;
   uploads: { count: number; fail: boolean };
+  /** Public ids storage.delete was asked for. */
+  deletedFiles: string[];
   pyRequests: Record<string, unknown>[];
   models: {
     User: typeof import('../modules/auth/auth.model').UserModel;
@@ -120,7 +122,10 @@ before(async () => {
     uploads.count += 1;
     return { url: 'https://example.test/sheet.png', publicId: `p${uploads.count}`, format: 'png', width: 512, height: 512 };
   };
-  storage.delete = async () => undefined;
+  const deletedFiles: string[] = [];
+  storage.delete = async (publicId) => {
+    deletedFiles.push(publicId);
+  };
   detectionQueue.add = (async () => ({})) as unknown as typeof detectionQueue.add;
 
   const server = http.createServer(createApp());
@@ -133,6 +138,7 @@ before(async () => {
     base: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
     token,
     uploads,
+    deletedFiles,
     pyRequests,
     models: { User: UserModel, SheetUsage: SheetUsageModel },
     redis,
@@ -464,4 +470,40 @@ test('redetect: an expired trial is back to the defaults', { skip }, async () =>
   const res = await call('POST', `/api/jobs/${jobId}/redetect`, user.token, { padding: 4 });
   assert.equal(res.status, 403);
   assert.equal(res.json.code, 'PLAN_REQUIRED');
+});
+
+// ── Account deletion removes plan data too ──────────────────────────────────
+
+test('deleting an account also removes its sheet counters, history index, enhance jobs and their files', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const other = await ctx.makeUser();
+  const ip = `10.1.0.${nextIp++}`;
+
+  // Real counters from real uploads, plus a history entry and an enhance job in Redis.
+  assert.equal((await upload(user.token, ip)).status, 201);
+  const uploadedPublicId = `p${ctx.uploads.count}`; // what the stubbed storage named the original
+  await ctx.models.SheetUsage.create({ userId: other.id, period: '2026-01', count: 2 });
+  const jobId = await ctx.createJob(user.id, 'detected', { assets: JSON.stringify([{ id: 'x', name: 'x', cropped_url: 'u', public_id: 'del-crop-1' }]) });
+  await ctx.redis.hset(`job:${jobId}`, { publicId: 'del-original-1' });
+  await ctx.redis.zadd(`user:${user.id}:jobs`, Date.now(), jobId);
+  await ctx.redis.hset('enhance:ai:del-test-enh', { id: 'del-test-enh', userId: user.id, sourcePublicId: 'del-enhance-src', status: 'ready' });
+  const keepJob = await ctx.createJob(other.id, 'detected');
+
+  const before = ctx.deletedFiles.length;
+  const res = await call('DELETE', '/api/account', user.token, { confirmation: user.email }, ip);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+
+  assert.equal(await ctx.models.SheetUsage.countDocuments({ userId: user.id }), 0, 'sheet counters are deleted');
+  assert.equal(await ctx.redis.exists(`user:${user.id}:jobs`), 0, 'history index is deleted');
+  assert.equal(await ctx.redis.exists(`job:${jobId}`), 0, 'the job record is deleted');
+  assert.equal(await ctx.redis.exists('enhance:ai:del-test-enh'), 0, 'the enhance job is deleted');
+  assert.deepEqual(
+    ctx.deletedFiles.slice(before).sort(),
+    ['del-crop-1', 'del-enhance-src', 'del-original-1', uploadedPublicId].sort(),
+    'originals, crops and the enhance source are asked for once each',
+  );
+
+  // Someone else's data is untouched.
+  assert.equal(await ctx.models.SheetUsage.countDocuments({ userId: other.id }), 1);
+  assert.equal(await ctx.redis.exists(`job:${keepJob}`), 1);
 });

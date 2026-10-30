@@ -16,9 +16,12 @@ export interface AiEnhanceJobStore {
   update(jobId: string, patch: Partial<Pick<AiEnhanceJobRecord, 'status' | 'resultUrl' | 'error' | 'errorCode'>>): Promise<void>;
 }
 
-function key(jobId: string): string {
+/** Redis key of one AI enhance job hash. */
+export function aiEnhanceKey(jobId: string): string {
   return `enhance:ai:${jobId}`;
 }
+
+const key = aiEnhanceKey;
 
 function serialize(record: AiEnhanceJobRecord): Record<string, string> {
   return {

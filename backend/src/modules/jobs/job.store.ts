@@ -2,6 +2,7 @@ import { redis } from '../../common/config/redis';
 import type { ChainableCommander } from 'ioredis';
 import type { JobHash, JobStatus, BoundingBox, Asset } from './job.types';
 import { encodeCursor, isAfterCursor, type JobCursor } from './job.list';
+import { jobKey, userJobsKey } from './job.keys';
 
 const JOB_TTL = 86400; // 24 hours
 
@@ -40,14 +41,6 @@ export type JobSummaryRecord = { id: string; score: number; status: JobStatus } 
 export interface JobListResult {
   jobs: JobSummaryRecord[];
   nextCursor: string | null;
-}
-
-function jobKey(jobId: string) {
-  return `job:${jobId}`;
-}
-
-function userJobsKey(userId: string) {
-  return `user:${userId}:jobs`;
 }
 
 /** ioredis reports a failed command inside exec()'s results instead of rejecting. */

@@ -7,6 +7,8 @@ import { FolderModel } from '../collections/folder.model';
 import { ImageModel } from '../collections/image.model';
 import { CollectionLikeModel } from '../collections/collectionLike.model';
 import { UsageEventModel } from '../usage/usage.model';
+import { SheetUsageModel } from '../plans/sheetUsage.model';
+import { purgeUserRedisData } from './account.purge';
 import { storage } from '../../lib/storage';
 import { ApiError } from '../../common/utils/ApiError';
 import { mapLimit } from '../../common/utils/mapLimit';
@@ -169,15 +171,15 @@ export interface DeleteAccountResult {
 
 /**
  * Permanently remove the account and everything it owns: collections (with
- * folders, images and likes), usage events, extension sessions and the user.
+ * folders, images and likes), usage events, monthly sheet counters, extension
+ * sessions, the extraction history and AI enhance jobs held in Redis (with
+ * their stored images), and the user.
  *
  * Stored image files are deleted through the storage adapter on a best-effort
  * basis: a provider failure is logged and counted, never blocks the deletion.
- * The user row goes last, so a failure part-way leaves the account intact and
- * the whole operation can simply be retried.
- *
- * Not covered: extraction jobs live in Redis for 24 hours and expire on their
- * own; their original uploads are not tracked per user.
+ * The same goes for the Redis cleanup. The user row goes last, so a failure
+ * part-way leaves the account intact and the whole operation can simply be
+ * retried.
  */
 export async function deleteAccount(userId: string, confirmation: string): Promise<DeleteAccountResult> {
   const user = await UserModel.findById(userId).select('email');
@@ -226,10 +228,21 @@ export async function deleteAccount(userId: string, confirmation: string): Promi
 
   // 4. Per-user records.
   await UsageEventModel.deleteMany({ user: userId });
+  await SheetUsageModel.deleteMany({ userId });
   await ExtensionSessionModel.deleteMany({ user: userId });
   await ExtensionAuthorizationModel.deleteMany({ user: userId });
 
-  // 5. The user, last.
+  // 5. Extraction history and AI enhance jobs in Redis, with their stored images
+  //    (best effort, never throws).
+  const purged = await purgeUserRedisData(userId);
+  if (purged.jobs || purged.enhanceJobs) {
+    console.log(
+      `[account] removed ${purged.jobs} job(s), ${purged.enhanceJobs} enhance job(s), ` +
+        `${purged.filesDeleted} file(s) (${purged.filesFailed} failed) for deleted user`,
+    );
+  }
+
+  // 6. The user, last.
   await UserModel.deleteOne({ _id: userId });
 
   return {
