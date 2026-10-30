@@ -19,6 +19,7 @@ import { WRAP } from "@/components/marketing/site";
 export const metadata: Metadata = {
   title: "Pricing · OpenAssets",
   description: "Start free with 5 sheets a month. Pro adds unlimited sheets, finer controls, 4× upscale and API keys.",
+  alternates: { canonical: "/pricing" },
 };
 
 function Cell({ value }: { value: ComparisonValue }) {

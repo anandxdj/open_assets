@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/features/auth/context/AuthContext";
+import { BRAND, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -11,17 +12,32 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+// Pages set their own full title ("Pricing · OpenAssets"), so there is no title
+// template. Icons, the Open Graph image and the Twitter image come from the
+// icon / apple-icon / opengraph-image / twitter-image files next to this layout.
+// Page titles and descriptions flow into openGraph and twitter, so those only
+// carry what is shared by every page.
 export const metadata: Metadata = {
-  title: "OpenAssets",
-  description: "Extract, name, and export every asset on a sprite sheet, icon grid or UI mockup",
-  icons: {
-    icon: [
-      {
-        url: "/assets/cropped_circle_image.png",
-        sizes: "any",
-      },
-    ],
+  metadataBase: SITE_URL,
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en_US",
   },
+  twitter: {
+    card: "summary_large_image",
+  },
+};
+
+export const viewport: Viewport = {
+  // Browser chrome follows the app's paper / ink themes.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: BRAND.paper },
+    { media: "(prefers-color-scheme: dark)", color: BRAND.ink },
+  ],
 };
 
 export default function RootLayout({
