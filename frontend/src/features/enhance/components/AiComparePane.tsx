@@ -156,7 +156,7 @@ export function AiComparePane({
             <div className="oa-checker relative mx-4 mb-4 flex min-h-[300px] flex-1 items-center justify-center overflow-hidden border border-line">
               {busy ? (
                 <div className="flex w-full max-w-[260px] flex-col items-center gap-3 bg-surface px-4 py-5 text-center">
-                  <LoaderCircle aria-hidden className="size-8 animate-spin text-brand" />
+                  <LoaderCircle aria-hidden className="size-8 animate-spin text-ink" />
                   <span className="text-xs leading-[18px] text-ink">
                     {STAGE_PHASES[phase as keyof typeof STAGE_PHASES]}
                     {phase === "uploading" ? ` · ${uploadProgress}%` : "…"}

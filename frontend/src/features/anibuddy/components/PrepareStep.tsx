@@ -89,7 +89,7 @@ export function PrepareStep({ source, prepared, onPrepared, onContinue }: Prepar
             <div className="oa-checker relative mx-4 mb-4 flex min-h-[260px] flex-1 items-center justify-center overflow-hidden border border-line">
               {busy ? (
                 <div className="flex flex-col items-center gap-2.5">
-                  <LoaderCircle aria-hidden className="size-8 animate-spin text-brand" />
+                  <LoaderCircle aria-hidden className="size-8 animate-spin text-ink" />
                   <span className="text-xs leading-[18px] text-ink-2">Preparing…</span>
                 </div>
               ) : prepared ? (

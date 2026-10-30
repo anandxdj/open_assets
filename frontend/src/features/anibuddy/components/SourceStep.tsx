@@ -171,7 +171,7 @@ export function SourceStep({
               <input {...getInputProps()} />
               {busy ? (
                 <>
-                  <LoaderCircle aria-hidden className="size-8 animate-spin text-brand" />
+                  <LoaderCircle aria-hidden className="size-8 animate-spin text-ink" />
                   <p className="oa-section" role="status">
                     Checking the image against the saved rig…
                   </p>

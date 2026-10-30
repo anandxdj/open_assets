@@ -68,6 +68,8 @@ top of a page (the page behind it is inert and does not count).
 - A sticky run button at the foot of a generator form stays the primary. The
   empty-state "Choose image" next to it is secondary. After a result exists,
   Download becomes the primary and "Run again" turns secondary.
+- Product illustrations (the landing page's editor screenshot) are `aria-hidden`
+  depictions of the real UI and do not count.
 - Marketing pages: the header button is secondary. The hero (or the page's one
   call to action) is primary, and two primaries never share a viewport.
 - Button order in a dialog footer, right-aligned: Cancel (ghost) then the
@@ -126,7 +128,11 @@ Tool names: Extract, Enhance (Cleanup, AI enhance), Studio, AniBuddy.
 ## Layout
 
 - App pages: 232px sidebar (Extract, History, Library, Tools), 48px top bar,
-  content up to 1120px wide. Phones get a bottom bar instead of the sidebar.
+  content up to 1120px wide. Phones get a bottom bar instead of the sidebar:
+  Extract, History, Library and Tools (the last two open menus) and Account
+  (Settings, Admin, Docs, Pricing, theme, sign out). A page can claim a nav entry
+  its address does not match with `useActiveNav` (your own collection at
+  `/collections/<id>` keeps My collections active).
 - Workspaces (editor, export, AniBuddy): full-width top bar, docked left list
   and right inspector, floating tool bar at the bottom centre of the canvas.
 - Generators (Studio tools, Enhance): a 320–340px form with a sticky run button
@@ -144,4 +150,9 @@ decorative motion. Respect `prefers-reduced-motion`.
 
 WCAG 2.2 AA. Text pairs meet 4.5:1. Focus is a 2px ink (or paper) outline
 with a 2px offset; inputs add an orange offset shadow. Every control is a real
-button, link or input, and icon-only buttons carry an aria-label.
+button, link or input, and icon-only buttons carry an aria-label. Every page
+has one `main` and one `h1` (visually hidden in workspaces). Visually hidden
+text inside a scrolling box needs a `position: relative` box (`.oa-table-box`,
+`.oa-tabs`), or it widens the page on phones. Dialogs return focus to the
+control that opened them. Status changes are announced (`role="status"` for
+info and progress, `role="alert"` for failures).

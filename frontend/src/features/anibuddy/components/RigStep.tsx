@@ -258,7 +258,7 @@ export function RigStep({ prepared, rig, onRig, onContinue }: RigStepProps) {
               <img src={prepared.dataUrl} alt="Prepared artwork, not rigged yet" className="absolute inset-0 size-full object-contain p-6" />
               {busy && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-[color-mix(in_srgb,var(--oa-surface)_70%,transparent)]">
-                  <LoaderCircle aria-hidden className="size-8 animate-spin text-brand" />
+                  <LoaderCircle aria-hidden className="size-8 animate-spin text-ink" />
                   <span className="text-xs leading-[18px] text-ink-2">Finding joints…</span>
                 </div>
               )}
