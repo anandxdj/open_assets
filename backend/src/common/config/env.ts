@@ -11,7 +11,7 @@
 
 export type NodeEnv = 'development' | 'test' | 'production';
 export type SameSite = 'lax' | 'strict' | 'none';
-export type StorageProvider = 'cloudinary' | 'imagekit';
+export type StorageProvider = 'cloudinary' | 'imagekit' | 'local';
 
 export interface AppConfig {
   nodeEnv: NodeEnv;
@@ -23,6 +23,8 @@ export interface AppConfig {
   frontendUrl: string;
   pyBackendUrl: string;
   storageProvider: StorageProvider;
+  /** Only set when `storageProvider` is `local`. */
+  localStorage: { dir: string; baseUrl: string } | null;
   cors: {
     /** Exact origins allowed to call the API with credentials (frontend, extra origins, extension ids). */
     origins: string[];
@@ -50,6 +52,7 @@ const DEFAULT_SHUTDOWN_TIMEOUT_MS = 25_000;
 const DEV_FRONTEND_URL = 'http://localhost:3000';
 const DEV_PY_BACKEND_URL = 'http://localhost:8000';
 const DEV_REDIS_URL = 'redis://127.0.0.1:6379';
+const DEFAULT_LOCAL_STORAGE_DIR = './.local-storage';
 
 /** Values copied from .env.example that must never reach production. */
 const PLACEHOLDER = /^(change[-_ ]?me|changeme|secret|password|example|your[-_ ])/i;
@@ -190,20 +193,56 @@ export function checkEnv(env: Env = process.env): EnvReport {
   // ── Object storage ──────────────────────────────────────────────────────
   const rawStorage = read(env, 'STORAGE_PROVIDER') ?? 'cloudinary';
   let storageProvider: StorageProvider = 'cloudinary';
-  if (rawStorage === 'cloudinary' || rawStorage === 'imagekit') storageProvider = rawStorage;
-  else errors.push(`STORAGE_PROVIDER must be "cloudinary" or "imagekit" (got "${rawStorage}")`);
+  if (rawStorage === 'cloudinary' || rawStorage === 'imagekit' || rawStorage === 'local') storageProvider = rawStorage;
+  else errors.push(`STORAGE_PROVIDER must be "cloudinary", "imagekit" or "local" (got "${rawStorage}")`);
 
-  const storageKeys =
-    storageProvider === 'imagekit'
-      ? ['IMAGEKIT_PRIVATE_KEY', 'IMAGEKIT_URL_ENDPOINT']
-      : ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
-  // Not fatal, even in production: the API runs without storage and the features that need it
-  // answer "not configured" (503 STORAGE_NOT_CONFIGURED for AI enhance) instead of crashing.
-  const missingStorage = storageKeys.filter((key) => !read(env, key));
-  if (missingStorage.length) {
-    warnings.push(
-      `${missingStorage.join(', ')} ${missingStorage.length > 1 ? 'are' : 'is'} not set for STORAGE_PROVIDER=${storageProvider}: uploads fail and AI enhance reports "not configured" until ${missingStorage.length > 1 ? 'they are' : 'it is'} set`,
-    );
+  let localStorage: AppConfig['localStorage'] = null;
+  if (storageProvider === 'local') {
+    const dir = read(env, 'LOCAL_STORAGE_DIR') ?? DEFAULT_LOCAL_STORAGE_DIR;
+    const rawBaseUrl = read(env, 'LOCAL_STORAGE_BASE_URL');
+    let baseUrl = rawBaseUrl ?? `http://localhost:${port}`;
+    if (!isHttpUrl(baseUrl)) {
+      errors.push('LOCAL_STORAGE_BASE_URL must be an http(s) URL such as http://localhost:4000 (the public URL of this API)');
+    } else if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.replace(/\/+$/, '');
+      warnings.push('LOCAL_STORAGE_BASE_URL ends with "/": the trailing slash was removed');
+    }
+    localStorage = { dir, baseUrl };
+
+    if (isProduction) {
+      if (parseBoolean(read(env, 'ALLOW_LOCAL_STORAGE')) !== true) {
+        errors.push(
+          "STORAGE_PROVIDER=local keeps files on this server's disk and serves them without a login. It is meant for development and self-hosting, " +
+            'so production refuses it. Use cloudinary or imagekit, or set ALLOW_LOCAL_STORAGE=1 to use it on purpose',
+        );
+      } else {
+        if (!rawBaseUrl) {
+          errors.push('LOCAL_STORAGE_BASE_URL is required in production when STORAGE_PROVIDER=local (the public URL of this API, which serves /storage)');
+        }
+        warnings.push(
+          'STORAGE_PROVIDER=local in production: files live on this server only (run one API instance and back up LOCAL_STORAGE_DIR), ' +
+            'and AI upscale and background removal are replaced by a plain resize and flat-colour keying',
+        );
+      }
+    } else {
+      warnings.push(
+        `STORAGE_PROVIDER=local: files are stored in ${dir} and served from ${baseUrl}/storage. ` +
+          'Upscale is a plain resize, background removal only handles flat-colour sheets, and AI enhance is not available',
+      );
+    }
+  } else {
+    const storageKeys =
+      storageProvider === 'imagekit'
+        ? ['IMAGEKIT_PRIVATE_KEY', 'IMAGEKIT_URL_ENDPOINT']
+        : ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+    // Not fatal, even in production: the API runs without storage and the features that need it
+    // answer "not configured" (503 STORAGE_NOT_CONFIGURED for AI enhance) instead of crashing.
+    const missingStorage = storageKeys.filter((key) => !read(env, key));
+    if (missingStorage.length) {
+      warnings.push(
+        `${missingStorage.join(', ')} ${missingStorage.length > 1 ? 'are' : 'is'} not set for STORAGE_PROVIDER=${storageProvider}: uploads fail and AI enhance reports "not configured" until ${missingStorage.length > 1 ? 'they are' : 'it is'} set`,
+      );
+    }
   }
 
   // ── Email and Google sign-in ────────────────────────────────────────────
@@ -277,6 +316,7 @@ export function checkEnv(env: Env = process.env): EnvReport {
       frontendUrl,
       pyBackendUrl,
       storageProvider,
+      localStorage,
       cors: { origins, allowLocalDevOrigins: !isProduction },
       cookie: { secure, sameSite, domain: cookieDomain },
       shutdownTimeoutMs,

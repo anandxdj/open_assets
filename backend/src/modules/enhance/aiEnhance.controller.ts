@@ -7,8 +7,7 @@ import type { AuthRequest } from '../auth/auth.middleware';
 import { assertWithinLimit, getEntitlements } from '../plans/entitlements';
 import { getAiEnhanceLimits, parseAiEnhanceOptions, providerLabel } from './aiEnhance.limits';
 import {
-  STORAGE_NOT_CONFIGURED,
-  storageNotConfiguredMessage,
+  aiUnavailable,
   submitAiEnhance,
   toJobResponse,
   type AiEnhanceDeps,
@@ -28,13 +27,14 @@ export function createCapabilitiesHandler(getDeps: GetAiEnhanceDeps) {
     const deps = await getDeps();
     const status = deps.getStorageStatus();
     const limits = getAiEnhanceLimits(status.provider);
-    const available = status.configured;
+    const unavailable = aiUnavailable(status);
+    const available = unavailable === null;
     ApiResponse.ok(res, 'Enhance capabilities', {
       provider: status.provider,
       providerLabel: providerLabel(status.provider),
       available,
-      reason: available ? undefined : STORAGE_NOT_CONFIGURED,
-      message: available ? undefined : storageNotConfiguredMessage(status),
+      reason: unavailable?.code,
+      message: unavailable?.message,
       // Variable names help whoever runs the server; users don't need them.
       missing: available || process.env['NODE_ENV'] === 'production' ? undefined : status.missing,
       operations: {

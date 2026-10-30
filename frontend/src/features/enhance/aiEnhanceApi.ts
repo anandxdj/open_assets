@@ -25,7 +25,7 @@ export interface AiEnhanceLimits {
 }
 
 export interface AiCapabilities {
-  provider: "cloudinary" | "imagekit";
+  provider: "cloudinary" | "imagekit" | "local";
   providerLabel: string;
   available: boolean;
   /** Machine-readable reason when `available` is false. */
@@ -45,7 +45,7 @@ export interface AiEnhanceJob {
   status: AiJobStatus;
   recipe: {
     tool: "ai";
-    provider: "cloudinary" | "imagekit";
+    provider: "cloudinary" | "imagekit" | "local";
     operations: ({ op: "upscale"; scale: AiScale } | { op: "background_removal" })[];
     source: { width: number; height: number };
     output: { width: number; height: number };
@@ -56,6 +56,8 @@ export interface AiEnhanceJob {
 }
 
 export const STORAGE_NOT_CONFIGURED = "STORAGE_NOT_CONFIGURED";
+/** The server's storage works but has no AI transforms (local storage). */
+export const STORAGE_UNSUPPORTED = "STORAGE_UNSUPPORTED";
 
 export class AiEnhanceError extends Error {
   constructor(

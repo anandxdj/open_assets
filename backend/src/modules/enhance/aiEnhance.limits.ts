@@ -53,11 +53,23 @@ const LIMITS: Record<StorageProviderName, AiEnhanceLimits> = {
     maxUpscaleOutputPixels: 16_000_000,
     maxBackgroundRemovalSide: null,
   },
+  // AI enhance is not offered on local storage (supportsAi is false), so nothing is validated against
+  // these; they only keep the record complete and match the pipeline's own bounds.
+  local: {
+    provider: 'local',
+    minSide: 16,
+    maxSide: 12_000,
+    maxBytes: 20 * MB,
+    maxUpscaleInputPixels: 16_000_000,
+    maxUpscaleOutputPixels: 64_000_000,
+    maxBackgroundRemovalSide: null,
+  },
 };
 
 const PROVIDER_LABEL: Record<StorageProviderName, string> = {
   cloudinary: 'Cloudinary',
   imagekit: 'ImageKit',
+  local: 'Local storage',
 };
 
 export function getAiEnhanceLimits(provider: StorageProviderName = resolveProviderName()): AiEnhanceLimits {

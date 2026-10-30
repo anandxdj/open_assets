@@ -24,12 +24,22 @@ def _validate_image_url(image_url: str) -> None:
     """SECURITY (#9): restrict outbound fetches to https + allowlisted hosts and
     never to private/link-local addresses (e.g. cloud metadata 169.254.169.254)."""
     parsed = urlparse(image_url)
+    host = (parsed.hostname or "").lower()
+    allowed = [h.strip().lower() for h in settings.ALLOWED_IMAGE_HOSTS.split(",") if h.strip()]
+    if settings.ALLOW_PRIVATE_IMAGE_HOSTS:
+        # Local storage mode: http and private hosts are fine, but only the ones
+        # named in the allowlist. An empty allowlist would mean "anything", so refuse.
+        if parsed.scheme not in ("http", "https"):
+            raise HTTPException(status_code=422, detail="Only http(s) image URLs are allowed")
+        if not allowed:
+            raise HTTPException(status_code=422, detail="ALLOWED_IMAGE_HOSTS must list the local storage host")
+        if not any(host == a or host.endswith("." + a) for a in allowed):
+            raise HTTPException(status_code=422, detail="Image host is not in the allowlist")
+        return
     if parsed.scheme != "https":
         raise HTTPException(status_code=422, detail="Only https image URLs are allowed")
-    host = (parsed.hostname or "").lower()
     if _is_blocked_host(host):
         raise HTTPException(status_code=422, detail="Image host is not allowed")
-    allowed = [h.strip().lower() for h in settings.ALLOWED_IMAGE_HOSTS.split(",") if h.strip()]
     if allowed and not any(host == a or host.endswith("." + a) for a in allowed):
         raise HTTPException(status_code=422, detail="Image host is not in the allowlist")
 

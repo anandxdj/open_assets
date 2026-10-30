@@ -13,6 +13,7 @@ const FOLDER: Record<string, string> = {
   collections: 'open_assets/collections',
   exports: 'open_assets/exports',
   enhance: 'open_assets/enhance',
+  crops: 'open_assets/crops',
 };
 
 export class CloudinaryAdapter implements StorageAdapter {

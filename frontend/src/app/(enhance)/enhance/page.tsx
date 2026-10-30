@@ -50,7 +50,7 @@ export default function EnhancePage() {
             </div>
             <p className="text-xs leading-[18px] text-ink-3">
               Runs on the server&apos;s storage provider (Cloudinary or ImageKit), so it needs
-              that configured.
+              that configured. It is not available on local storage.
             </p>
             <Button asChild variant="secondary" className="mt-auto self-start">
               <Link href="/enhance/ai">

@@ -24,10 +24,18 @@ import { redis } from './common/config/redis';
 import { getConfig } from './common/config/env';
 import { createCorsOptions } from './common/config/cors';
 import { createHealthHandler } from './common/health';
+import { resolveProviderName } from './lib/storage/status';
+import { resolveLocalStorageSettings, LOCAL_URL_PREFIX } from './lib/storage/local.paths';
+import { createLocalStorageRouter } from './lib/storage/local.router';
 
 export interface AppOptions {
   /** True once shutdown has started, so /health answers 503 and load balancers drain this instance. */
   isShuttingDown?: () => boolean;
+  /**
+   * Directory the local storage provider keeps files in; they are served at /storage. Defaults to
+   * LOCAL_STORAGE_DIR when STORAGE_PROVIDER=local, and nothing is served otherwise.
+   */
+  localStorageDir?: string;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -65,6 +73,12 @@ export function createApp(options: AppOptions = {}) {
       ],
     }),
   );
+
+  // Files of the local storage provider (development and self-hosting). Outside /api on purpose: the
+  // browser, the editor canvas and py_backend fetch these URLs directly, like Cloudinary ones.
+  const localStorageDir =
+    options.localStorageDir ?? (resolveProviderName() === 'local' ? resolveLocalStorageSettings().dir : undefined);
+  if (localStorageDir) app.use(LOCAL_URL_PREFIX, createLocalStorageRouter(localStorageDir));
 
   // Bridge OAuth callback to frontend. Token goes in the fragment (#7), not the
   // query string, so it never lands in the frontend's server/access logs.

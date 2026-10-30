@@ -6,7 +6,7 @@ import { ImageUp, LoaderCircle, Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Segmented, Switch } from "@/components/ui/controls";
 import { EmptyState, Notice } from "@/components/ui/feedback";
-import { STORAGE_NOT_CONFIGURED, type AiEnhanceLimits, type AiEnhanceOptions } from "@/features/enhance/aiEnhanceApi";
+import { STORAGE_NOT_CONFIGURED, STORAGE_UNSUPPORTED, type AiEnhanceLimits, type AiEnhanceOptions } from "@/features/enhance/aiEnhanceApi";
 import { AiComparePane } from "@/features/enhance/components/AiComparePane";
 import { EnhanceTopbar } from "@/features/enhance/components/EnhanceTopbar";
 import { useAiCapabilities, useAiEnhance } from "@/features/enhance/hooks/useAiEnhance";
@@ -221,7 +221,11 @@ export function AiEnhanceWorkspace() {
             {unavailable && caps && (
               <div className="oa-panel-sec">
                 <Notice tone="warning" role="status">
-                  <p className="font-bold">Storage provider not configured</p>
+                  <p className="font-bold">
+                    {caps.reason === STORAGE_UNSUPPORTED
+                      ? "Not supported by this server's storage"
+                      : "Storage provider not configured"}
+                  </p>
                   <p className="mt-1">{caps.message ?? "AI enhance isn't available on this server."}</p>
                 </Notice>
               </div>

@@ -1,7 +1,7 @@
 import type { UpscaleScale } from '../../modules/plans/upscale';
 
 export type ResourceType = 'image' | 'raw';
-export type StorageFolder = 'originals' | 'collections' | 'exports' | 'enhance';
+export type StorageFolder = 'originals' | 'collections' | 'exports' | 'enhance' | 'crops';
 
 export interface UploadOptions {
   folder: StorageFolder;
