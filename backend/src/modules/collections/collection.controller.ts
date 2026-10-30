@@ -1,4 +1,4 @@
-import type { Response } from 'express';
+import type { NextFunction, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import type { AuthRequest } from '../auth/auth.middleware';
 import { ApiResponse } from '../../common/utils/ApiResponse';
@@ -46,6 +46,24 @@ export async function listMyCollections(req: AuthRequest, res: Response): Promis
   ApiResponse.ok(res, 'My collections fetched', items);
 }
 
+/** Moves one of the caller's collections into their team, or back out of it. */
+export async function shareCollection(req: AuthRequest, res: Response): Promise<void> {
+  if (!req.user) throw ApiError.unauthorized('Not authenticated');
+  const { shared } = req.body as { shared: boolean };
+  const collection = await service.setCollectionTeamShared(req.params['id'] ?? '', req.user, shared);
+  ApiResponse.ok(res, shared ? 'Shared with your team' : 'Removed from your team', collection);
+}
+
+/**
+ * Route guard for uploads: runs before multer, so a caller who may not edit the
+ * collection is refused before any file is read into memory or stored.
+ */
+export async function requireEditAccess(req: AuthRequest, _res: Response, next: NextFunction): Promise<void> {
+  const user = requireUser(req);
+  await service.assertCollectionEditable(req.params['id'] ?? '', user.id);
+  next();
+}
+
 export async function createCollection(req: AuthRequest, res: Response): Promise<void> {
   const user = requireUser(req);
   const collection = await service.createCollection(user.id, req.body);
@@ -84,6 +102,9 @@ export async function createFolder(req: AuthRequest, res: Response): Promise<voi
  *  1. Direct upload  — multipart/form-data files (req.files).
  *  2. Editor export  — JSON `{ jobId, assetIds? }` pushing finished crops from a
  *     job (owned by the caller) into the folder.
+ *
+ * Who may add: the collection's owner, or a member of the team it is shared with
+ * (while the team is editable). The job in mode 2 must be the caller's own.
  */
 export async function addImages(req: AuthRequest, res: Response): Promise<void> {
   const user = requireUser(req);
