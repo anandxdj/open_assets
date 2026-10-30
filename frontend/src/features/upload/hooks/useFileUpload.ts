@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/features/auth/context/AuthContext";
-import { recordRecentJob } from "@/features/jobs/recentJobs";
 import { UploadAbortedError, uploadImageWithProgress } from "@/features/upload/services/uploadApi";
 
 /**
@@ -21,7 +19,6 @@ export interface UploadingFile {
 
 export function useFileUpload() {
   const router = useRouter();
-  const { user } = useAuth();
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +64,6 @@ export function useFileUpload() {
         );
         setProgress(100);
         setStatus("success");
-        if (user) recordRecentJob(user._id, { id: res.jobId, fileName: next.name });
         router.push(`/editor/${res.jobId}`);
         // Stay busy: the page is navigating away.
       } catch (err: unknown) {
@@ -84,7 +80,7 @@ export function useFileUpload() {
         controller.current = null;
       }
     },
-    [router, user]
+    [router]
   );
 
   /** Stops an upload whose bytes are still being sent. */
