@@ -5,14 +5,7 @@ import { ApiError } from '../../common/utils/ApiError';
 import { verifyAccessToken } from '../../common/utils/jwt.utils';
 import type { AuthRequest } from './auth.middleware';
 import { ExtensionAuthService } from './extensionAuth.service';
-
-const sessionCookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'none' as const : 'lax' as const,
-  path: '/',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-};
+import { clearSessionCookieOptions, sessionCookieOptions } from '../../common/config/cookies';
 
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction) {
@@ -29,7 +22,7 @@ export class AuthController {
       const { user, accessToken, refreshToken } = await AuthService.login(req.body);
 
       // Set refresh token in httpOnly cookie
-      res.cookie('refreshToken', refreshToken, sessionCookieOptions);
+      res.cookie('refreshToken', refreshToken, sessionCookieOptions());
 
       return ApiResponse.ok(res, 'Login successful', { user, accessToken });
     } catch (error) {
@@ -54,7 +47,7 @@ export class AuthController {
         await AuthService.logoutByToken(token);
       }
       
-      res.clearCookie('refreshToken', sessionCookieOptions);
+      res.clearCookie('refreshToken', clearSessionCookieOptions());
       return ApiResponse.ok(res, 'Logged out successfully');
     } catch (error) {
       next(error);
@@ -137,7 +130,7 @@ export class AuthController {
       const { user, accessToken, refreshToken } = await AuthService.handleGoogleCallback(code as string);
 
       // Set refresh token in httpOnly cookie
-      res.cookie('refreshToken', refreshToken, sessionCookieOptions);
+      res.cookie('refreshToken', refreshToken, sessionCookieOptions());
 
       // SECURITY (#7): deliver the access token in the URL *fragment*, not the
       // query string. Fragments are never sent to servers, so the token stays
