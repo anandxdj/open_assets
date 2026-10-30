@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import authRouter from './modules/auth/auth.route';
+import { accountRouter } from './modules/account/account.routes';
 import { uploadRouter } from './modules/upload/upload.routes';
 import { jobRouter } from './modules/jobs/job.routes';
 import { cropRouter } from './modules/crop/crop.routes';
@@ -72,6 +73,7 @@ export function createApp() {
   app.use('/api', apiLimiter);
 
   app.use('/api/auth', authRouter);
+  app.use('/api/account', accountRouter);
   app.use('/api', uploadRouter);
   app.use('/api', jobRouter);
   app.use('/api', cropRouter);

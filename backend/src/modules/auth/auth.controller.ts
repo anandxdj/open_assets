@@ -6,7 +6,7 @@ import { verifyAccessToken } from '../../common/utils/jwt.utils';
 import type { AuthRequest } from './auth.middleware';
 import { ExtensionAuthService } from './extensionAuth.service';
 
-const sessionCookieOptions = {
+export const sessionCookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: process.env.NODE_ENV === 'production' ? 'none' as const : 'lax' as const,

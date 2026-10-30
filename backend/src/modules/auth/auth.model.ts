@@ -18,6 +18,8 @@ export interface IUser extends Document {
   credits: number;
   creditsGrantedAt: Date;
   plan: 'free' | 'byok' | 'pro';
+  createdAt: Date;
+  updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
