@@ -13,8 +13,6 @@ export type JobStatus =
   | "ready"
   | "failed";
 
-export type ExportStatus = "pending" | "processing" | "ready" | "failed";
-
 export interface BoundingBox {
   id: string;
   x: number;
@@ -74,13 +72,6 @@ export interface Asset {
   upscaled_url?: string; // set per-asset as cloud upscale completes
   /** Export file name (with .png) the server's naming pattern gave it, set when finalize starts. */
   file_name?: string;
-}
-
-export interface ExportJobResponse {
-  exportJobId: string;
-  status: ExportStatus;
-  downloadUrl?: string;
-  error?: string;
 }
 
 export interface UploadResponse {

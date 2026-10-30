@@ -11,13 +11,6 @@ interface ApiEnvelope<T> {
   data: T;
 }
 
-export async function uploadImage(file: File): Promise<UploadResponse> {
-  const form = new FormData();
-  form.append("image", file);
-  const envelope = await apiClient.postForm<ApiEnvelope<UploadResponse>>("/api/upload", form);
-  return envelope.data;
-}
-
 export class UploadAbortedError extends Error {
   constructor() {
     super("Upload cancelled");

@@ -48,16 +48,6 @@ export const AI_CREDITS_PER_MONTH = 150;
 /** Free sheets a month, from the entitlement table. */
 export const FREE_SHEETS_PER_MONTH = ENTITLEMENT_TABLE.free.sheetsPerMonth as number;
 
-export const ENTITLEMENT_LABEL: Record<EntitlementKey, string> = {
-  sheetsPerMonth: "Unlimited sheets",
-  maxUpscale: "4× upscale",
-  paddingThresholdControls: "Padding and threshold controls",
-  customNamingPatterns: "Custom naming patterns",
-  apiKeys: "API keys",
-  teamSharing: "Team sharing",
-  teamSeats: "Team seats",
-};
-
 /** Shape of GET /api/plans/me (data). */
 export interface PlanStatus {
   /** The stored plan. Do not gate features on it; use effectivePlan. */
