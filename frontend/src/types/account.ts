@@ -78,6 +78,9 @@ export interface DeleteAccountResult {
   collections: number;
   imagesDeleted: number;
   imagesFailed: number;
+  /** The account owned a team, which was dissolved. */
+  teamDissolved?: boolean;
+  teamMembersRemoved?: number;
 }
 
 /** GET /api/usage/me */

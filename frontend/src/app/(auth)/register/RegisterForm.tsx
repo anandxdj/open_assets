@@ -46,7 +46,7 @@ export function RegisterForm() {
       <AuthIntro title="Create your account">Free plan includes {FREE_SHEETS_PER_MONTH} sheets a month.</AuthIntro>
 
       <div className="flex flex-col gap-4">
-        <GoogleButton>Sign up with Google</GoogleButton>
+        <GoogleButton next={next}>Sign up with Google</GoogleButton>
         <OrDivider />
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

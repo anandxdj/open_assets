@@ -92,6 +92,7 @@ export const PRIVATE_PATHS = [
   "/anibuddy",
   "/dashboard",
   "/callback",
+  "/team/",
   "/extension/",
   "/login",
   "/register",

@@ -10,6 +10,7 @@ import { CollectionLikeModel } from '../collections/collectionLike.model';
 import { UsageEventModel } from '../usage/usage.model';
 import { SheetUsageModel } from '../plans/sheetUsage.model';
 import { deleteUserApiKeys } from '../apikeys/apiKey.service';
+import { detachUserFromTeam } from '../teams/team.service';
 import { purgeUserRedisData } from './account.purge';
 import { storage } from '../../lib/storage';
 import { ApiError } from '../../common/utils/ApiError';
@@ -172,6 +173,10 @@ export interface DeleteAccountResult {
   collections: number;
   imagesDeleted: number;
   imagesFailed: number;
+  /** The account owned a team, which was dissolved. Its members lost access to the shared collections. */
+  teamDissolved: boolean;
+  /** People removed from the dissolved team (the owner not counted). */
+  teamMembersRemoved: number;
 }
 
 /**
@@ -179,6 +184,12 @@ export interface DeleteAccountResult {
  * folders, images and likes), usage events, monthly sheet counters, API keys,
  * extension sessions, the extraction history and AI enhance jobs held in Redis (with
  * their stored images), and the user.
+ *
+ * Teams: an owner's team is dissolved first (members and pending invites are
+ * removed), and because the owner's collections are theirs, the shared ones are
+ * deleted with the rest, images included. Members lose access; the delete dialog
+ * warns the owner about that beforehand. A member's account just leaves the
+ * team: the images they added to the owner's collections stay there.
  *
  * Stored image files are deleted through the storage adapter on a best-effort
  * basis: a provider failure is logged and counted, never blocks the deletion.
@@ -193,6 +204,10 @@ export async function deleteAccount(userId: string, confirmation: string): Promi
   if (confirmation.trim().toLowerCase() !== user.email.toLowerCase()) {
     throw ApiError.badRequest('Confirmation does not match your email address');
   }
+
+  // 0. Teams first. Unsharing before anything is deleted means a stopped
+  //    deletion never leaves collections visible to people who were just cut off.
+  const team = await detachUserFromTeam(userId);
 
   const collections = await CollectionModel.find({ creator: userId }).select('_id').lean();
   const collectionIds = collections.map((c) => c._id);
@@ -240,7 +255,14 @@ export async function deleteAccount(userId: string, confirmation: string): Promi
 
   // 5. Extraction history and AI enhance jobs in Redis, with their stored images
   //    (best effort, never throws).
-  const purged = await purgeUserRedisData(userId);
+  //    A member's exported crops may live on in someone else's collection: a
+  //    stored file that any image row still points at is kept.
+  const purged = await purgeUserRedisData(userId, {
+    deleteFile: async (publicId) => {
+      if (await ImageModel.exists({ cloudinaryPublicId: publicId })) return;
+      await storage.delete(publicId, 'image');
+    },
+  });
   if (purged.jobs || purged.enhanceJobs) {
     console.log(
       `[account] removed ${purged.jobs} job(s), ${purged.enhanceJobs} enhance job(s), ` +
@@ -255,5 +277,7 @@ export async function deleteAccount(userId: string, confirmation: string): Promi
     collections: collectionIds.length,
     imagesDeleted,
     imagesFailed: publicIds.length - imagesDeleted,
+    teamDissolved: team.role === 'owner',
+    teamMembersRemoved: team.membersRemoved,
   };
 }

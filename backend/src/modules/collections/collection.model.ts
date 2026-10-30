@@ -3,6 +3,11 @@ import type { Document, Types } from 'mongoose';
 
 export interface ICollection extends Document {
   creator: Types.ObjectId; // ref User
+  /**
+   * Set while the collection is shared with the creator's team (ref Team). Only
+   * the team owner can set it, on their own collections. See collection.access.ts.
+   */
+  teamId?: Types.ObjectId;
   name: string;
   description?: string;
   isPublic: boolean;
@@ -18,6 +23,7 @@ export interface ICollection extends Document {
 
 const CollectionSchema = new Schema<ICollection>({
   creator: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  teamId: { type: Schema.Types.ObjectId, ref: 'Team', index: true },
   name: { type: String, required: true, trim: true, maxlength: 120 },
   description: { type: String, trim: true, maxlength: 2000 },
   isPublic: { type: Boolean, default: false }, // drafts are private until published

@@ -12,6 +12,7 @@ can set the plan later through the same function.
 | Custom naming patterns | no | yes |
 | API keys | 0 | 5 |
 | Team sharing | no | yes |
+| Team seats (owner included) | 0 | 10 |
 
 Pro is $19 a month (`frontend/src/components/marketing/pricing.ts`). Every
 feature on the pricing page is read from the table, so the page cannot promise
@@ -85,6 +86,7 @@ does the same from the source width (`applyEnhance`).
 Account deletion (`account.service.deleteAccount`) also removes the user's monthly sheet counters,
 their Redis history index and job records, and their AI enhance jobs, deleting the stored originals,
 crops and enhance sources best-effort (`account.purge.ts`). A Redis or storage failure never blocks it.
+It also dissolves a team the user owns, or removes them from the team they are in (see `docs/teams.md`).
 
 ## API keys and the public API
 

@@ -24,6 +24,8 @@ export interface Entitlements {
   /** Most API keys an account may hold. 0 = none. */
   apiKeys: number;
   teamSharing: boolean;
+  /** Seats on the team (owner included), counted for the owner's plan. 0 = no team. */
+  teamSeats: number;
 }
 
 export type EntitlementKey = keyof Entitlements;

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { apiClient } from "@/lib/api-client";
+import { takeRememberedNextPath } from "@/features/auth/lib/next-path";
 import { tokenStore } from "@/lib/token-store";
 import { AuthStatus } from "@/components/auth/AuthParts";
 
@@ -61,7 +62,8 @@ export function CallbackHandler() {
       .then((res) => {
         if (res.data) {
           setTokenAndUser(token, res.data);
-          router.push("/upload");
+          // Back to where the visit began (an invite link, for example), else the app.
+          router.push(takeRememberedNextPath() ?? "/upload");
         } else {
           router.push("/login");
         }

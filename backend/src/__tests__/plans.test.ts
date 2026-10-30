@@ -47,6 +47,7 @@ test('entitlement table: free', () => {
     customNamingPatterns: false,
     apiKeys: 0,
     teamSharing: false,
+    teamSeats: 0,
   });
 });
 
@@ -58,6 +59,7 @@ test('entitlement table: pro', () => {
     customNamingPatterns: true,
     apiKeys: 5,
     teamSharing: true,
+    teamSeats: 10,
   });
   assert.equal(TRIAL_DAYS, 14);
 });
@@ -126,6 +128,14 @@ test('assertWithinLimit: upscale and counts', () => {
   assert.deepEqual(codeOf(() => assertWithinLimit(FREE, 'apiKeys', 1, NOW)), { status: 403, code: PLAN_ERROR.PLAN_LIMIT });
   assert.doesNotThrow(() => assertWithinLimit(PRO, 'sheetsPerMonth', 10_000, NOW)); // unlimited
   assert.deepEqual(codeOf(() => assertWithinLimit(FREE, 'sheetsPerMonth', 6, NOW)), { status: 403, code: PLAN_ERROR.PLAN_LIMIT });
+});
+
+test('assertWithinLimit: team seats count the owner, free has none', () => {
+  assert.doesNotThrow(() => assertWithinLimit(PRO, 'teamSeats', 10, NOW));
+  assert.deepEqual(codeOf(() => assertWithinLimit(PRO, 'teamSeats', 11, NOW)), { status: 403, code: PLAN_ERROR.PLAN_LIMIT });
+  assert.deepEqual(codeOf(() => assertWithinLimit(FREE, 'teamSeats', 1, NOW)), { status: 403, code: PLAN_ERROR.PLAN_LIMIT });
+  const expired = { plan: 'pro', trialEndsAt: new Date(NOW.getTime() - DAY) } as const;
+  assert.deepEqual(codeOf(() => assertWithinLimit(expired, 'teamSeats', 2, NOW)), { status: 403, code: PLAN_ERROR.PLAN_LIMIT });
 });
 
 test('assertWithinLimit: an expired trial is held to the free limits', () => {

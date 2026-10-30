@@ -11,6 +11,7 @@ import { ProfileSection } from "@/features/settings/components/ProfileSection";
 import { SecurityContent } from "@/features/settings/components/SecuritySection";
 import { SectionError, SectionLoading, SettingsSection } from "@/features/settings/components/parts";
 import { useRemote } from "@/features/settings/useRemote";
+import { TeamContent } from "@/features/team/components/TeamSection";
 import type { Account } from "@/types/account";
 
 /** Renders `children` once the account has loaded; a loading or error state until then. */
@@ -38,7 +39,7 @@ export function SettingsScreen() {
         <Crumbs items={[{ label: "Settings" }]} />
       </Topbar>
       <PageBody className="flex flex-col gap-6">
-        <PageTitle title="Settings" description="Your profile, sign-in security, plan, usage and API keys." />
+        <PageTitle title="Settings" description="Your profile, sign-in security, plan, team, usage and API keys." />
 
         <div className="flex flex-col">
           <SettingsSection id="profile" title="Profile" description="How you appear in OpenAssets, and the email you sign in with.">
@@ -73,6 +74,10 @@ export function SettingsScreen() {
 
           <SettingsSection id="plan" title="Plan and usage" description="Your plan, your credits for the month, and what spent them.">
             <PlanUsageContent />
+          </SettingsSection>
+
+          <SettingsSection id="team" title="Team" description="Share collections with the people you work with.">
+            <TeamContent />
           </SettingsSection>
 
           <SettingsSection id="api-keys" title="API keys" description="Keys for the OpenAssets API. Part of Pro.">

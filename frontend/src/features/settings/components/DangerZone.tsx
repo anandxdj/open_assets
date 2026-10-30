@@ -8,6 +8,7 @@ import { Field, describedBy } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/feedback";
 import { deleteAccount, errorMessage } from "@/features/settings/api";
+import { TeamDeletionWarning } from "@/features/team/components/TeamDeletionWarning";
 import { tokenStore } from "@/lib/token-store";
 
 const LOSSES = [
@@ -16,6 +17,7 @@ const LOSSES = [
   "Your usage history",
   "Your connected Chrome extension sessions",
   "Your API keys, which stop working at once",
+  "Your team, if you own one. Its members lose access to the collections you shared",
 ];
 
 function DeleteAccount({ email }: { email: string }) {
@@ -65,6 +67,7 @@ function DeleteAccount({ email }: { email: string }) {
       >
         <form onSubmit={handleSubmit} noValidate className="contents">
           <DialogBody>
+            <TeamDeletionWarning />
             {error && (
               <Notice tone="danger" role="alert">
                 {error}

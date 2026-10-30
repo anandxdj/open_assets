@@ -26,6 +26,7 @@ export const ENTITLEMENT_LABEL: Record<EntitlementKey, string> = {
   customNamingPatterns: 'Custom naming patterns',
   apiKeys: 'API keys',
   teamSharing: 'Team sharing',
+  teamSeats: 'Team seats',
 };
 
 function toDate(value: Date | string | null | undefined): Date | null {
@@ -91,7 +92,7 @@ export function assertEntitled(subject: PlanSubject, key: EntitlementKey, now: D
  */
 export function assertWithinLimit(
   subject: PlanSubject,
-  key: 'sheetsPerMonth' | 'maxUpscale' | 'apiKeys',
+  key: 'sheetsPerMonth' | 'maxUpscale' | 'apiKeys' | 'teamSeats',
   requested: number,
   now: Date = new Date(),
 ): void {
@@ -104,7 +105,11 @@ export function assertWithinLimit(
         ? limit === 0
           ? 'API keys need the Pro plan.'
           : `Your plan allows ${limit} API keys.`
-        : `Your plan allows ${limit} sheets a month.`;
+        : key === 'teamSeats'
+          ? limit === 0
+            ? 'Team sharing needs the Pro plan.'
+            : `Your plan allows ${limit} team seats, the owner included.`
+          : `Your plan allows ${limit} sheets a month.`;
   throw new ApiError(403, message, PLAN_ERROR.PLAN_LIMIT, {
     entitlement: key,
     limit,

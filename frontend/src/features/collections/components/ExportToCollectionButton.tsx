@@ -62,7 +62,8 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled, namingP
     setNameError(null);
     setLoadingCollections(true);
     listMyCollections()
-      .then((res) => setCollections(res.data))
+      // Own collections and the team's, minus any the caller may not edit (a read-only team).
+      .then((res) => setCollections(res.data.filter((c) => c.access?.canEdit !== false)))
       .catch(() => setCollections([]))
       .finally(() => setLoadingCollections(false));
   }
@@ -146,7 +147,7 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled, namingP
       </DialogTrigger>
       <DialogContent
         title={`Save ${assetsLabel(count)} to a collection`}
-        description="Only you can see it until you publish."
+        description="Only you can see it until you publish. Team collections are visible to your team."
       >
         <form onSubmit={handleSave} noValidate className="contents">
           <DialogBody>
@@ -162,7 +163,7 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled, namingP
                 {collections.map((c) => (
                   <option key={c._id} value={c._id}>
                     {c.name}
-                    {c.isPublic ? "" : " (draft)"}
+                    {c.teamId ? " (team)" : c.isPublic ? "" : " (draft)"}
                   </option>
                 ))}
               </Select>

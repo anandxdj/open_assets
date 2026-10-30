@@ -15,6 +15,7 @@ import { planRouter, adminRouter } from './modules/plans/plans.routes';
 import { apiKeyRouter } from './modules/apikeys/apiKey.routes';
 import { v1Router } from './modules/publicapi/v1.routes';
 import { v1ErrorCodes } from './modules/publicapi/v1.errors';
+import { teamRouter } from './modules/teams/team.routes';
 import { namingRouter } from './modules/naming/naming.routes';
 import mongoose from 'mongoose';
 import { errorHandler } from './common/middlewares/errorHandler';
@@ -99,6 +100,7 @@ export function createApp(options: AppOptions = {}) {
   app.use('/api', enhanceRouter);
   app.use('/api', planRouter);
   app.use('/api', adminRouter);
+  app.use('/api/team', teamRouter);
   app.use('/api', namingRouter);
 
   app.use(errorHandler);

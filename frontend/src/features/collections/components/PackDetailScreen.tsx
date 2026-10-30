@@ -3,16 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Download, Heart, Link2, LoaderCircle } from "lucide-react";
+import { ChevronDown, Download, FolderPlus, Heart, Link2, LoaderCircle, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Crumbs, PageBody, Topbar } from "@/components/layout/AppShell";
 import { Avatar } from "@/components/layout/UserMenu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/feedback";
+import { EmptyState, Notice } from "@/components/ui/feedback";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import {
   collectionDownloadUrl,
+  createFolder,
+  deleteImage,
+  downloadCollectionZip,
+  downloadFolderZip,
   folderDownloadUrl,
   getCollection,
   likeCollection,
@@ -21,6 +25,8 @@ import {
   type CollectionTree,
 } from "@/features/collections/api";
 import { AssetPreviewDialog } from "@/features/collections/components/AssetPreviewDialog";
+import { NameDialog } from "@/features/collections/components/CollectionDialogs";
+import { ConfirmDialog } from "@/features/team/components/ConfirmDialog";
 import { creatorName, creatorPicture } from "@/features/collections/format";
 import { cn } from "@/lib/utils";
 
@@ -37,20 +43,66 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
+/**
+ * A folder's ZIP. Published packs use a plain link (it works signed out); private
+ * and team collections fetch it with the access token, which a link cannot send.
+ */
+function FolderZip({ packId, folder, isPublic }: { packId: string; folder: CollectionFolder; isPublic: boolean }) {
+  const [busy, setBusy] = useState(false);
+
+  if (isPublic) {
+    return (
+      <Button asChild variant="ghost" size="sm">
+        <a href={folderDownloadUrl(packId, folder._id)}>
+          <Download aria-hidden />
+          ZIP
+          <span className="sr-only"> of {folder.name}</span>
+        </a>
+      </Button>
+    );
+  }
+
+  async function handleDownload() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await downloadFolderZip(packId, folder._id, folder.name);
+    } catch (err) {
+      toast.error("Could not download the folder", { description: err instanceof Error ? err.message : "Try again." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Button variant="ghost" size="sm" onClick={handleDownload} aria-busy={busy || undefined}>
+      {busy ? <LoaderCircle aria-hidden className="animate-spin" /> : <Download aria-hidden />}
+      ZIP
+      <span className="sr-only"> of {folder.name}</span>
+    </Button>
+  );
+}
+
 function FolderSection({
   packId,
   folder,
+  isPublic,
+  canEdit,
   open,
   onToggle,
   previewId,
   onPreview,
+  onDeleteImage,
 }: {
   packId: string;
   folder: CollectionFolder;
+  isPublic: boolean;
+  canEdit: boolean;
   open: boolean;
   onToggle: () => void;
   previewId: string | null;
   onPreview: (image: CollectionImage) => void;
+  onDeleteImage: (folder: CollectionFolder, image: CollectionImage) => void;
 }) {
   const panelId = `folder-${folder._id}`;
   return (
@@ -76,13 +128,7 @@ function FolderSection({
           </button>
         </h2>
         <span className="flex-1" />
-        <Button asChild variant="ghost" size="sm">
-          <a href={folderDownloadUrl(packId, folder._id)}>
-            <Download aria-hidden />
-            ZIP
-            <span className="sr-only"> of {folder.name}</span>
-          </a>
-        </Button>
+        <FolderZip packId={packId} folder={folder} isPublic={isPublic} />
       </div>
       <div id={panelId} hidden={!open}>
         {folder.images.length === 0 ? (
@@ -101,8 +147,22 @@ function FolderSection({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={img.cloudinaryUrl} alt="" loading="lazy" className="h-[70%] w-[70%] object-contain" />
                 </button>
-                <span className="oa-value truncate text-[11.5px]" title={img.name}>
-                  {img.name}
+                <span className="flex items-center gap-1">
+                  <span className="oa-value min-w-0 flex-1 truncate text-[11.5px]" title={img.name}>
+                    {img.name}
+                  </span>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon
+                      aria-label={`Delete ${img.name}`}
+                      className="-mr-1.5 flex-none"
+                      onClick={() => onDeleteImage(folder, img)}
+                    >
+                      <Trash2 aria-hidden />
+                    </Button>
+                  )}
                 </span>
               </li>
             ))}
@@ -115,15 +175,22 @@ function FolderSection({
 
 export function PackDetailScreen({ id }: { id: string }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?._id;
   const [state, setState] = useState<LoadState | null>(null);
   const [closed, setClosed] = useState<Set<string>>(new Set()); // every folder starts open
   const [likes, setLikes] = useState<number | null>(null);
   const [liked, setLiked] = useState(false);
   const [liking, setLiking] = useState(false);
   const [preview, setPreview] = useState<CollectionImage | null>(null);
+  const [zipping, setZipping] = useState(false);
+  const [newFolder, setNewFolder] = useState(false);
+  const [deleting, setDeleting] = useState<{ folder: CollectionFolder; image: CollectionImage } | null>(null);
 
   useEffect(() => {
+    // A private or team collection needs the access token, which a hard load only
+    // has once the session is restored: asking earlier would be a 403.
+    if (authLoading) return;
     let alive = true;
     getCollection(id)
       .then((res) => {
@@ -137,10 +204,56 @@ export function PackDetailScreen({ id }: { id: string }) {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, authLoading, userId]);
 
   const current = state?.id === id ? state : null;
   const collection = current?.status === "ready" ? current.collection : null;
+
+  /** Applies a change to the loaded tree without refetching it. */
+  function updateTree(update: (tree: CollectionTree) => CollectionTree) {
+    setState((s) => (s && s.id === id && s.status === "ready" ? { ...s, collection: update(s.collection) } : s));
+  }
+
+  async function handleCreateFolder(name: string) {
+    try {
+      const res = await createFolder(id, { name });
+      updateTree((t) => ({ ...t, folders: [...t.folders, { ...res.data, images: [] }] }));
+      toast.success("Folder created", { description: name });
+      return true;
+    } catch (err) {
+      toast.error("Could not create the folder", { description: err instanceof Error ? err.message : "Try again." });
+      return false;
+    }
+  }
+
+  async function handleDeleteImage() {
+    if (!deleting) return true;
+    const { folder, image } = deleting;
+    try {
+      await deleteImage(id, folder._id, image._id);
+      updateTree((t) => ({
+        ...t,
+        folders: t.folders.map((f) => (f._id === folder._id ? { ...f, images: f.images.filter((i) => i._id !== image._id) } : f)),
+      }));
+      toast.success("Image deleted", { description: image.name });
+      return true;
+    } catch (err) {
+      toast.error("Could not delete the image", { description: err instanceof Error ? err.message : "Try again." });
+      return false;
+    }
+  }
+
+  async function handleDownloadPack(name: string) {
+    if (zipping) return;
+    setZipping(true);
+    try {
+      await downloadCollectionZip(id, name);
+    } catch (err) {
+      toast.error("Could not download the pack", { description: err instanceof Error ? err.message : "Try again." });
+    } finally {
+      setZipping(false);
+    }
+  }
 
   function toggleFolder(folderId: string) {
     setClosed((prev) => {
@@ -185,7 +298,12 @@ export function PackDetailScreen({ id }: { id: string }) {
     }
   }
 
-  const crumbs = [{ label: "Community", href: "/collections" }, { label: collection?.name ?? "Pack" }];
+  // The owner and their team reach a pack through My collections; everyone else through the community.
+  const own = collection !== null && collection.access.via !== "public";
+  const crumbs = [
+    own ? { label: "My collections", href: "/dashboard/collections" } : { label: "Community", href: "/collections" },
+    { label: collection?.name ?? "Pack" },
+  ];
 
   let body: React.ReactNode;
   if (!current) {
@@ -212,6 +330,7 @@ export function PackDetailScreen({ id }: { id: string }) {
     const c = current.collection;
     const author = creatorName(c);
     const totalAssets = c.folders.reduce((n, f) => n + f.images.length, 0);
+    const canEdit = c.access.canEdit;
     body = (
       <div className="grid items-start gap-10 lg:grid-cols-[300px_minmax(0,1fr)]">
         <section aria-label="Pack details" className="flex flex-col gap-[18px] lg:sticky lg:top-0">
@@ -221,7 +340,21 @@ export function PackDetailScreen({ id }: { id: string }) {
               <Avatar name={author} picture={creatorPicture(c)} className="size-5 text-[9px]" />
               by {author}
             </span>
+            {c.team && (
+              <span>
+                <Badge>
+                  <Users aria-hidden />
+                  Shared with {c.team.name}
+                </Badge>
+              </span>
+            )}
           </div>
+          {c.access.teamReadOnly && (
+            <Notice tone="warning" role="status">
+              This team is read-only because the owner&apos;s plan no longer includes team sharing. You can view and
+              download this pack, not edit it.
+            </Notice>
+          )}
           {c.description && <p className="text-xs leading-[18px] text-ink-2">{c.description}</p>}
           {c.tags.length > 0 && (
             <ul className="flex flex-wrap gap-1.5" aria-label="Tags">
@@ -238,12 +371,24 @@ export function PackDetailScreen({ id }: { id: string }) {
             <Stat label="Downloads" value={c.downloadCount} />
           </dl>
           <div className="flex gap-2">
-            <Button asChild variant="primary" className="flex-1">
-              <a href={collectionDownloadUrl(id)}>
-                <Download aria-hidden />
+            {c.isPublic ? (
+              <Button asChild variant="primary" className="flex-1">
+                <a href={collectionDownloadUrl(id)}>
+                  <Download aria-hidden />
+                  Download pack
+                </a>
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                className="flex-1"
+                aria-busy={zipping || undefined}
+                onClick={() => handleDownloadPack(c.name)}
+              >
+                {zipping ? <LoaderCircle aria-hidden className="animate-spin" /> : <Download aria-hidden />}
                 Download pack
-              </a>
-            </Button>
+              </Button>
+            )}
             <Button
               icon
               aria-label="Like this pack"
@@ -262,18 +407,32 @@ export function PackDetailScreen({ id }: { id: string }) {
         </section>
 
         <div className="flex min-w-0 flex-col gap-7">
+          {canEdit && (
+            <div className="flex">
+              <Button size="sm" onClick={() => setNewFolder(true)}>
+                <FolderPlus aria-hidden />
+                New folder
+              </Button>
+            </div>
+          )}
           {c.folders.length === 0 ? (
-            <EmptyState title="No assets yet" description="This pack has no folders to show." />
+            <EmptyState
+              title="No assets yet"
+              description={canEdit ? "Add a folder, then save assets into it from any export." : "This pack has no folders to show."}
+            />
           ) : (
             c.folders.map((folder) => (
               <FolderSection
                 key={folder._id}
                 packId={id}
                 folder={folder}
+                isPublic={c.isPublic}
+                canEdit={canEdit}
                 open={!closed.has(folder._id)}
                 onToggle={() => toggleFolder(folder._id)}
                 previewId={preview?._id ?? null}
                 onPreview={setPreview}
+                onDeleteImage={(f, image) => setDeleting({ folder: f, image })}
               />
             ))
           )}
@@ -296,6 +455,29 @@ export function PackDetailScreen({ id }: { id: string }) {
       </Topbar>
       <PageBody>{body}</PageBody>
       <AssetPreviewDialog image={preview} onOpenChange={(open) => !open && setPreview(null)} />
+      <NameDialog
+        open={newFolder}
+        onOpenChange={setNewFolder}
+        title="New folder"
+        description="Folders keep a collection's assets together. Everyone who can edit this collection sees it."
+        submitLabel="Create folder"
+        placeholder="e.g. Weapons"
+        onSubmit={handleCreateFolder}
+      />
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title="Delete this image?"
+        description={
+          <>
+            <span className="font-bold text-ink">{deleting?.image.name}</span> is removed from the collection and from
+            storage. This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete image"
+        cancelLabel="Keep it"
+        onConfirm={handleDeleteImage}
+      />
     </>
   );
 }

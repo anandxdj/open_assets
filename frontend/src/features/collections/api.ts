@@ -14,6 +14,17 @@ export interface CollectionCreator {
   picture?: string;
 }
 
+/** What the signed-in person may do with a collection (computed by the server). */
+export interface CollectionAccess {
+  /** Folders and images: the owner, or a team member while the team is editable. */
+  canEdit: boolean;
+  /** Rename, publish, delete, share with the team: the owner. */
+  canManage: boolean;
+  via: "owner" | "team" | "public" | "none";
+  /** The team is read-only because the owner's plan lapsed. */
+  teamReadOnly: boolean;
+}
+
 export interface CollectionSummary {
   _id: string;
   name: string;
@@ -25,6 +36,10 @@ export interface CollectionSummary {
   tags: string[];
   coverImageUrls: string[];
   creator: CollectionCreator | string;
+  /** Set while the collection is shared with its owner's team. */
+  teamId?: string | null;
+  /** Present on the My collections list and on a single collection. */
+  access?: CollectionAccess;
   sourceJobId?: string;
   createdAt: string;
   updatedAt: string;
@@ -53,6 +68,9 @@ export interface CollectionFolder {
 
 export interface CollectionTree extends CollectionSummary {
   folders: CollectionFolder[];
+  access: CollectionAccess;
+  /** The team it is shared with, shown to the owner and the team only. */
+  team: { id: string; name: string } | null;
 }
 
 export interface ListResult {
@@ -134,15 +152,53 @@ export function exportJobToFolder(
   );
 }
 
+/** Owner only: move a collection into their team (`true`) or back out (`false`). */
+export function shareCollection(id: string, shared: boolean): Promise<ApiWrap<CollectionSummary>> {
+  return apiClient.put<ApiWrap<CollectionSummary>>(`/api/collections/${id}/team`, { shared });
+}
+
+export function deleteImage(collectionId: string, folderId: string, imageId: string): Promise<ApiWrap<null>> {
+  return apiClient.del<ApiWrap<null>>(`/api/collections/${collectionId}/folders/${folderId}/images/${imageId}`);
+}
+
 export function likeCollection(id: string): Promise<ApiWrap<{ likesCount: number }>> {
   return apiClient.post<ApiWrap<{ likesCount: number }>>(`/api/collections/${id}/like`);
 }
 
-/** Public binary endpoints — safe to hit with a plain anchor (optional auth). */
+/**
+ * Download URLs for PUBLISHED packs only: a plain anchor cannot send the access
+ * token, so private and team collections use the `download*Zip` functions below.
+ */
 export function collectionDownloadUrl(id: string): string {
   return `${API_BASE}/api/collections/${id}/download`;
 }
 
 export function folderDownloadUrl(id: string, folderId: string): string {
   return `${API_BASE}/api/collections/${id}/folders/${folderId}/download`;
+}
+
+/** Saves a Blob as a file through a temporary link. */
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+function zipName(name: string) {
+  return `${name.replace(/[^a-zA-Z0-9-_ ]+/g, "_").trim().slice(0, 80) || "collection"}.zip`;
+}
+
+/** Authenticated ZIP of a whole collection: works for drafts and team collections. */
+export async function downloadCollectionZip(id: string, name: string): Promise<void> {
+  saveBlob(await apiClient.getBlob(`/api/collections/${id}/download`), zipName(name));
+}
+
+/** Authenticated ZIP of one folder. */
+export async function downloadFolderZip(id: string, folderId: string, name: string): Promise<void> {
+  saveBlob(await apiClient.getBlob(`/api/collections/${id}/folders/${folderId}/download`), zipName(name));
 }
