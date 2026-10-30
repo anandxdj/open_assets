@@ -4,6 +4,7 @@
 
 import { useState } from "react";
 import { Upload } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export function UploadDropZone({
@@ -33,7 +34,9 @@ export function UploadDropZone({
         e.preventDefault();
         setOver(false);
         const file = e.dataTransfer.files?.[0];
-        if (file && file.type.startsWith("image/")) onDropFile(file);
+        if (!file) return;
+        if (file.type.startsWith("image/")) onDropFile(file);
+        else toast.error("That file is not an image. Use a PNG, JPG or WEBP.");
       }}
       data-over={over}
       className={cn("oa-drop w-full cursor-pointer", !over && "hover:bg-hover", className)}

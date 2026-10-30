@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { LoaderCircle } from "lucide-react";
 import { STORAGE_MODE } from "@/features/studio/lib/app";
 
 const MODE_ROUTES: Record<string, string> = {
@@ -26,5 +27,12 @@ export default function StudioIndexPage() {
     router.replace(target);
   }, [router]);
 
-  return null;
+  return (
+    <div className="flex flex-1 items-center justify-center" role="status">
+      <span className="oa-label flex items-center gap-2.5">
+        <LoaderCircle aria-hidden className="size-4 animate-spin" />
+        Opening your last tool
+      </span>
+    </div>
+  );
 }

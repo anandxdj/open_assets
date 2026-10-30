@@ -1,14 +1,17 @@
+import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
-import { ComingSoonPage } from "@/components/layout/ComingSoonPage";
+import { AuthGate } from "@/components/layout/AuthGate";
+import { CreditsProvider } from "@/features/usage/CreditsProvider";
 
+export const metadata: Metadata = { title: "AniBuddy · OpenAssets" };
+
+// AniBuddy's AI steps spend credits (never a user key), so it needs a signed-in user.
 export default function AniBuddyLayout({ children }: { children: React.ReactNode }) {
-  void children;
   return (
     <AppShell>
-      <ComingSoonPage
-        name="AniBuddy"
-        description="Rig a character you drew, then animate it with a prompt or by hand and export frames, a GIF or a project file."
-      />
+      <AuthGate label="Opening AniBuddy">
+        <CreditsProvider>{children}</CreditsProvider>
+      </AuthGate>
     </AppShell>
   );
 }
