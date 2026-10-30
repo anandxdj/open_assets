@@ -14,7 +14,8 @@ interface FinalizeJobData {
   jobId: string;
 }
 
-export function startFinalizeWorker(): void {
+/** Starts the worker and returns it so the caller can close it on shutdown. */
+export function startFinalizeWorker(): Worker<FinalizeJobData> {
   const worker = new Worker<FinalizeJobData>(
     'finalize',
     async (job) => {
@@ -94,4 +95,5 @@ export function startFinalizeWorker(): void {
 
   worker.on('error', (err) => console.error('[finalize.worker] Worker error:', extractError(err)));
   console.log('[finalize.worker] Started');
+  return worker;
 }

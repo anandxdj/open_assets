@@ -2,7 +2,7 @@ import type { Response } from 'express';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { ApiError } from '../../common/utils/ApiError';
 import type { AuthRequest } from '../auth/auth.middleware';
-import { sessionCookieOptions } from '../auth/auth.controller';
+import { clearSessionCookieOptions, sessionCookieOptions } from '../../common/config/cookies';
 import * as accountService from './account.service';
 import { objectIdSchema } from './dto/account.schema';
 import type {
@@ -16,10 +16,9 @@ function requireUser(req: AuthRequest): { id: string } {
   return req.user;
 }
 
-// clearCookie must repeat the options the cookie was set with, minus maxAge.
+// Same attributes the cookie was set with, minus maxAge (see common/config/cookies.ts).
 function clearRefreshCookie(res: Response): void {
-  const { maxAge: _maxAge, ...options } = sessionCookieOptions;
-  res.clearCookie('refreshToken', options);
+  res.clearCookie('refreshToken', clearSessionCookieOptions());
 }
 
 export async function getAccount(req: AuthRequest, res: Response): Promise<void> {
@@ -39,7 +38,7 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
     await accountService.changePassword(user.id, req.body as ChangePasswordInput);
 
   // The caller keeps their own session: swap in the rotated refresh token.
-  res.cookie('refreshToken', refreshToken, sessionCookieOptions);
+  res.cookie('refreshToken', refreshToken, sessionCookieOptions());
   ApiResponse.ok(res, passwordWasSet ? 'Password set' : 'Password changed', {
     accessToken,
     extensionSessionsRevoked,

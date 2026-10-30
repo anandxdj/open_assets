@@ -100,6 +100,21 @@ export function RegisterForm() {
             {loading ? "Creating account…" : "Create account"}
           </Button>
         </form>
+
+        {/* Covers both the form and the Google button. New tab so a half-filled form is not lost. */}
+        <p className="text-xs leading-[18px] text-ink-2">
+          By creating an account you agree to the{" "}
+          <Link href="/terms" target="_blank" rel="noopener noreferrer" className="oa-link">
+            Terms of service
+            <span className="sr-only"> (opens in a new tab)</span>
+          </Link>{" "}
+          and acknowledge the{" "}
+          <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="oa-link">
+            Privacy policy
+            <span className="sr-only"> (opens in a new tab)</span>
+          </Link>
+          .
+        </p>
       </div>
 
       <p className="text-xs leading-[18px] text-ink-2">

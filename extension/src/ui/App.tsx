@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { CircleAlert, ExternalLink, FolderOpen, ImagePlus, Keyboard, Lock, LogIn, MousePointer2, Pause, Play, Plus, ScanSearch, Search, Sparkles, X } from 'lucide-react';
 import type { AppSnapshot, AspectRatio, QueueItem, ReferenceAsset } from '../shared/contracts';
+import { frontendUrl } from '../shared/config';
 import { callWorker } from '../shared/worker';
 import { browser } from 'wxt/browser';
 import { AccountMenu, Brand, EmptyState, Segmented, Spinner, StatusBadge, Thumb, statusLabels, statusTone } from './components';
@@ -8,11 +9,7 @@ import { AccountMenu, Brand, EmptyState, Segmented, Spinner, StatusBadge, Thumb,
 type Tab = 'generate' | 'extract' | 'library';
 type SplitMode = 'line' | 'block';
 
-// Same default as src/shared/auth.ts and src/shared/extract.ts.
-const frontendUrl = import.meta.env.WXT_PUBLIC_FRONTEND_URL || 'https://openassets.anands.dev';
-const frontendHost = (() => {
-  try { return new URL(frontendUrl).host; } catch { return frontendUrl; }
-})();
+const frontendHost = new URL(frontendUrl).host;
 
 const tabs: ReadonlyArray<{ id: Tab; label: string }> = [
   { id: 'generate', label: 'Generate' },

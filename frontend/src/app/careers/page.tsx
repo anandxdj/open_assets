@@ -10,6 +10,7 @@ import { SOCIAL, WRAP } from "@/components/marketing/site";
 export const metadata: Metadata = {
   title: "Careers · OpenAssets",
   description: "Build major open-source projects with me. Full-stack builders and engineers welcome.",
+  alternates: { canonical: "/careers" },
 };
 
 type Status = { label: string; tone: NonNullable<BadgeProps["tone"]>; icon: LucideIcon };

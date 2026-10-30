@@ -34,3 +34,21 @@ export const NAV_LINKS: MarketingLink[] = [
   { label: "Pricing", href: "/pricing" },
   { label: "Docs", href: DOCS_URL, external: true },
 ];
+
+/** Contact for account, support and billing questions (also shown on the auth pages). */
+export const SUPPORT_EMAIL = "support@openassets.dev";
+
+/** TO CONFIRM: the owner must create this mailbox (or change the address) before launch. */
+export const PRIVACY_EMAIL = "privacy@openassets.dev";
+
+/**
+ * The Terms and Privacy pages are drafts until the owner and legal counsel
+ * sign them off. Bump the date whenever either text changes.
+ */
+export const LEGAL_UPDATED = { iso: "2026-10-30", label: "30 October 2026" } as const;
+
+/** Legal pages linked from the footer and the register form. */
+export const LEGAL_LINKS: MarketingLink[] = [
+  { label: "Terms of service", href: "/terms" },
+  { label: "Privacy policy", href: "/privacy" },
+];

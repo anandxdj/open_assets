@@ -57,7 +57,8 @@ async function scaffoldCollection(
   }
 }
 
-export function startCropWorker(): void {
+/** Starts the worker and returns it so the caller can close it on shutdown. */
+export function startCropWorker(): Worker<CropJobData> {
   const worker = new Worker<CropJobData>(
     'crop',
     async (job) => {
@@ -151,4 +152,5 @@ export function startCropWorker(): void {
 
   worker.on('error', (err) => console.error('[crop.worker] Worker error:', extractError(err)));
   console.log('[crop.worker] Started');
+  return worker;
 }

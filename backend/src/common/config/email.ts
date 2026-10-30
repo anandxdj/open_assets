@@ -6,7 +6,7 @@ const sendEmail = async (to: string, subject: string, html: string) => {
   try {
     if (resend) {
       const { data, error } = await resend.emails.send({
-        from: `"${process.env.RESEND_FROM_NAME || process.env.SMTP_FROM_NAME}" <${process.env.RESEND_FROM_EMAIL || process.env.SMTP_FROM_EMAIL}>`,
+        from: `"${process.env.RESEND_FROM_NAME || process.env.SMTP_FROM_NAME || 'OpenAssets'}" <${process.env.RESEND_FROM_EMAIL || process.env.SMTP_FROM_EMAIL}>`,
         to: [to],
         subject,
         html,

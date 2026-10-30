@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   title: "OpenAssets: every asset, cut clean",
   description:
     "Drop one sprite sheet, icon grid or UI mockup. OpenAssets finds every asset, names it and hands you a ZIP of transparent PNGs.",
+  alternates: { canonical: "/" },
 };
 
 export default function LandingPage() {

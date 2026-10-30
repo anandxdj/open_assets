@@ -8,7 +8,8 @@ interface EnhanceJobData {
   jobId: string;
 }
 
-export function startEnhanceWorker(): void {
+/** Starts the worker and returns it so the caller can close it on shutdown. */
+export function startEnhanceWorker(): Worker<EnhanceJobData> {
   const worker = new Worker<EnhanceJobData>(
     'enhance',
     // Provider failures are recorded on the job and never thrown, so BullMQ
@@ -22,4 +23,5 @@ export function startEnhanceWorker(): void {
   });
   worker.on('error', (err) => console.error('[enhance.worker] Worker error:', extractError(err)));
   console.log('[enhance.worker] Started');
+  return worker;
 }
