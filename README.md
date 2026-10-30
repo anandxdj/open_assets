@@ -206,7 +206,9 @@ All `/api/*` routes (except auth + public collection reads) require
 | GET | `/api/jobs/:jobId` | Full job state (status, boxes, assets, downloadUrl) |
 | GET | `/api/jobs/:jobId/download` | 302 → ZIP URL (when `ready`) |
 | POST | `/api/crop` | `{ jobId, boxes }` → name + crop pipeline |
-| POST | `/api/finalize` | `{ jobId, selectedIds, skipUpscale }` → ZIP pipeline |
+| POST | `/api/finalize` | `{ jobId, selectedIds, skipUpscale, scale }` → ZIP pipeline (`scale` 4 needs Pro) |
+| GET/POST | `/api/plans/me` · `/api/plans/trial` | Plan, limits, usage; start the 14-day trial ([plans](docs/plans-and-entitlements.md)) |
+| GET/PUT | `/api/admin/users` · `/api/admin/users/:id/plan` | Admin only: find users, set their plan |
 | GET/POST/PUT/DELETE | `/api/collections…` | Public galleries: CRUD, folders, images, `/like`, `/download` |
 
 **Internal (py_backend, not public):** `POST /detect`, `POST /name-assets`,
@@ -362,6 +364,8 @@ OPENROUTER_MOCK=0
 | backend | `pnpm dev` | API + workers, hot-reload (`tsx watch`) |
 | backend | `pnpm typecheck` | `tsc --noEmit` |
 | backend | `pnpm test` | Node test runner over `src/__tests__` |
+| backend | `pnpm plan:set <email> <free\|pro> [--days N]` | Grant or end Pro by hand |
+| backend | `pnpm admin:grant <email>` | Make a user an admin (opens `/admin`) |
 | frontend | `pnpm dev` / `pnpm build` | Next.js dev / production build |
 | frontend | `pnpm lint` | ESLint |
 | py_backend | `uvicorn app.main:app --reload` | FastAPI dev server |
@@ -387,6 +391,8 @@ See `frontend/src/features/studio/LICENSE-image-extender.txt`.
 ---
 
 ## Further reading
+
+Plans, limits and granting Pro: [`docs/plans-and-entitlements.md`](docs/plans-and-entitlements.md).
 
 Per-service deep dives live in [`docs/llm_wiki/`](docs/llm_wiki/):
 [`architecture.md`](docs/llm_wiki/architecture.md) ·
