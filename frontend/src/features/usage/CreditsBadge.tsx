@@ -55,7 +55,7 @@ export function CreditsNotice({ children }: { children?: ReactNode }) {
   if (!shortfall && !empty) return null;
 
   const reset = formatResetDate(credits?.resetAt);
-  const headline = empty || !credits ? "You're out of AI credits." : `Not enough AI credits for that. You have ${credits.credits} left.`;
+  const headline = empty || !credits ? "You are out of AI credits." : `Not enough AI credits for that. You have ${credits.credits} left.`;
   return (
     <div className="flex-none border-b-[1.5px] border-line bg-page px-3 py-2 md:px-5">
       <Notice tone="warning" role="alert">

@@ -99,7 +99,7 @@ export function AiEnhanceWorkspace() {
     if (!ACCEPTED_TYPES.includes(file.type) && !ACCEPTED_NAME.test(file.name)) {
       setPickError(
         file.type === "image/svg+xml" || /\.svg$/i.test(file.name)
-          ? "AI enhance doesn't take SVG. Use Cleanup to render it as a PNG."
+          ? "AI enhance does not take SVG. Use Cleanup to render it as a PNG."
           : "Choose a PNG, JPEG or WebP image."
       );
       return;
@@ -210,7 +210,7 @@ export function AiEnhanceWorkspace() {
             {capabilities.state.status === "error" && (
               <div className="oa-panel-sec">
                 <Notice tone="warning" role="alert">
-                  <p>Couldn&apos;t check what AI enhance supports. {capabilities.state.message}</p>
+                  <p>Could not check what AI enhance supports. {capabilities.state.message}</p>
                   <Button variant="secondary" size="sm" className="mt-2" onClick={capabilities.retry}>
                     Try again
                   </Button>
@@ -368,8 +368,8 @@ export function AiEnhanceWorkspace() {
               <EmptyState
                 className="flex-1 justify-center"
                 icon={<Sparkles aria-hidden className="size-5" />}
-                title="AI enhance isn't available here"
-                description={`${caps.message ?? "Image storage isn't set up on this server."} Ask whoever runs this server to set it up. Cleanup works without it.`}
+                title="AI enhance is not available here"
+                description={`${caps.message ?? "Image storage is not set up on this server."} Ask whoever runs this server to set it up. Cleanup works without it.`}
                 actions={
                   <Button asChild>
                     <Link href="/enhance/excalibur">Go to cleanup</Link>

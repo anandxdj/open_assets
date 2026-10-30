@@ -183,7 +183,7 @@ export function AiComparePane({
               ) : phase === "failed" ? (
                 <p className="flex max-w-[240px] flex-col items-center gap-2 bg-surface px-4 py-3 text-center text-xs leading-[18px] text-ink-2">
                   <CircleAlert aria-hidden className="size-5 text-danger" />
-                  That didn&apos;t work. The reason is next to the Enhance button.
+                  That did not work. The reason is next to the Enhance button.
                 </p>
               ) : (
                 <p className="max-w-[240px] bg-surface px-4 py-3 text-center text-xs leading-[18px] text-ink-2">

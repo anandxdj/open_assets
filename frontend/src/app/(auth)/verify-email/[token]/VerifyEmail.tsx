@@ -67,7 +67,7 @@ export function VerifyEmail({ token }: { token: string }) {
             <CircleCheck aria-hidden className="size-5" />
           </span>
           <AuthIntro title="Email verified">
-            Your account is ready. Drop in your first sheet and we’ll find every asset on it.
+            Your account is ready. Drop in your first sheet and we will find every asset on it.
           </AuthIntro>
           <Button asChild variant="primary" size="lg" block>
             <Link href={user ? "/upload" : "/login"}>{user ? "Continue to OpenAssets" : "Sign in to continue"}</Link>
@@ -80,8 +80,8 @@ export function VerifyEmail({ token }: { token: string }) {
           <span className="oa-icon-box size-12 border-transparent bg-danger-soft text-danger">
             <CircleAlert aria-hidden className="size-5" />
           </span>
-          <AuthIntro title="Link didn’t work">
-            Verification links work once and expire. Enter your email and we’ll send a new one.
+          <AuthIntro title="Link did not work">
+            Verification links work once and expire. Enter your email and we will send a new one.
           </AuthIntro>
           {failure && <Notice tone="danger">{failure}</Notice>}
           <ResendForm />

@@ -13,6 +13,13 @@ import { usePlan } from "./PlanContext";
 /** Subject only: nothing about the person goes into the URL. */
 export const UPGRADE_MAILTO = `mailto:${SALES_EMAIL}?subject=${encodeURIComponent("Upgrade to OpenAssets Pro")}`;
 
+/** The one confirmation for a started trial, so every way of starting it reads the same. */
+export function toastTrialStarted() {
+  toast.success(`Your ${TRIAL_DAYS}-day Pro trial has started`, {
+    description: "Unlimited sheets, 4× upscale and the rest of Pro are on.",
+  });
+}
+
 /** Small "Pro" marker for a locked control. */
 export function ProBadge({ className }: { className?: string }) {
   return (
@@ -69,15 +76,13 @@ export function UpgradeAction({
     if (starting) return;
     try {
       await startTrial();
-      toast.success(`Your ${TRIAL_DAYS}-day Pro trial has started`, {
-        description: "Unlimited sheets, 4× upscale and the detection controls are on.",
-      });
+      toastTrialStarted();
       onStarted?.();
     } catch (err) {
       if (err instanceof ApiRequestError && (err.code === "TRIAL_USED" || err.code === "ALREADY_PRO")) {
         await refresh();
       }
-      toast.error("Couldn't start the trial", {
+      toast.error("Could not start the trial", {
         description: err instanceof Error ? err.message : "Try again in a moment.",
       });
     }

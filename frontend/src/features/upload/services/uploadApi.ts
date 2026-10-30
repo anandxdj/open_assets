@@ -78,7 +78,7 @@ export async function uploadImageWithProgress(
     const message = (res.body as { message?: string } | null)?.message;
     // 5xx bodies carry generic text ("Internal Server Error"); say what to do instead.
     if (res.status >= 500 || !message) {
-      throw new ApiRequestError("We couldn't store your image. Try again in a moment.", res.status);
+      throw new ApiRequestError("We could not store your image. Try again in a moment.", res.status);
     }
     // Keeps the machine code and details (for example SHEET_LIMIT and resetAt).
     throw apiErrorFrom(res.status, res.body);

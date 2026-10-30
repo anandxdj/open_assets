@@ -253,7 +253,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   const autoDownloadUpscaled = useEffectEvent(() => {
     zipUpscaledLocally().catch((err) => {
       console.error("Auto-download upscaled failed:", err);
-      toast.error("Couldn't build the upscaled ZIP", { description: errorMessage(err, "Use Download again.") });
+      toast.error("Could not build the upscaled ZIP", { description: errorMessage(err, "Use Download again.") });
     });
   });
 
@@ -309,7 +309,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
     } catch (err) {
       console.error("Local download failed:", err);
       if (handlePlanError(err)) return;
-      toast.error("Couldn't build the ZIP", { description: errorMessage(err, "Try again in a moment.") });
+      toast.error("Could not build the ZIP", { description: errorMessage(err, "Try again in a moment.") });
     } finally {
       setLocalDownloading(false);
     }
@@ -341,7 +341,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
         setPatternDraft(null);
         void refreshPlan();
       }
-      toast.error("Couldn't start upscaling", { description: errorMessage(err, "Try again in a moment.") });
+      toast.error("Could not start upscaling", { description: errorMessage(err, "Try again in a moment.") });
       setIsFinalizing(false);
     }
   }
@@ -372,7 +372,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
     } catch (err) {
       console.error("Saving the naming pattern failed:", err);
       if (handlePlanError(err)) return;
-      toast.error("Couldn't save the pattern", { description: errorMessage(err, "Try again in a moment.") });
+      toast.error("Could not save the pattern", { description: errorMessage(err, "Try again in a moment.") });
     } finally {
       setSavingPattern(false);
     }
@@ -385,7 +385,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
       await zipUpscaledLocally();
     } catch (err) {
       console.error("Upscaled download failed:", err);
-      toast.error("Couldn't build the upscaled ZIP", { description: errorMessage(err, "Try again in a moment.") });
+      toast.error("Could not build the upscaled ZIP", { description: errorMessage(err, "Try again in a moment.") });
     } finally {
       setLocalDownloading(false);
     }
@@ -530,7 +530,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
             tone="danger"
             icon={<CircleAlert aria-hidden />}
             title="Export failed"
-            description={jobError ?? job.error ?? "We couldn't cut the assets from this sheet."}
+            description={jobError ?? job.error ?? "We could not cut the assets from this sheet."}
             actions={
               <Button asChild variant="primary">
                 <Link href="/upload">Extract another</Link>

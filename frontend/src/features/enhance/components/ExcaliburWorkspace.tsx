@@ -122,7 +122,7 @@ export function ExcaliburWorkspace() {
       const blob = await apiClient.postFormBlob("/api/enhance/excalibur", form);
       replaceResult(URL.createObjectURL(blob));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Couldn't enhance the image. Try again.");
+      setError(submitError instanceof Error ? submitError.message : "Could not enhance the image. Try again.");
     } finally {
       setBusy(false);
     }

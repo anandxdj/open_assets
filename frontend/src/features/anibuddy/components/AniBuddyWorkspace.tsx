@@ -45,7 +45,7 @@ export function AniBuddyWorkspace() {
       </Topbar>
       <h1 className="sr-only">AniBuddy</h1>
       <CreditsNotice>
-        <span className="text-xs leading-[18px] text-ink-2">AniBuddy can&apos;t use your own key.</span>
+        <span className="text-xs leading-[18px] text-ink-2">AniBuddy cannot use your own key.</span>
       </CreditsNotice>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sunken pb-14 md:pb-0 lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden xl:flex xl:flex-row">

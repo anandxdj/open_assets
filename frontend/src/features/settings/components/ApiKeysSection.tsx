@@ -66,7 +66,7 @@ function NewKeyReveal({ created, onDone }: { created: CreatedApiKey; onDone: () 
     <>
       <DialogBody>
         <Notice tone="warning" role="alert">
-          <p className="font-bold">You won&apos;t see this key again.</p>
+          <p className="font-bold">You will not see this key again.</p>
           <p>Copy it now and store it somewhere safe, such as a secrets manager. If you lose it, revoke it and create a new one.</p>
         </Notice>
         <Field label="Your new API key" htmlFor="new-api-key" help={`Named “${created.name}”.`}>
@@ -95,7 +95,7 @@ function NewKeyReveal({ created, onDone }: { created: CreatedApiKey; onDone: () 
       </DialogBody>
       <DialogFooter>
         <Button variant="primary" onClick={onDone}>
-          I&apos;ve saved it
+          I have saved it
         </Button>
       </DialogFooter>
     </>

@@ -39,7 +39,7 @@ function InviteFailed({ code, message, signedIn }: { code: string | undefined; m
       <span className="oa-icon-box size-12 border-transparent bg-danger-soft text-danger">
         <CircleAlert aria-hidden className="size-5" />
       </span>
-      <AuthIntro title={expired ? "This invite has expired" : "This invite link doesn’t work"}>
+      <AuthIntro title={expired ? "This invite has expired" : "This invite link does not work"}>
         {expired
           ? "Invite links work for 7 days. Ask the team owner to send you a new one."
           : "It may have been used already or withdrawn, or the link was copied incompletely. Ask the team owner to send a new invite."}

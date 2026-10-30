@@ -151,7 +151,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       const count = await exportBoxesAsZip(job.cloudinaryUrl, boxes, zipName);
       toast.success(`Downloaded ${count} asset${count === 1 ? "" : "s"}`, { description: zipName });
     } catch (err) {
-      toast.error("Couldn't build the ZIP", { description: errorMessage(err, "Try again in a moment.") });
+      toast.error("Could not build the ZIP", { description: errorMessage(err, "Try again in a moment.") });
     } finally {
       setExporting(null);
     }
@@ -165,7 +165,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       await startExport(jobId, boxes, false);
       router.push(`/editor/${jobId}/export`);
     } catch (err) {
-      toast.error("Couldn't start the export", { description: errorMessage(err, "Try again in a moment.") });
+      toast.error("Could not start the export", { description: errorMessage(err, "Try again in a moment.") });
       setExporting(null);
     }
   }
@@ -372,7 +372,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
             tone="danger"
             icon={<CircleAlert aria-hidden />}
             title="Detection failed"
-            description={error ?? job?.error ?? "We couldn't find assets on this sheet."}
+            description={error ?? job?.error ?? "We could not find assets on this sheet."}
             actions={
               <Button asChild variant="primary">
                 <Link href="/upload">Try again</Link>

@@ -32,7 +32,7 @@ export function useAiCapabilities() {
         if (abort.signal.aborted) return;
         setState({
           status: "error",
-          message: error instanceof Error ? error.message : "Couldn't check what AI enhance supports.",
+          message: error instanceof Error ? error.message : "Could not check what AI enhance supports.",
         });
       });
     return () => abort.abort();
@@ -177,7 +177,7 @@ export function useAiEnhance() {
         }
 
         if (job.status === "failed") {
-          throw new AiEnhanceError(job.error ?? "The image couldn't be enhanced.", 200, job.errorCode);
+          throw new AiEnhanceError(job.error ?? "The image could not be enhanced.", 200, job.errorCode);
         }
 
         const blob = await fetchAiEnhanceResult(job.jobId, abort.signal);
@@ -193,7 +193,7 @@ export function useAiEnhance() {
         const failure: AiRunError =
           caught instanceof AiEnhanceError
             ? { message: caught.message, code: caught.code }
-            : { message: "Couldn't enhance the image. Try again." };
+            : { message: "Could not enhance the image. Try again." };
         setError(failure);
         setPhase("failed");
         return failure;

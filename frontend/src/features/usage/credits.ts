@@ -43,5 +43,5 @@ export function creditsLabel(count: number): string {
 
 /** One sentence for inline errors and toasts. */
 export function creditsShortfallMessage(resetAt?: string | null): string {
-  return `You're out of AI credits. They reset on ${formatResetDate(resetAt)}.`;
+  return `You are out of AI credits. They reset on ${formatResetDate(resetAt)}.`;
 }

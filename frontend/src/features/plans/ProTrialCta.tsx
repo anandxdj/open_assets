@@ -10,7 +10,7 @@ import { ApiRequestError } from "@/lib/api-error";
 import { TRIAL_DAYS, TRIAL_REGISTER_HREF } from "@/lib/plans";
 import { usePlan } from "./PlanContext";
 import { clearTrialIntent, hasTrialIntent, markTrialIntent } from "./trial-intent";
-import { UPGRADE_MAILTO } from "./UpgradeAction";
+import { UPGRADE_MAILTO, toastTrialStarted } from "./UpgradeAction";
 
 const LABEL = `Start ${TRIAL_DAYS}-day trial`;
 
@@ -28,18 +28,18 @@ export function ProTrialCta() {
   const { plan, loading: planLoading, starting, startTrial, refresh } = usePlan();
   const autoTried = useRef(false);
 
-  async function start(source: "click" | "return") {
+  async function start() {
     if (starting) return;
     try {
       await startTrial();
       clearTrialIntent();
-      if (source === "return") toast.success(`Your ${TRIAL_DAYS}-day Pro trial has started`);
+      toastTrialStarted();
     } catch (err) {
       if (err instanceof ApiRequestError && (err.code === "TRIAL_USED" || err.code === "ALREADY_PRO")) {
         clearTrialIntent();
         await refresh();
       }
-      toast.error("Couldn't start the trial", {
+      toast.error("Could not start the trial", {
         description: err instanceof Error ? err.message : "Try again in a moment.",
       });
     }
@@ -54,7 +54,7 @@ export function ProTrialCta() {
     if (!asked) return;
     autoTried.current = true;
     if (plan.trial.eligible && hasTrialIntent()) {
-      void start("return");
+      void start();
     } else {
       clearTrialIntent();
     }
@@ -115,7 +115,7 @@ export function ProTrialCta() {
       size="lg"
       block
       aria-disabled={starting || undefined}
-      onClick={() => void start("click")}
+      onClick={() => void start()}
     >
       {starting && <LoaderCircle aria-hidden className="animate-spin" />}
       {LABEL}

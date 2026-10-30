@@ -445,7 +445,7 @@ export function ParallaxScreen() {
               ? (() => {
                   const prereq = getWorkflowPrerequisite(px.layers, activeLayer.role);
                   if (!prereq) return null;
-                  return `${LAYER_ROLES[prereq.role].label} isn't built yet. Layers match best when generated front to back (Near, Mid, Far, then Sky) so palette and art direction stay consistent. You can still generate now if you're bringing your own matching assets.`;
+                  return `${LAYER_ROLES[prereq.role].label} is not built yet. Layers match best when generated front to back (Near, Mid, Far, then Sky) so palette and art direction stay consistent. You can still generate now if you're bringing your own matching assets.`;
                 })()
               : null
           }
