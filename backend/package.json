@@ -6,7 +6,9 @@
     "dev": "tsx watch index.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test src/__tests__/**/*.test.ts",
-    "start": "tsx index.ts"
+    "start": "tsx index.ts",
+    "plan:set": "tsx scripts/plan-set.ts",
+    "admin:grant": "tsx scripts/admin-grant.ts"
   },
   "dependencies": {
     "@imagekit/nodejs": "^7.6.3",

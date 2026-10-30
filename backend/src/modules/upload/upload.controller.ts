@@ -6,6 +6,7 @@ import { createJob, updateJob } from '../jobs/job.store';
 import { ApiError } from '../../common/utils/ApiError';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import type { AuthRequest } from '../auth/auth.middleware';
+import { commitSheetReservation } from '../plans/plans.middleware';
 
 const ALLOWED_FORMATS = ['png', 'jpg', 'jpeg', 'webp'];
 const MIN_DIMENSION = 64;
@@ -51,6 +52,10 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
     publicId: uploadResult.publicId,
     userId,
   });
+
+  // The sheet is spent from here on: a job exists. Before this point a failure
+  // gives the reserved slot back (see enforceSheetLimit).
+  commitSheetReservation(res);
 
   await updateJob(jobId, {
     imageWidth: String(width),

@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { ApiError } from '../../common/utils/ApiError';
 import { verifyAccessToken } from '../../common/utils/jwt.utils';
 import { UserModel } from './auth.model';
+import type { IUser } from './auth.model';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -9,6 +10,9 @@ export interface AuthRequest extends Request {
     email: string;
     name: string;
     role: string;
+    /** Plan fields, so entitlement checks need no second lookup. Use modules/plans. */
+    plan: IUser['plan'];
+    trialEndsAt?: Date;
   };
 }
 
@@ -40,6 +44,8 @@ export const authenticate = (optional = false) => async (req: AuthRequest, res: 
       email: user.email,
       name: user.name,
       role: user.role,
+      plan: user.plan,
+      trialEndsAt: user.trialEndsAt,
     };
 
     next();

@@ -1,0 +1,25 @@
+{
+  "trialDays": 14,
+  "plans": {
+    "free": {
+      "sheetsPerMonth": 5,
+      "maxUpscale": 2,
+      "paddingThresholdControls": false,
+      "customNamingPatterns": false,
+      "apiKeys": 0,
+      "teamSharing": false
+    },
+    "pro": {
+      "sheetsPerMonth": null,
+      "maxUpscale": 4,
+      "paddingThresholdControls": true,
+      "customNamingPatterns": true,
+      "apiKeys": 5,
+      "teamSharing": true
+    }
+  },
+  "detection": {
+    "threshold": { "default": 50, "min": 1, "max": 100 },
+    "padding": { "default": 0, "min": 0, "max": 64 }
+  }
+}

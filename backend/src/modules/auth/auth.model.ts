@@ -18,6 +18,15 @@ export interface IUser extends Document {
   credits: number;
   creditsGrantedAt: Date;
   plan: 'free' | 'byok' | 'pro';
+  // Plan bookkeeping. Read plans through modules/plans (getEffectivePlan), not
+  // these fields directly. A future billing webhook sets plan + planSource
+  // 'billing' via setUserPlan().
+  planSource?: 'admin' | 'trial' | 'billing';
+  planUpdatedAt?: Date;
+  /** End of a time-limited Pro period (trial or timed admin grant). Unset = no end date. */
+  trialEndsAt?: Date;
+  /** Set once when the one-per-account trial starts; never cleared by normal flows. */
+  trialStartedAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -38,6 +47,10 @@ const UserSchema = new Schema<IUser>({
   credits: { type: Number, default: 150 },
   creditsGrantedAt: { type: Date, default: Date.now },
   plan: { type: String, enum: ['free', 'byok', 'pro'], default: 'free' },
+  planSource: { type: String, enum: ['admin', 'trial', 'billing'] },
+  planUpdatedAt: { type: Date },
+  trialEndsAt: { type: Date },
+  trialStartedAt: { type: Date },
 }, {
   timestamps: true,
 });
