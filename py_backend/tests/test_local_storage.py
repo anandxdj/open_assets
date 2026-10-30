@@ -7,6 +7,7 @@ import numpy as np
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from app.core.config import settings as main_settings
 from app.main import app
 from app.routers import crop as crop_router
 from app.services import image_io
@@ -23,7 +24,10 @@ class InlineCropTests(unittest.TestCase):
         async def fake_download(_url: str) -> np.ndarray:
             return _sheet()
 
-        with mock.patch.object(crop_router, "download_image", fake_download):
+        # A local .env may set INTERNAL_API_TOKEN; these tests call the app without the header.
+        with mock.patch.object(crop_router, "download_image", fake_download), mock.patch.object(
+            main_settings, "INTERNAL_API_TOKEN", ""
+        ):
             res = TestClient(app).post(
                 "/crop",
                 json={
