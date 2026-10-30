@@ -5,19 +5,30 @@ import { ApiError } from '../../common/utils/ApiError';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { assertOwner } from '../../common/utils/authz';
 import type { AuthRequest } from '../auth/auth.middleware';
+import { assertWithinLimit } from '../plans/entitlements';
+import { UPSCALE_SCALES } from '../plans/upscale';
 
 export async function startFinalize(req: AuthRequest, res: Response): Promise<void> {
-  const { jobId, selectedIds, updatedNames, skipUpscale } = req.body as {
+  const { jobId, selectedIds, updatedNames, skipUpscale, scale } = req.body as {
     jobId: string;
     selectedIds: string[];
     updatedNames?: Record<string, string>;
     skipUpscale?: boolean;
+    /** Upscale factor, 2 (default) or 4. 4 needs the Pro plan. */
+    scale?: number;
   };
 
   if (!jobId) throw ApiError.badRequest('jobId required');
   if (!Array.isArray(selectedIds) || selectedIds.length === 0) {
     throw ApiError.badRequest('selectedIds required');
   }
+  const upscaleScale = scale ?? UPSCALE_SCALES[0];
+  if (!UPSCALE_SCALES.includes(upscaleScale as (typeof UPSCALE_SCALES)[number])) {
+    throw ApiError.badRequest(`scale must be one of ${UPSCALE_SCALES.join(', ')}`);
+  }
+  // Plan gate: 403 PLAN_LIMIT when the factor is above the plan's maxUpscale.
+  // Skipped exports do not upscale, so they have nothing to gate.
+  if (!skipUpscale && req.user) assertWithinLimit(req.user, 'maxUpscale', upscaleScale);
 
   const jobData = await getJob(jobId);
   if (!jobData) throw ApiError.notFound('Job not found');
@@ -42,6 +53,7 @@ export async function startFinalize(req: AuthRequest, res: Response): Promise<vo
     assets: JSON.stringify(assets),
     selectedIds: JSON.stringify(valid),
     skipUpscale: skipUpscale ? 'true' : 'false',
+    upscaleScale: String(upscaleScale),
   });
   await finalizeQueue.add('finalize', { jobId });
 

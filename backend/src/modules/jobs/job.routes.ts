@@ -8,6 +8,7 @@ import { ApiError } from '../../common/utils/ApiError';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
 import { assertOwner } from '../../common/utils/authz';
+import { padBoxes, resolveDetectionTuning } from '../plans/detectionTuning';
 import type { JobResponse } from './job.types';
 
 const router = Router();
@@ -45,7 +46,12 @@ router.post('/jobs/:jobId/redetect', authenticate(), asyncHandler(async (req: Au
     throw ApiError.badRequest(`Cannot re-detect a job with status: ${job.status}`);
   }
 
-  const body = (req.body ?? {}) as { mode?: DetectionOptions['mode']; backgroundColor?: string };
+  const body = (req.body ?? {}) as {
+    mode?: DetectionOptions['mode'];
+    backgroundColor?: string;
+    threshold?: unknown;
+    padding?: unknown;
+  };
   if (body.mode && !['auto', 'light', 'dark', 'sampled'].includes(body.mode)) {
     throw ApiError.badRequest('Invalid detection mode');
   }
@@ -53,11 +59,16 @@ router.post('/jobs/:jobId/redetect', authenticate(), asyncHandler(async (req: Au
     throw ApiError.badRequest('backgroundColor must be a #RRGGBB value');
   }
 
+  // Threshold and padding are Pro controls: 403 PLAN_REQUIRED for free accounts
+  // that send anything but the defaults, 400 for out-of-range values.
+  const tuning = resolveDetectionTuning(req.user ?? {}, body);
+
   const result = await detectAssets(job.cloudinaryUrl, {
     mode: body.mode ?? 'auto',
     backgroundColor: body.backgroundColor,
+    threshold: tuning.threshold,
   });
-  const boxes = result.boxes.map((box) => ({
+  const detected = result.boxes.map((box) => ({
     id: box.id,
     x: box.x,
     y: box.y,
@@ -65,6 +76,7 @@ router.post('/jobs/:jobId/redetect', authenticate(), asyncHandler(async (req: Au
     height: box.height,
     label: box.name,
   }));
+  const boxes = padBoxes(detected, tuning.padding, result.image_width, result.image_height);
 
   await updateJob(job.id, {
     boxes: JSON.stringify(boxes),

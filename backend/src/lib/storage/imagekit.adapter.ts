@@ -2,6 +2,8 @@ import { ImageKit } from '@imagekit/nodejs';
 import axios from 'axios';
 import { toFile } from '@imagekit/nodejs';
 import type { StorageAdapter, UploadOptions, UploadResult } from './interface';
+import { UPSCALE_PASSES } from '../../modules/plans/upscale';
+import type { UpscaleScale } from '../../modules/plans/upscale';
 
 const FOLDER: Record<string, string> = {
   originals: '/open_assets/originals',
@@ -68,13 +70,15 @@ export class ImageKitAdapter implements StorageAdapter {
     return url;
   }
 
-  async applyUpscale(publicId: string): Promise<string> {
+  async applyUpscale(publicId: string, scale: UpscaleScale = 2): Promise<string> {
     const { filePath } = decode(publicId);
     // Upscale first, then remove background (upscale flattens alpha channel).
+    // 4x chains a second upscale pass (see UPSCALE_PASSES).
+    const passes = Array.from({ length: UPSCALE_PASSES[scale] }, () => ({ aiUpscale: true as const }));
     const url = this.ik.helper.buildSrc({
       src: filePath,
       urlEndpoint: this.urlEndpoint,
-      transformation: [{ aiUpscale: true }, { aiRemoveBackground: true }],
+      transformation: [...passes, { aiRemoveBackground: true }],
     });
     await warmup(url);
     return url;

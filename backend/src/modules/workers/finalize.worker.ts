@@ -5,6 +5,8 @@ import { storage } from '../../lib/storage';
 import { extractError } from '../../common/utils/extractError';
 import { mapLimit } from '../../common/utils/mapLimit';
 import { replaceImageWithUpscaled } from '../collections/collection.service';
+import { UPSCALE_SCALES } from '../plans/upscale';
+import type { UpscaleScale } from '../plans/upscale';
 
 const UPSCALE_CONCURRENCY = 4;
 
@@ -33,11 +35,14 @@ export function startFinalizeWorker(): void {
       }
 
       const skipUpscale = jobData.skipUpscale === 'true';
+      // Validated and plan-gated in finalize.controller; anything unexpected falls back to 2x.
+      const requested = Number(jobData.upscaleScale);
+      const scale: UpscaleScale = (UPSCALE_SCALES as readonly number[]).includes(requested) ? (requested as UpscaleScale) : 2;
 
       // Upscale each selected asset (bounded concurrency) and write its upscaled_url
       // back onto the asset AS IT COMPLETES, so the client can show per-asset progress
       // and then zip the upscaled URLs locally. No server-side zip / Cloudinary upload.
-      console.log(`[finalize.worker] Job ${jobId}: upscaling ${selected.length} assets…`);
+      console.log(`[finalize.worker] Job ${jobId}: upscaling ${selected.length} assets (${scale}x)…`);
       const byId = new Map(assets.map((a) => [a.id, { ...a }]));
 
       await mapLimit(selected, UPSCALE_CONCURRENCY, async (asset) => {
@@ -46,7 +51,7 @@ export function startFinalizeWorker(): void {
           url = asset.cropped_url;
         } else {
           try {
-            url = await storage.applyUpscale(asset.public_id);
+            url = await storage.applyUpscale(asset.public_id, scale);
           } catch (err) {
             throw new Error(`Upscale failed for asset "${asset.name}" (${asset.public_id}): ${extractError(err)}`);
           }

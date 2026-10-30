@@ -45,6 +45,7 @@ export interface JobHash {
   assets: string;         // JSON.stringify(Asset[])
   selectedIds: string;    // JSON.stringify(string[])
   skipUpscale?: string;   // 'true' | 'false'
+  upscaleScale?: string;  // '2' | '4' (export upscale factor)
   downloadUrl: string;
   error: string;
   userId: string;

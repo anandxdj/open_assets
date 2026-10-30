@@ -1,6 +1,8 @@
 import { v2 as cloudinary } from 'cloudinary';
 import axios from 'axios';
 import type { StorageAdapter, UploadOptions, UploadResult, ResourceType } from './interface';
+import { UPSCALE_PASSES } from '../../modules/plans/upscale';
+import type { UpscaleScale } from '../../modules/plans/upscale';
 
 const POLL_TIMEOUT_MS = 120_000;
 const POLL_INTERVAL_MS = 2_000;
@@ -63,11 +65,13 @@ export class CloudinaryAdapter implements StorageAdapter {
     return url;
   }
 
-  async applyUpscale(publicId: string): Promise<string> {
+  async applyUpscale(publicId: string, scale: UpscaleScale = 2): Promise<string> {
     // e_upscale flattens alpha → chain e_background_removal to re-cut transparency.
+    // 4x chains a second upscale pass (see UPSCALE_PASSES).
+    const passes = Array.from({ length: UPSCALE_PASSES[scale] }, () => ({ effect: 'upscale' }));
     const url = cloudinary.url(publicId, {
       resource_type: 'image',
-      transformation: [{ effect: 'upscale' }, { effect: 'background_removal' }],
+      transformation: [...passes, { effect: 'background_removal' }],
       fetch_format: 'png',
       secure: true,
     });

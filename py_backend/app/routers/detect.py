@@ -11,7 +11,7 @@ router = APIRouter()
 @router.post("/detect", response_model=DetectResponse)
 async def detect_assets(request: DetectRequest) -> DetectResponse:
     img = await download_image(str(request.image_url))
-    result = find_bounding_boxes(img, request.mode, request.background_color)
+    result = find_bounding_boxes(img, request.mode, request.background_color, request.threshold)
     return DetectResponse(**result)
 
 
