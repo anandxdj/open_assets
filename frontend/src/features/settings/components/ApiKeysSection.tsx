@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Field, describedBy } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { Notice } from "@/components/ui/feedback";
 import { SectionError, SectionLoading, SubSection } from "@/features/settings/components/parts";
 import { createApiKey, errorMessage, listApiKeys, revokeApiKey } from "@/features/settings/api";
@@ -36,6 +36,7 @@ function When({ iso, now, never }: { iso: string | null; now: number; never?: st
 function NewKeyReveal({ created, onDone }: { created: CreatedApiKey; onDone: () => void }) {
   const [copied, setCopied] = useState(false);
   const copyRef = useRef<HTMLButtonElement>(null);
+  const keyRef = useRef<HTMLTextAreaElement>(null);
 
   // The form this replaced held focus: move it to the one thing to do here.
   useEffect(() => {
@@ -45,11 +46,19 @@ function NewKeyReveal({ created, onDone }: { created: CreatedApiKey; onDone: () 
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(created.key);
-      setCopied(true);
-      toast.success("Key copied");
     } catch {
-      toast.error("Could not copy automatically", { description: "Select the key and copy it yourself." });
+      // The clipboard API needs a focused page and a secure context. Selecting the
+      // text and copying it the old way covers most of what it refuses.
+      const field = keyRef.current;
+      field?.focus();
+      field?.select();
+      if (!field || !document.execCommand("copy")) {
+        toast.error("Could not copy automatically", { description: "The key is selected: copy it yourself." });
+        return;
+      }
     }
+    setCopied(true);
+    toast.success("Key copied");
   }
 
   return (
@@ -60,25 +69,28 @@ function NewKeyReveal({ created, onDone }: { created: CreatedApiKey; onDone: () 
           <p>Copy it now and store it somewhere safe, such as a secrets manager. If you lose it, revoke it and create a new one.</p>
         </Notice>
         <Field label="Your new API key" htmlFor="new-api-key" help={`Named “${created.name}”.`}>
-          <div className="flex gap-2">
-            <Input
-              id="new-api-key"
-              readOnly
-              value={created.key}
-              spellCheck={false}
-              autoComplete="off"
-              aria-describedby="new-api-key-note"
-              onFocus={(e) => e.currentTarget.select()}
-            />
-            <Button ref={copyRef} onClick={handleCopy} aria-label={copied ? "Key copied" : "Copy key"}>
-              {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          </div>
+          <Textarea
+            ref={keyRef}
+            id="new-api-key"
+            readOnly
+            rows={2}
+            value={created.key}
+            spellCheck={false}
+            autoComplete="off"
+            aria-describedby="new-api-key-note"
+            className="resize-none break-all"
+            onFocus={(e) => e.currentTarget.select()}
+          />
         </Field>
         <span id="new-api-key-note" className="sr-only">
           Shown once. Closing this dialog discards it.
         </span>
+        <div>
+          <Button ref={copyRef} onClick={handleCopy}>
+            {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+            {copied ? "Copied" : "Copy key"}
+          </Button>
+        </div>
       </DialogBody>
       <DialogFooter>
         <Button variant="primary" onClick={onDone}>
@@ -97,6 +109,7 @@ function CreateKey({
   onCreated: (key: ApiKey) => void;
 }) {
   const nameId = useId();
+  const nameRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -150,6 +163,11 @@ function CreateKey({
       <DialogContent
         title={created ? "Your new API key" : "Create an API key"}
         description={created ? "Copy it now. It is shown only once." : "Name it after whatever will use it."}
+        // The dialog would otherwise focus its close button first: start in the name field.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          nameRef.current?.focus();
+        }}
         // One stray click outside must not throw away a key that cannot be shown again.
         onInteractOutside={created ? (e) => e.preventDefault() : undefined}
       >
@@ -171,6 +189,7 @@ function CreateKey({
               )}
               <Field label="Name" htmlFor={nameId} help="For example: CI export job.">
                 <Input
+                  ref={nameRef}
                   id={nameId}
                   value={name}
                   maxLength={NAME_MAX}
@@ -427,9 +446,11 @@ export function ApiKeysContent() {
         <KeyTable keys={list} onRevoked={remove} />
       )}
 
-      <p className="text-[11px] leading-4 text-ink-3">
-        Keys keep working when you sign out or change your password. Revoke a key to stop it.
-      </p>
+      {allowed && (
+        <p className="text-[11px] leading-4 text-ink-3">
+          Keys keep working when you sign out or change your password. Revoke a key to stop it.
+        </p>
+      )}
     </SubSection>
   );
 }
