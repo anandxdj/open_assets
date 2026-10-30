@@ -1,23 +1,19 @@
 import type { Metadata } from "next";
-import { Inter, Roboto_Mono } from "next/font/google";
-import { Toaster } from "sonner";
+import { JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/features/auth/context/AuthContext";
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-});
-
-const robotoMono = Roboto_Mono({
-  variable: "--font-roboto-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Open Assets",
-  description: "Extract, name, and export assets from sprite sheets and icon packs",
+  title: "OpenAssets",
+  description: "Extract, name, and export every asset on a sprite sheet, icon grid or UI mockup",
   icons: {
     icon: [
       {
@@ -34,16 +30,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${robotoMono.variable} h-full antialiased`}
-      suppressHydrationWarning
-    >
-      <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <html lang="en" className={`${jetbrainsMono.variable} h-full antialiased`} suppressHydrationWarning>
+      <body className="flex min-h-full flex-col">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
             {children}
-            <Toaster position="top-right" richColors />
+            <Toaster />
           </AuthProvider>
         </ThemeProvider>
       </body>

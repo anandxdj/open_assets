@@ -1,15 +1,14 @@
-import { Navbar } from "@/components/layout/Navbar";
+import { AppShell } from "@/components/layout/AppShell";
 import { ComingSoonPage } from "@/components/layout/ComingSoonPage";
 
 export default function AniBuddyLayout({ children }: { children: React.ReactNode }) {
   void children;
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground font-mono transition-colors duration-200">
-      <Navbar />
+    <AppShell>
       <ComingSoonPage
         name="AniBuddy"
-        description="Our animation workspace is still being prepared for release. It is not available in this deployment yet."
+        description="Rig a character you drew, then animate it with a prompt or by hand and export frames, a GIF or a project file."
       />
-    </div>
+    </AppShell>
   );
 }

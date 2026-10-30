@@ -1,7 +1,12 @@
 "use client";
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
+// Floating review bar for a fresh extension: cycle variants, then discard,
+// regenerate, download or use it as the new base image.
 
-import { ArrowLeft, ArrowRight, Check, Download, Loader2, RefreshCw, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, LoaderCircle, RefreshCw, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function VariantSelector({
   index,
@@ -10,100 +15,102 @@ export function VariantSelector({
   score,
   onPrev,
   onNext,
-}: {
-  index: number;
-  total: number;
-  /** True when the current variant is the algorithm-picked best blend. */
-  isBest: boolean;
-  /** Optional raw seam score, only shown in debug mode. */
-  score?: number;
-  onPrev: () => void;
-  onNext: () => void;
-}) {
-  return (
-    <div
-      className="inline-flex items-center gap-1 border border-zinc-950 dark:border-zinc-700 py-0.5 pl-1 pr-2 rounded-none"
-      role="group"
-      aria-label="Cycle between extension variants"
-    >
-      <button
-        onClick={onPrev}
-        className="flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-foreground"
-        aria-label="Previous variant (←)"
-        title="Previous variant (←)"
-      >
-        <ArrowLeft size={13} />
-      </button>
-      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-        Variant {index + 1}/{total}
-      </span>
-      {isBest && (
-        <span
-          className="bg-zinc-950 text-white dark:bg-white dark:text-black px-1.5 py-px text-[10px] font-black tracking-wide"
-          title="Algorithm's pick: lowest seam residual"
-        >
-          BEST
-        </span>
-      )}
-      {typeof score === "number" && (
-        <span
-          className="font-mono text-[10px] text-muted-foreground"
-          title="Mean color difference at the seam — lower is better"
-        >
-          {score.toFixed(1)}
-        </span>
-      )}
-      <button
-        onClick={onNext}
-        className="flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-foreground"
-        aria-label="Next variant (→)"
-        title="Next variant (→)"
-      >
-        <ArrowRight size={13} />
-      </button>
-    </div>
-  );
-}
-
-export function ResultActions({
   onAccept,
   onRegenerate,
   onDiscard,
   onDownload,
   loading,
+  className,
 }: {
+  index: number;
+  total: number;
+  /** True when the current variant is the algorithm-picked best blend. */
+  isBest: boolean;
+  /** Optional raw seam score, only passed in debug mode. */
+  score?: number;
+  onPrev: () => void;
+  onNext: () => void;
   onAccept: () => void;
   onRegenerate: () => void;
   onDiscard: () => void;
   onDownload: () => void;
   loading: boolean;
+  className?: string;
 }) {
-  const ghost =
-    "inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase text-muted-foreground hover:text-foreground disabled:opacity-40 rounded-none";
+  const multi = total > 1;
   return (
-    <div className="flex items-center gap-1.5 border-2 border-zinc-950 dark:border-zinc-700 bg-background p-1">
-      <button onClick={onDiscard} disabled={loading} className={ghost} title="Discard this extension">
-        <X size={14} />
+    <div
+      role="group"
+      aria-label="Review extension"
+      className={cn("oa-float max-w-[calc(100%-24px)] flex-wrap justify-center gap-y-1", className)}
+    >
+      {multi && (
+        <>
+          <div role="group" aria-label="Variants" className="flex items-center gap-0.5">
+            <button
+              type="button"
+              className="oa-tool disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={onPrev}
+              disabled={loading}
+              aria-label="Previous variant"
+              title="Previous variant (←)"
+            >
+              <ChevronLeft aria-hidden />
+            </button>
+            <span className="oa-value whitespace-nowrap px-1 text-ink-2" aria-live="polite">
+              Variant {index + 1} of {total}
+            </span>
+            <button
+              type="button"
+              className="oa-tool disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={onNext}
+              disabled={loading}
+              aria-label="Next variant"
+              title="Next variant (→)"
+            >
+              <ChevronRight aria-hidden />
+            </button>
+          </div>
+          {isBest && (
+            <Badge tone="success" title="Lowest seam difference of the variants">
+              <Check aria-hidden />
+              Algorithm&apos;s pick
+            </Badge>
+          )}
+          {typeof score === "number" && (
+            <span
+              className="oa-value px-1 text-ink-3"
+              title="Mean colour difference at the seam. Lower is better."
+            >
+              Seam {score.toFixed(1)}
+            </span>
+          )}
+          <span className="oa-vsep" aria-hidden />
+        </>
+      )}
+      <Button variant="ghost" size="sm" onClick={onDiscard} disabled={loading} title="Discard (Esc)">
+        <X aria-hidden />
         Discard
-      </button>
-      <button onClick={onRegenerate} disabled={loading} className={ghost} title="Generate a new variation">
-        {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={onRegenerate} disabled={loading} title="Regenerate (R)">
+        {loading ? <LoaderCircle aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}
         Regenerate
-      </button>
-      <button onClick={onDownload} disabled={loading} className={ghost} title="Download as PNG">
-        <Download size={14} />
-        Download
-      </button>
-      <div className="mx-1 h-5 w-px bg-border" aria-hidden />
-      <button
+      </Button>
+      <Button variant="ghost" size="sm" onClick={onDownload} disabled={loading}>
+        <Download aria-hidden />
+        Download PNG
+      </Button>
+      <Button
+        variant="primary"
+        size="sm"
         onClick={onAccept}
         disabled={loading}
-        className="inline-flex items-center gap-1.5 px-4 py-1.5 text-[11px] font-black uppercase bg-zinc-950 text-white dark:bg-white dark:text-black border border-zinc-950 dark:border-white rounded-none disabled:opacity-40 hover:bg-transparent hover:text-zinc-950 dark:hover:bg-transparent dark:hover:text-white transition-colors"
-        title="Use this as the new base image"
+        title="Use as new base (Enter)"
+        className="ml-1"
       >
-        <Check size={14} />
-        Accept
-      </button>
+        <Check aria-hidden />
+        Use as new base
+      </Button>
     </div>
   );
 }

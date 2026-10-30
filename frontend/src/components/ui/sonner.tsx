@@ -1,49 +1,41 @@
-"use client"
+"use client";
 
-import { useTheme } from "next-themes"
-import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
+import { useTheme } from "next-themes";
+import { Toaster as Sonner, type ToasterProps } from "sonner";
+import { CircleAlert, CircleCheck, Info, LoaderCircle, TriangleAlert } from "lucide-react";
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const { resolvedTheme } = useTheme();
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
-      className="toaster group"
+      theme={(resolvedTheme ?? "system") as ToasterProps["theme"]}
+      // Top centre, below the 48px top bar: bottom-right would cover sticky
+      // run/download buttons and top-right would cover page actions.
+      position="top-center"
+      offset={56}
+      mobileOffset={56}
       icons={{
-        success: (
-          <CircleCheckIcon className="size-4" />
-        ),
-        info: (
-          <InfoIcon className="size-4" />
-        ),
-        warning: (
-          <TriangleAlertIcon className="size-4" />
-        ),
-        error: (
-          <OctagonXIcon className="size-4" />
-        ),
-        loading: (
-          <Loader2Icon className="size-4 animate-spin" />
-        ),
+        success: <CircleCheck className="size-4 text-success" />,
+        info: <Info className="size-4 text-info" />,
+        warning: <TriangleAlert className="size-4 text-warning" />,
+        error: <CircleAlert className="size-4 text-danger" />,
+        loading: <LoaderCircle className="size-4 animate-spin" />,
       }}
-      style={
-        {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
-        } as React.CSSProperties
-      }
       toastOptions={{
+        unstyled: true,
         classNames: {
-          toast: "cn-toast",
+          toast: "oa-toast",
+          title: "text-[11px] font-bold uppercase leading-4 tracking-[0.06em]",
+          description: "text-xs leading-[18px] text-ink-2",
+          actionButton: "oa-btn oa-btn-secondary oa-btn-sm ml-auto",
+          cancelButton: "oa-btn oa-btn-ghost oa-btn-sm",
+          closeButton: "oa-btn oa-btn-ghost oa-btn-sm oa-btn-icon",
         },
       }}
       {...props}
     />
-  )
-}
+  );
+};
 
-export { Toaster }
+export { Toaster };

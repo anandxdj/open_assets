@@ -20,7 +20,8 @@ function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-function sanitize(name: string): string {
+/** File-name stem used inside the ZIPs (before the .png and any _2 suffix). */
+export function sanitize(name: string): string {
   return name.trim().replace(/[^a-zA-Z0-9-_]+/g, "_").slice(0, 80) || "asset";
 }
 

@@ -2,9 +2,8 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { FileImage, FolderOpen, Loader2, UploadCloud, X } from "lucide-react";
+import { FolderOpen, ImageUp, LoaderCircle, X } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import {
   type AniBuddyProject,
   type SourceAsset,
@@ -18,6 +17,11 @@ import {
   parseManifest,
   restoreProject,
 } from "@/features/anibuddy/lib/manifest";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/controls";
+import { Notice } from "@/components/ui/feedback";
+import { Hint, Inspector, PanelSection, Prop, StageArea } from "@/features/anibuddy/components/WorkspacePanels";
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
@@ -130,12 +134,14 @@ export function SourceStep({
     [onPending],
   );
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     accept: { "image/png": [], "image/webp": [], "image/jpeg": [] },
     maxSize: MAX_BYTES,
     maxFiles: 1,
     multiple: false,
     disabled: busy,
+    noClick: true,
+    noKeyboard: true,
     onDrop: (files) => {
       const file = files[0];
       if (!file) return;
@@ -148,174 +154,174 @@ export function SourceStep({
 
   const oversized =
     source !== null && Math.max(source.width, source.height) > MAX_SOURCE_EDGE;
+  const showDrop = Boolean(pending) || !source;
 
   return (
-    <section className="border-2 border-zinc-950 bg-card text-card-foreground p-5 dark:border-zinc-100 sm:p-7">
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
-            01 / supplied artwork
-          </p>
-          <h2 className="mt-1 text-xl font-black uppercase tracking-tight">
-            {pending ? "Reopen a saved project" : "Add one character"}
-          </h2>
-        </div>
-        {!pending && source && rightsConfirmed && (
-          <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-            Ready to prepare
-          </span>
-        )}
-      </div>
-
-      {pending && (
-        <div className="mb-5 border-l-2 border-fuchsia-600 pl-4">
-          <p className="text-sm leading-6 text-zinc-700 dark:text-zinc-200">
-            This project holds a rig but no pixels. Supply{" "}
-            <strong>{pending.sourceName ?? "the original artwork"}</strong> — the exact image it was
-            rigged against — and your joints, motion, and settings come back.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              onPending(null);
-              setError(null);
-            }}
-            className="mt-2 font-mono text-[10px] font-bold uppercase tracking-wider text-zinc-500 underline underline-offset-4 hover:text-zinc-950 dark:hover:text-zinc-100"
-          >
-            Cancel reopen
-          </button>
-        </div>
-      )}
-
-      {pending || !source ? (
-        <div
-          {...getRootProps()}
-          className={cn(
-            "flex min-h-64 flex-col items-center justify-center border-2 border-dashed px-6 text-center transition-colors",
-            busy ? "cursor-wait opacity-60" : "cursor-pointer",
-            isDragActive
-              ? "border-fuchsia-600 bg-fuchsia-50 dark:bg-fuchsia-950/30"
-              : "border-zinc-300 hover:border-zinc-950 dark:border-zinc-700 dark:hover:border-zinc-100",
-          )}
-        >
-          <input {...getInputProps()} />
-          {busy ? (
-            <>
-              <Loader2 className="mb-4 h-7 w-7 animate-spin text-fuchsia-700 dark:text-fuchsia-300" />
-              <p className="font-bold">Preparing and checking against the saved rig…</p>
-            </>
-          ) : (
-            <>
-              <UploadCloud className="mb-4 h-7 w-7 text-fuchsia-700 dark:text-fuchsia-300" />
-              <p className="font-bold">
-                {pending
-                  ? "Drop the original image here, or browse"
-                  : "Drop a character image here, or browse"}
-              </p>
-              <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                {pending
-                  ? "It is re-prepared with the same settings and fingerprinted. A different image is refused rather than rigged wrongly."
-                  : "PNG is best. Use one mostly front-facing character with a clean silhouette. JPG and WebP also work for preparation."}
-              </p>
-              <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.13em] text-zinc-500">
-                PNG · JPG · WebP / up to 20 MB
-              </p>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="grid gap-5 sm:grid-cols-[13rem_1fr]">
-          <div className="grid min-h-56 place-items-center overflow-hidden bg-[linear-gradient(45deg,#e4e4e7_25%,transparent_25%),linear-gradient(-45deg,#e4e4e7_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e4e4e7_75%),linear-gradient(-45deg,transparent_75%,#e4e4e7_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] dark:bg-[linear-gradient(45deg,#27272a_25%,transparent_25%),linear-gradient(-45deg,#27272a_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#27272a_75%),linear-gradient(-45deg,transparent_75%,#27272a_75%)]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={source.dataUrl}
-              alt="Supplied character artwork"
-              className="max-h-64 max-w-full object-contain"
-            />
-          </div>
-          <div className="flex flex-col justify-between gap-4">
-            <div>
-              <p className="flex items-center gap-2 font-bold">
-                <FileImage className="h-4 w-4 text-fuchsia-700" />
-                {source.name}
-              </p>
-              <p className="mt-2 font-mono text-xs text-zinc-500">
-                {source.width} × {source.height}px · local browser asset
-              </p>
-              {oversized && (
-                <p className="mt-3 text-sm leading-6 text-amber-700 dark:text-amber-300">
-                  Larger than {MAX_SOURCE_EDGE}px, so preparation will downscale it. Rig and export
-                  work at the downscaled size.
-                </p>
+    <>
+      <StageArea label="Artwork">
+        {showDrop ? (
+          <div className="flex flex-1 p-4 md:p-6">
+            <div
+              {...getRootProps({
+                className: "oa-drop flex-1",
+                "aria-busy": busy || undefined,
+              })}
+              data-over={isDragActive}
+            >
+              <input {...getInputProps()} />
+              {busy ? (
+                <>
+                  <LoaderCircle aria-hidden className="size-8 animate-spin text-brand" />
+                  <p className="oa-section" role="status">
+                    Checking the image against the saved rig…
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="oa-icon-box size-12">
+                    <ImageUp aria-hidden className="size-6" />
+                  </span>
+                  <div className="flex max-w-md flex-col gap-1">
+                    <h3 className="oa-section">
+                      {pending ? "Add the original image" : "Add one character"}
+                    </h3>
+                    <p className="text-xs leading-[18px] text-ink-2">
+                      {pending
+                        ? "It's prepared with the same settings and fingerprinted. A different image is refused rather than rigged wrongly."
+                        : "Drop an image here. PNG works best: one mostly front-facing character with a clean silhouette. JPEG and WebP work too."}
+                    </p>
+                  </div>
+                  <Button variant="primary" size="lg" onClick={open}>
+                    <ImageUp aria-hidden />
+                    Choose image
+                  </Button>
+                  <Hint>PNG, JPEG or WebP · up to 20 MB</Hint>
+                </>
               )}
-              <p className="mt-5 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                Next, preparation makes the background transparent and trims the artwork. Your
-                pixels stay in this browser until you run rig analysis.
-              </p>
             </div>
-            <button
-              type="button"
-              onClick={() => onSource(null)}
-              className="flex w-fit items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
-            >
-              <X className="h-3.5 w-3.5" />
-              Choose another file
-            </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-1 items-center justify-center p-4 md:p-8">
+            <div className="oa-checker relative h-full min-h-[300px] w-full max-w-[560px] border border-line">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={source.dataUrl}
+                alt="Supplied character artwork"
+                className="absolute inset-0 size-full object-contain p-6"
+              />
+            </div>
+          </div>
+        )}
+      </StageArea>
 
-      {error && (
-        <p className="mt-4 border border-red-500 bg-red-50 px-3 py-2 text-sm leading-6 dark:bg-red-950/30">
-          {error}
-        </p>
-      )}
-
-      {!pending && (
-        <>
-          <label className="mt-5 flex cursor-pointer items-start gap-3 border-t border-zinc-200 pt-4 text-sm leading-5 dark:border-zinc-700">
-            <input
-              type="checkbox"
-              checked={rightsConfirmed}
-              onChange={(event) => onRights(event.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-fuchsia-700"
-            />
-            <span>I have the rights or permission to animate this artwork.</span>
-          </label>
-
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={onContinue}
-              disabled={!source || !rightsConfirmed}
-              className="bg-fuchsia-700 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Continue to preparation
-            </button>
-
-            <input
-              ref={manifestInput}
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                // Reset first, so picking the same file twice fires again.
-                event.target.value = "";
-                if (file) void chooseManifest(file);
+      <Inspector
+        title={pending ? "Reopen project" : "Your artwork"}
+        footer={
+          !pending && (
+            <>
+              <Button variant="primary" block disabled={!source || !rightsConfirmed} onClick={onContinue}>
+                Continue to preparation
+              </Button>
+              <input
+                ref={manifestInput}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  // Reset first, so picking the same file twice fires again.
+                  event.target.value = "";
+                  if (file) void chooseManifest(file);
+                }}
+              />
+              <Button variant="ghost" size="sm" className="self-center" onClick={() => manifestInput.current?.click()}>
+                <FolderOpen aria-hidden />
+                Open a project file
+              </Button>
+            </>
+          )
+        }
+      >
+        {pending && (
+          <PanelSection>
+            <Notice tone="info">
+              This project holds a rig but no pixels. Add{" "}
+              <span className="oa-value font-bold">{pending.sourceName ?? "the original artwork"}</span>, the exact
+              image it was rigged against, and your joints, motion and settings come back.
+            </Notice>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="self-start"
+              onClick={() => {
+                onPending(null);
+                setError(null);
               }}
-            />
-            <button
-              type="button"
-              onClick={() => manifestInput.current?.click()}
-              className="flex items-center gap-2 border-2 border-zinc-950 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider dark:border-zinc-100"
             >
-              <FolderOpen className="h-3.5 w-3.5" />
-              Open a project file
-            </button>
-          </div>
-        </>
-      )}
-    </section>
+              Cancel reopen
+            </Button>
+          </PanelSection>
+        )}
+
+        {!pending && source && (
+          <PanelSection
+            title="Source"
+            aside={rightsConfirmed ? <Badge tone="success">Ready</Badge> : undefined}
+          >
+            <Prop label="File">
+              <span className="oa-value block truncate text-ink" title={source.name}>
+                {source.name}
+              </span>
+            </Prop>
+            <Prop label="Size">
+              <span className="oa-value text-ink">
+                {source.width} × {source.height}
+              </span>
+            </Prop>
+            {oversized && (
+              <Notice tone="warning">
+                Larger than {MAX_SOURCE_EDGE}px, so preparation will scale it down. Rig and export use the smaller
+                size.
+              </Notice>
+            )}
+            <Hint>
+              Next, preparation makes the background transparent and trims the artwork. Your pixels stay in this
+              browser until you run rig analysis.
+            </Hint>
+            <Button variant="ghost" size="sm" className="self-start" onClick={() => onSource(null)}>
+              <X aria-hidden />
+              Choose another file
+            </Button>
+          </PanelSection>
+        )}
+
+        {!pending && !source && (
+          <PanelSection>
+            <Hint>Add one character to start. You can also reopen a project file you saved earlier.</Hint>
+          </PanelSection>
+        )}
+
+        {!pending && (
+          <PanelSection className="border-b-0">
+            <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[18px]">
+              <Checkbox
+                checked={rightsConfirmed}
+                onChange={(event) => onRights(event.target.checked)}
+                className="mt-px"
+              />
+              <span>I have the rights or permission to animate this artwork.</span>
+            </label>
+          </PanelSection>
+        )}
+
+        {error && (
+          <PanelSection className="border-b-0">
+            <Notice tone="danger" role="alert">
+              {error}
+            </Notice>
+          </PanelSection>
+        )}
+      </Inspector>
+    </>
   );
 }

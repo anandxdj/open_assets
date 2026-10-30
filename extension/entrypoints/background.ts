@@ -112,7 +112,8 @@ async function handle(request: WorkerRequest): Promise<WorkerResponse> {
         const hint = document.createElement('div');
         hint.dataset.openassetsPicker = 'true';
         hint.textContent = 'OpenAssets: click an image to extract, or press Escape to cancel';
-        hint.style.cssText = 'position:fixed;z-index:2147483647;top:16px;left:50%;transform:translateX(-50%);padding:10px 14px;border-radius:8px;background:#20201d;color:#fff;font:600 13px system-ui;box-shadow:0 8px 30px rgba(0,0,0,.28)';
+        // Injected into the page, so it cannot use the extension's oa.css tokens: literal OpenAssets paper/ink values.
+        hint.style.cssText = 'position:fixed;z-index:2147483647;top:16px;left:50%;transform:translateX(-50%);padding:10px 14px;border:1.5px solid #0A0A0A;border-radius:0;background:#F4F3EE;color:#0A0A0A;font:700 12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em;box-shadow:6px 6px 0 #0A0A0A';
         document.documentElement.append(hint);
         const cleanup = () => { hint.remove(); document.removeEventListener('click', onClick, true); document.removeEventListener('keydown', onKey, true); };
         const onClick = (event: MouseEvent) => { const image = (event.target as Element | null)?.closest('img'); if (!image || !(image as HTMLImageElement).currentSrc) return; event.preventDefault(); event.stopPropagation(); chrome.runtime.sendMessage({ type: 'EXTRACT_IMAGE_URL', imageUrl: (image as HTMLImageElement).currentSrc }); cleanup(); };

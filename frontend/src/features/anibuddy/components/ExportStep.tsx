@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Download, FileJson, Film, Images, Loader2, ShieldCheck } from "lucide-react";
+import { FileJson, Film, Images, LoaderCircle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/features/anibuddy/types";
 import {
   type ExportInput,
+  BACKGROUND_CSS,
   BACKGROUND_LABEL,
   ExportError,
   downloadBlob,
@@ -22,8 +23,13 @@ import {
   exportPngFrames,
 } from "@/features/anibuddy/lib/export";
 import { buildManifest, manifestFilename } from "@/features/anibuddy/lib/manifest";
+import { Button } from "@/components/ui/button";
+import { Progress, Segmented } from "@/components/ui/controls";
+import { Notice } from "@/components/ui/feedback";
+import { Hint, Inspector, PanelSection, Prop, StageArea } from "@/features/anibuddy/components/WorkspacePanels";
 
 const BACKGROUNDS: BackgroundId[] = ["transparent", "white", "dark"];
+const BACKGROUND_OPTIONS = BACKGROUNDS.map((value) => ({ value, label: BACKGROUND_LABEL[value] }));
 
 type Job = "gif" | "png" | null;
 
@@ -110,135 +116,120 @@ export function ExportStep({ project, prepared, rig, clip, onBackground }: Expor
   }, [project, prepared]);
 
   const busy = job !== null;
+  // The matte comes from the export library, so the preview shows exactly what
+  // a GIF will be flattened onto.
+  const matte = BACKGROUND_CSS[project.background];
 
   return (
-    <section className="border-2 border-zinc-950 bg-card text-card-foreground p-5 dark:border-zinc-100 sm:p-7">
-      <div className="mb-5">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
-          05 / export
-        </p>
-        <h2 className="mt-1 text-xl font-black uppercase tracking-tight">Take it with you</h2>
-      </div>
-
-      <div>
-        <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
-          Background
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {BACKGROUNDS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => onBackground(option)}
-              aria-pressed={project.background === option}
-              className={cn(
-                "border px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider",
-                project.background === option
-                  ? "border-fuchsia-700 bg-fuchsia-700 text-white"
-                  : "border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300",
-              )}
+    <>
+      <StageArea label="Export preview">
+        <div className="flex flex-1 items-center justify-center p-4 md:p-8">
+          <figure className="flex w-full max-w-[520px] flex-col gap-2">
+            <div
+              className={cn("relative min-h-[300px] w-full border border-line", !matte && "oa-checker")}
+              style={matte ? { backgroundColor: matte } : undefined}
             >
-              {BACKGROUND_LABEL[option]}
-            </button>
-          ))}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={prepared.dataUrl} alt="Character on the chosen export background" className="absolute inset-0 size-full object-contain p-6" />
+            </div>
+            <figcaption className="flex items-center justify-between gap-3">
+              <span className="oa-label text-ink">{BACKGROUND_LABEL[project.background]} background</span>
+              <span className="oa-value text-ink-3">
+                {prepared.width} × {prepared.height}
+              </span>
+            </figcaption>
+          </figure>
         </div>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          A GIF can only mark a pixel as fully transparent or fully opaque, so soft edges are
-          flattened onto this colour. Choosing <strong>Transparent</strong> gives a clean cut-out
-          with slightly harder edges. The PNG frames keep the real alpha channel either way.
-        </p>
-      </div>
+      </StageArea>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => void runGif()}
-          disabled={busy}
-          className="flex items-center justify-center gap-2 bg-fuchsia-700 px-4 py-3 font-mono text-xs font-bold uppercase tracking-wider text-white disabled:opacity-40"
-        >
-          {job === "gif" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Film className="h-3.5 w-3.5" />}
-          Animated GIF
-        </button>
-        <button
-          type="button"
-          onClick={() => void runPng()}
-          disabled={busy}
-          className="flex items-center justify-center gap-2 border-2 border-zinc-950 px-4 py-3 font-mono text-xs font-bold uppercase tracking-wider disabled:opacity-40 dark:border-zinc-100"
-        >
-          {job === "png" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Images className="h-3.5 w-3.5" />}
-          PNG frames
-        </button>
-        <button
-          type="button"
-          onClick={runManifest}
-          disabled={busy}
-          className="flex items-center justify-center gap-2 border-2 border-zinc-950 px-4 py-3 font-mono text-xs font-bold uppercase tracking-wider disabled:opacity-40 dark:border-zinc-100"
-        >
-          <FileJson className="h-3.5 w-3.5" />
-          Project file
-        </button>
-      </div>
+      <Inspector
+        title="Export"
+        footer={
+          <>
+            <Button variant="primary" block disabled={busy} onClick={() => void runGif()}>
+              {job === "gif" ? <LoaderCircle aria-hidden className="animate-spin" /> : <Film aria-hidden />}
+              Download GIF
+            </Button>
+            <Button variant="secondary" block disabled={busy} onClick={() => void runPng()}>
+              {job === "png" ? <LoaderCircle aria-hidden className="animate-spin" /> : <Images aria-hidden />}
+              Download PNG frames
+            </Button>
+            <Button variant="ghost" size="sm" className="self-center" disabled={busy} onClick={runManifest}>
+              <FileJson aria-hidden />
+              Save project file
+            </Button>
+          </>
+        }
+      >
+        <PanelSection title="Background">
+          <Segmented
+            ariaLabel="Export background"
+            block
+            value={project.background}
+            options={BACKGROUND_OPTIONS}
+            onChange={onBackground}
+          />
+          <Hint>
+            A GIF can only mark a pixel as fully transparent or fully opaque, so soft edges are flattened onto this
+            colour. Transparent gives a clean cut-out with slightly harder edges. PNG frames keep the real alpha
+            channel either way.
+          </Hint>
+        </PanelSection>
 
-      {busy && (
-        <div className="mt-4">
-          <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800">
-            <div className="h-full bg-fuchsia-700 transition-[width]" style={{ width: `${progress}%` }} />
-          </div>
-          <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-zinc-500">
-            Rendering frames · {progress}%
-          </p>
-        </div>
-      )}
+        <PanelSection title="Details">
+          <Prop label="Clip">
+            <span className="block truncate text-ink">{clip.name}</span>
+          </Prop>
+          <Prop label="Frames">
+            <span className="oa-value text-ink">
+              {project.frameCount} at {project.fps} fps
+            </span>
+          </Prop>
+          <Prop label="PNG size">
+            <span className="oa-value text-ink">
+              {prepared.width} × {prepared.height}
+            </span>
+          </Prop>
+          <Prop label="GIF size">
+            <span className="oa-value text-ink">Up to {MAX_GIF_EDGE}px on the longest edge</span>
+          </Prop>
+        </PanelSection>
 
-      <dl className="mt-5 grid gap-x-6 gap-y-2 border-t border-zinc-200 pt-5 font-mono text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-300 sm:grid-cols-2">
-        <div className="flex justify-between gap-4">
-          <dt>Clip</dt>
-          <dd>{clip.name}</dd>
-        </div>
-        <div className="flex justify-between gap-4">
-          <dt>Frames</dt>
-          <dd>
-            {project.frameCount} @ {project.fps}fps
-          </dd>
-        </div>
-        <div className="flex justify-between gap-4">
-          <dt>PNG size</dt>
-          <dd>
-            {prepared.width} × {prepared.height}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-4">
-          <dt>GIF cap</dt>
-          <dd>{MAX_GIF_EDGE}px longest edge</dd>
-        </div>
-      </dl>
+        {(busy || note || error) && (
+          <PanelSection>
+            {busy && (
+              <div className="flex flex-col gap-1.5">
+                <Progress value={progress} label="Rendering frames" />
+                <span className="oa-value text-ink-2">
+                  <span role="status">Rendering frames</span>
+                  <span aria-hidden> · {progress}%</span>
+                </span>
+              </div>
+            )}
+            {note && (
+              <Notice tone="warning" role="status">
+                {note}
+              </Notice>
+            )}
+            {error && (
+              <Notice tone="danger" role="alert">
+                {error}
+              </Notice>
+            )}
+          </PanelSection>
+        )}
 
-      {note && (
-        <p className="mt-4 border border-amber-500 bg-amber-50 px-3 py-2 text-sm leading-6 dark:bg-amber-950/25">
-          {note}
-        </p>
-      )}
-      {error && (
-        <p className="mt-4 border border-red-500 bg-red-50 px-3 py-2 text-sm leading-6 dark:bg-red-950/30">
-          {error}
-        </p>
-      )}
-
-      <p className="mt-5 flex gap-2 border-l-2 border-emerald-600 pl-4 text-sm leading-6 text-zinc-700 dark:text-zinc-200">
-        <ShieldCheck className="mt-1 h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-300" />
-        <span>
-          No image generation was used. Every exported pixel came from the artwork you supplied,
-          moved by the rig you placed, rendered in this browser.
-        </span>
-      </p>
-
-      <p className="mt-4 flex gap-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-        <Download className="mt-1 h-3.5 w-3.5 shrink-0" />
-        <span>
-          The project file holds your rig and settings but not the artwork. Reopen it from the first
-          step and supply the same image to carry on editing.
-        </span>
-      </p>
-    </section>
+        <PanelSection className="border-b-0">
+          <Notice tone="success">
+            No image generation was used. Every exported pixel came from the artwork you supplied, moved by the rig
+            you placed and rendered in this browser.
+          </Notice>
+          <Hint>
+            The project file holds your rig and settings but not the artwork. Reopen it from the Your artwork step
+            and add the same image to keep editing.
+          </Hint>
+        </PanelSection>
+      </Inspector>
+    </>
   );
 }

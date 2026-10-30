@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Download, ImageUp, LoaderCircle, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { useEffect, useId, useRef, useState, type DragEvent } from "react";
+import { Check, Download, ImageUp, LoaderCircle, Wand } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Range, Segmented } from "@/components/ui/controls";
+import { Notice } from "@/components/ui/feedback";
+import { Field } from "@/components/ui/field";
+import { EnhanceTopbar } from "@/features/enhance/components/EnhanceTopbar";
 
 type Background = "transparent" | "white" | "dark";
 interface Recipe {
@@ -12,25 +18,100 @@ interface Recipe {
   background: Background;
   scale: 1 | 2 | 3;
 }
+type Size = { width: number; height: number };
 
 const defaults: Recipe = { cleanup: 4, speckRemoval: 1, contrast: 1, background: "transparent", scale: 1 };
 
+const ACCEPT = "image/svg+xml,image/png,image/jpeg,image/webp";
+const ACCEPTED_TYPES = ACCEPT.split(",");
+const ACCEPTED_NAME = /\.(svg|png|jpe?g|webp)$/i;
+const MAX_BYTES = 20 * 1024 * 1024;
+
+const BACKGROUND_OPTIONS = [
+  { value: "transparent" as const, label: "Transparent" },
+  { value: "white" as const, label: "White" },
+  { value: "dark" as const, label: "Dark" },
+];
+const SCALE_OPTIONS = [
+  { value: "1", label: "1×" },
+  { value: "2", label: "2×" },
+  { value: "3", label: "3×" },
+];
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatSize(size: Size | null): string {
+  return size ? `${size.width} × ${size.height}` : "";
+}
+
+function baseName(name: string): string {
+  return name.replace(/\.[^.]+$/, "") || "artwork";
+}
+
+function naturalSize(image: HTMLImageElement): Size {
+  return { width: image.naturalWidth, height: image.naturalHeight };
+}
+
 export function ExcaliburWorkspace() {
-  const [file, setFile] = useState<File | null>(null);
-  const [recipe, setRecipe] = useState<Recipe>(defaults);
+  const id = useId();
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  // Object URLs are revoked when they are replaced and when the page unmounts.
+  const live = useRef<{ source: string | null; result: string | null }>({ source: null, result: null });
+
+  const [source, setSource] = useState<{ file: File; url: string } | null>(null);
+  const [sourceSize, setSourceSize] = useState<Size | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultSize, setResultSize] = useState<Size | null>(null);
+  const [recipe, setRecipe] = useState<Recipe>(defaults);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const sourceUrl = useMemo(() => file ? URL.createObjectURL(file) : null, [file]);
+  const [dragOver, setDragOver] = useState(false);
 
-  useEffect(() => () => { if (sourceUrl) URL.revokeObjectURL(sourceUrl); }, [sourceUrl]);
-  useEffect(() => () => { if (resultUrl) URL.revokeObjectURL(resultUrl); }, [resultUrl]);
+  useEffect(() => {
+    const urls = live.current;
+    return () => {
+      if (urls.source) URL.revokeObjectURL(urls.source);
+      if (urls.result) URL.revokeObjectURL(urls.result);
+    };
+  }, []);
+
+  function replaceResult(url: string | null) {
+    const urls = live.current;
+    if (urls.result) URL.revokeObjectURL(urls.result);
+    urls.result = url;
+    setResultUrl(url);
+    setResultSize(null);
+  }
+
+  function choose(file: File | null | undefined) {
+    if (!file) return;
+    if (!ACCEPTED_TYPES.includes(file.type) && !ACCEPTED_NAME.test(file.name)) {
+      setError("Choose an SVG, PNG, JPEG or WebP image.");
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setError("That file is larger than 20 MB. Choose a smaller image.");
+      return;
+    }
+    const urls = live.current;
+    if (urls.source) URL.revokeObjectURL(urls.source);
+    const url = URL.createObjectURL(file);
+    urls.source = url;
+    setSource({ file, url });
+    setSourceSize(null);
+    replaceResult(null);
+    setError(null);
+  }
 
   async function submit() {
-    if (!file) return;
+    if (!source) return;
     setError(null);
     const form = new FormData();
-    form.append("image", file);
+    form.append("image", source.file);
     form.append("cleanup", String(recipe.cleanup));
     form.append("speckRemoval", String(recipe.speckRemoval));
     form.append("contrast", String(recipe.contrast));
@@ -38,10 +119,10 @@ export function ExcaliburWorkspace() {
     form.append("scale", String(recipe.scale));
     try {
       setBusy(true);
-      if (resultUrl) URL.revokeObjectURL(resultUrl);
-      setResultUrl(URL.createObjectURL(await apiClient.postFormBlob("/api/enhance/excalibur", form)));
+      const blob = await apiClient.postFormBlob("/api/enhance/excalibur", form);
+      replaceResult(URL.createObjectURL(blob));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Could not start enhancement.");
+      setError(submitError instanceof Error ? submitError.message : "Couldn't enhance the image. Try again.");
     } finally {
       setBusy(false);
     }
@@ -49,50 +130,285 @@ export function ExcaliburWorkspace() {
 
   function reset() {
     setRecipe(defaults);
-    if (resultUrl) URL.revokeObjectURL(resultUrl);
-    setResultUrl(null);
+    replaceResult(null);
     setError(null);
   }
 
-  return (
-    <main className="mx-auto w-full max-w-7xl px-6 py-8 sm:py-12">
-      <div className="border-b-2 border-zinc-950 pb-5 dark:border-zinc-100">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Excalibur Enhance / deterministic</p>
-        <h1 className="mt-2 text-2xl font-black uppercase tracking-tight">Polish the lines. Keep the intent.</h1>
-      </div>
+  const openPicker = () => fileInput.current?.click();
 
-      <div className="grid gap-6 py-8 lg:grid-cols-[17rem_minmax(0,1fr)]">
-        <aside className="border border-zinc-300 bg-card p-4 dark:border-zinc-700 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.12em]"><SlidersHorizontal size={15} /> Controls</div>
-            <label className="mt-6 block font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500">Stroke clarity {recipe.cleanup}/10
-              <input className="mt-2 w-full accent-zinc-950 dark:accent-zinc-100" type="range" min="0" max="10" value={recipe.cleanup} onChange={(event) => setRecipe({ ...recipe, cleanup: Number(event.target.value) })} />
-            </label>
-            <label className="mt-5 block font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500">Speck removal {recipe.speckRemoval}/10
-              <input className="mt-2 w-full accent-zinc-950 dark:accent-zinc-100" type="range" min="0" max="10" value={recipe.speckRemoval} onChange={(event) => setRecipe({ ...recipe, speckRemoval: Number(event.target.value) })} />
-            </label>
-            <label className="mt-5 block font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500">Contrast {recipe.contrast.toFixed(1)}×
-              <input className="mt-2 w-full accent-zinc-950 dark:accent-zinc-100" type="range" min="0.5" max="2" step="0.1" value={recipe.contrast} onChange={(event) => setRecipe({ ...recipe, contrast: Number(event.target.value) })} />
-            </label>
-            <fieldset className="mt-5"><legend className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500">Background</legend>
-              <div className="mt-2 grid grid-cols-3 gap-1">{(["transparent", "white", "dark"] as const).map((background) => <button type="button" key={background} onClick={() => setRecipe({ ...recipe, background })} className={`border px-1 py-1.5 font-mono text-[9px] uppercase ${recipe.background === background ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950" : "border-zinc-300 text-zinc-500 dark:border-zinc-700"}`}>{background === "transparent" ? "alpha" : background}</button>)}</div>
-            </fieldset>
-            <fieldset className="mt-5"><legend className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500">Output</legend>
-              <div className="mt-2 grid grid-cols-3 gap-1">{([1, 2, 3] as const).map((scale) => <button type="button" key={scale} onClick={() => setRecipe({ ...recipe, scale })} className={`border px-2 py-1.5 font-mono text-[10px] ${recipe.scale === scale ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950" : "border-zinc-300 text-zinc-500 dark:border-zinc-700"}`}>{scale}× PNG</button>)}</div>
-            </fieldset>
-            <button type="button" onClick={reset} className="mt-6 inline-flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-100"><RotateCcw size={13} /> Reset controls</button>
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    if (!dragOver) setDragOver(true);
+  };
+  const onDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragOver(false);
+  };
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragOver(false);
+    choose(event.dataTransfer.files?.[0]);
+  };
+
+  const status = busy ? "Cleaning lines…" : resultUrl ? "Enhanced image ready." : "";
+  const downloadName = source ? `${baseName(source.file.name)}-enhanced.png` : "enhanced.png";
+
+  return (
+    <>
+      <EnhanceTopbar active="cleanup" />
+      <p role="status" aria-live="polite" className="sr-only">
+        {status}
+      </p>
+      <input
+        ref={fileInput}
+        type="file"
+        accept={ACCEPT}
+        tabIndex={-1}
+        aria-hidden
+        className="sr-only"
+        onChange={(event) => {
+          choose(event.target.files?.[0]);
+          // Reset so choosing the same file again still fires.
+          event.target.value = "";
+        }}
+      />
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-14 md:flex-row md:overflow-hidden md:pb-0">
+        <aside
+          aria-label="Cleanup settings"
+          className="flex flex-none flex-col border-b-[1.5px] border-line bg-surface md:w-[320px] md:border-b-0 md:border-r-[1.5px]"
+        >
+          <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">
+            <div className="oa-panel-sec gap-0.5">
+              <h1 className="oa-section">Cleanup</h1>
+              <p className="text-[11px] leading-4 text-ink-2">
+                Sharpen lines and remove specks. No AI: the same settings always give the same result.
+              </p>
+            </div>
+
+            <section className="oa-panel-sec" aria-labelledby={`${id}-source`}>
+              <h2 id={`${id}-source`} className="oa-panel-title">
+                Source
+              </h2>
+              {source ? (
+                <div className="flex items-center gap-2.5">
+                  <span className="oa-checker flex size-11 flex-none items-center justify-center border border-line">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={source.url} alt="" className="max-h-8 max-w-8 object-contain" />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="oa-value truncate text-ink" title={source.file.name}>
+                      {source.file.name}
+                    </span>
+                    <span className="text-[11px] leading-4 text-ink-3">
+                      {[formatSize(sourceSize), formatBytes(source.file.size)].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                  <Button variant="ghost" size="sm" aria-label="Replace artwork" onClick={openPicker}>
+                    Replace
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Button variant="secondary" block onClick={openPicker}>
+                    <ImageUp aria-hidden />
+                    Choose artwork
+                  </Button>
+                  <span className="text-[11px] leading-4 text-ink-3">SVG, PNG, JPEG or WebP · up to 20 MB</span>
+                </>
+              )}
+            </section>
+
+            <section className="oa-panel-sec" aria-labelledby={`${id}-adjust`}>
+              <h2 id={`${id}-adjust`} className="oa-panel-title">
+                Adjust
+              </h2>
+              <Field
+                label="Stroke clarity"
+                htmlFor={`${id}-clarity`}
+                aside={<span className="oa-value text-ink">{recipe.cleanup}</span>}
+              >
+                <Range
+                  id={`${id}-clarity`}
+                  min={0}
+                  max={10}
+                  step={1}
+                  value={recipe.cleanup}
+                  aria-valuetext={`${recipe.cleanup} of 10`}
+                  onChange={(event) => setRecipe({ ...recipe, cleanup: Number(event.target.value) })}
+                />
+              </Field>
+              <Field
+                label="Speck removal"
+                htmlFor={`${id}-specks`}
+                aside={<span className="oa-value text-ink">{recipe.speckRemoval}</span>}
+              >
+                <Range
+                  id={`${id}-specks`}
+                  min={0}
+                  max={10}
+                  step={1}
+                  value={recipe.speckRemoval}
+                  aria-valuetext={`${recipe.speckRemoval} of 10`}
+                  onChange={(event) => setRecipe({ ...recipe, speckRemoval: Number(event.target.value) })}
+                />
+              </Field>
+              <Field
+                label="Contrast"
+                htmlFor={`${id}-contrast`}
+                aside={<span className="oa-value text-ink">{recipe.contrast.toFixed(1)}×</span>}
+              >
+                <Range
+                  id={`${id}-contrast`}
+                  min={0.5}
+                  max={2}
+                  step={0.1}
+                  value={recipe.contrast}
+                  aria-valuetext={`${recipe.contrast.toFixed(1)} times`}
+                  onChange={(event) => setRecipe({ ...recipe, contrast: Number(event.target.value) })}
+                />
+              </Field>
+            </section>
+
+            <section className="oa-panel-sec border-b-0" aria-labelledby={`${id}-output`}>
+              <h2 id={`${id}-output`} className="oa-panel-title">
+                Output
+              </h2>
+              <div className="oa-field">
+                <span className="oa-field-label" aria-hidden>
+                  Background
+                </span>
+                <Segmented
+                  ariaLabel="Background"
+                  block
+                  value={recipe.background}
+                  options={BACKGROUND_OPTIONS}
+                  onChange={(background) => setRecipe({ ...recipe, background })}
+                />
+              </div>
+              <div className="oa-field">
+                <span className="oa-field-label" aria-hidden>
+                  Scale
+                </span>
+                <Segmented
+                  ariaLabel="Output scale"
+                  block
+                  value={String(recipe.scale)}
+                  options={SCALE_OPTIONS}
+                  onChange={(scale) => setRecipe({ ...recipe, scale: Number(scale) as Recipe["scale"] })}
+                />
+              </div>
+            </section>
           </div>
 
-          <div className="mt-6">
-            {error && <p className="mb-3 border border-red-400 bg-red-50 p-2.5 text-xs leading-5 text-red-800 dark:bg-red-950/30 dark:text-red-200">{error}</p>}
-            <button type="button" disabled={!file || busy} onClick={submit} className="flex w-full items-center justify-center gap-2 border border-zinc-950 bg-zinc-950 px-4 py-3 font-mono text-xs font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-950 dark:hover:text-zinc-100">{busy && <LoaderCircle size={15} className="animate-spin" />}{busy ? "Processing" : "Enhance image"}</button>
+          <div className="flex flex-none flex-col gap-2 border-t-[1.5px] border-line bg-surface px-3.5 py-3">
+            {error && (
+              <Notice tone="danger" role="alert">
+                {error}
+              </Notice>
+            )}
+            <Button variant="primary" size="lg" block disabled={!source || busy} onClick={() => void submit()}>
+              {busy && <LoaderCircle aria-hidden className="animate-spin" />}
+              {busy ? "Enhancing…" : resultUrl ? "Enhance again" : "Enhance image"}
+            </Button>
+            <Button variant="ghost" size="sm" className="self-center" onClick={reset}>
+              Reset controls
+            </Button>
           </div>
         </aside>
 
-        <section className="min-h-[28rem] border border-zinc-300 bg-[linear-gradient(45deg,#f4f4f5_25%,transparent_25%,transparent_75%,#f4f4f5_75%),linear-gradient(45deg,#f4f4f5_25%,transparent_25%,transparent_75%,#f4f4f5_75%)] bg-[length:22px_22px] bg-[position:0_0,11px_11px] p-4 dark:border-zinc-700 dark:bg-[linear-gradient(45deg,#27272a_25%,transparent_25%,transparent_75%,#27272a_75%),linear-gradient(45deg,#27272a_25%,transparent_25%,transparent_75%,#27272a_75%)]">
-          {!sourceUrl ? <label className="flex h-full min-h-[24rem] cursor-pointer flex-col items-center justify-center border-2 border-dashed border-zinc-400 bg-white/80 p-8 text-center dark:bg-zinc-900/80"><ImageUp size={32} /><span className="mt-4 font-mono text-sm font-bold uppercase tracking-[0.12em]">Choose source artwork</span><span className="mt-2 text-xs text-zinc-500">SVG, PNG, JPEG, or WebP · 20 MB max</span><input className="sr-only" type="file" accept="image/svg+xml,image/png,image/jpeg,image/webp" onChange={(event) => { setFile(event.target.files?.[0] ?? null); reset(); }} /></label> : <div className="grid h-full gap-4 md:grid-cols-2"><figure className="flex min-h-[24rem] flex-col bg-white/90 p-3 dark:bg-zinc-900/90"><figcaption className="mb-3 font-mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Original</figcaption><img src={sourceUrl} alt="Original uploaded artwork" className="min-h-0 flex-1 object-contain" /></figure><figure className="flex min-h-[24rem] flex-col bg-white/90 p-3 dark:bg-zinc-900/90"><figcaption className="mb-3 font-mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Enhanced output</figcaption>{resultUrl ? <><img src={resultUrl} alt="Enhanced artwork" className="min-h-0 flex-1 object-contain" /><a href={resultUrl} download="enhanced.png" className="mt-3 inline-flex items-center justify-center gap-2 border border-zinc-950 px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] hover:bg-zinc-950 hover:text-white dark:border-zinc-100 dark:hover:bg-zinc-100 dark:hover:text-zinc-950"><Download size={14} /> Download PNG</a></> : <div className="flex flex-1 items-center justify-center text-center font-mono text-xs uppercase tracking-[0.12em] text-zinc-500">{busy ? <span className="inline-flex items-center gap-2"><LoaderCircle size={16} className="animate-spin" /> Processing…</span> : "Run enhancement to compare"}</div>}</figure></div>}
-        </section>
+        <main aria-label="Comparison" className="flex min-h-[420px] flex-col bg-page md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto">
+          {source ? (
+            <div className="grid flex-1 grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-px bg-line">
+              <figure className="flex min-h-[340px] flex-col bg-page">
+                <figcaption className="flex h-10 flex-none items-center justify-between gap-3 px-4">
+                  <span className="oa-label text-ink">Original</span>
+                  <span className="oa-value text-ink-3">{formatSize(sourceSize)}</span>
+                </figcaption>
+                <div className="oa-checker relative mx-4 mb-4 min-h-[300px] flex-1 overflow-hidden border border-line">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={source.url}
+                    alt="Original artwork"
+                    onLoad={(event) => setSourceSize(naturalSize(event.currentTarget))}
+                    className="absolute inset-0 size-full object-contain p-6"
+                  />
+                </div>
+              </figure>
+
+              <figure className="flex min-h-[340px] flex-col bg-page">
+                <figcaption className="flex h-10 flex-none items-center justify-between gap-3 px-4">
+                  <span className="flex items-center gap-2">
+                    <span className="oa-label text-ink">Enhanced</span>
+                    {resultUrl && !busy && (
+                      <Badge tone="success">
+                        <Check aria-hidden />
+                        Done
+                      </Badge>
+                    )}
+                  </span>
+                  <span className="oa-value text-ink-3">{resultUrl && !busy ? formatSize(resultSize) : ""}</span>
+                </figcaption>
+                <div className="oa-checker relative mx-4 mb-4 flex min-h-[300px] flex-1 items-center justify-center overflow-hidden border border-line">
+                  {busy ? (
+                    <div className="flex flex-col items-center gap-2.5">
+                      <LoaderCircle aria-hidden className="size-8 animate-spin text-brand" />
+                      <span className="text-xs leading-[18px] text-ink-2">Cleaning lines…</span>
+                    </div>
+                  ) : resultUrl ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={resultUrl}
+                        alt="Enhanced artwork"
+                        onLoad={(event) => setResultSize(naturalSize(event.currentTarget))}
+                        className="absolute inset-0 size-full object-contain p-6 pb-16"
+                      />
+                      <div className="oa-float absolute bottom-3 left-1/2 -translate-x-1/2 gap-1.5 p-1.5">
+                        <Button asChild variant="primary" size="sm">
+                          <a href={resultUrl} download={downloadName}>
+                            <Download aria-hidden />
+                            Download PNG
+                          </a>
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="max-w-[240px] px-4 text-center text-xs leading-[18px] text-ink-2">
+                      Choose your settings, then press Enhance image to see the result here.
+                    </p>
+                  )}
+                </div>
+              </figure>
+            </div>
+          ) : (
+            <div className="flex flex-1 p-4 md:p-6">
+              <div
+                className="oa-drop flex-1"
+                data-over={dragOver}
+                onDragEnter={onDragOver}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop}
+              >
+                <span className="oa-icon-box size-12">
+                  <Wand aria-hidden className="size-6" />
+                </span>
+                <div className="flex flex-col gap-1">
+                  <h2 className="oa-section">Polish the lines, keep the intent</h2>
+                  <p className="text-xs leading-[18px] text-ink-2">
+                    Drop artwork here, or choose a file. SVG, PNG, JPEG or WebP up to 20 MB.
+                  </p>
+                </div>
+                <Button variant="primary" size="lg" onClick={openPicker}>
+                  <ImageUp aria-hidden />
+                  Choose artwork
+                </Button>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
-    </main>
+    </>
   );
 }

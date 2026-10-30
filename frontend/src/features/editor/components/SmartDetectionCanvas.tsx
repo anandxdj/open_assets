@@ -1,8 +1,25 @@
-import { useRef, useEffect, useState } from "react";
+"use client";
+
+import { useRef, useEffect, useId, useState } from "react";
 import type { BoundingBox } from "@/types";
 import type { Camera, DraftBox, Tool } from "../hooks/useCanvasEditor";
+import { useCanvasColors } from "../hooks/useCanvasColors";
+import { isSpaceForControl } from "../lib/keyboard";
+import { boxName } from "../lib/names";
 
 const HANDLE_PX = 8;
+// Label tag above each box: 10px JetBrains Mono, whose glyphs advance 0.6em.
+const TAG_H = 18;
+const TAG_FONT = 10;
+const TAG_PAD = 5;
+const TAG_CHAR_W = TAG_FONT * 0.6;
+const TAG_MAX_CHARS = 28;
+
+let boxSeq = 0;
+function makeBoxId(): string {
+  boxSeq += 1;
+  return `box_${Date.now()}_${boxSeq}`;
+}
 
 type HandleId = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "move";
 
@@ -172,7 +189,7 @@ function snapBox(
     const bgB = (tl.b + tr.b + bl.b + br.b) / 4;
 
     // Euclidean distance in RGB color space
-    isForeground = (r, g, b, a) => {
+    isForeground = (r, g, b) => {
       const dr = r - bgR;
       const dg = g - bgG;
       const db = b - bgB;
@@ -386,8 +403,7 @@ export function SmartDetectionCanvas({
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.code !== "Space" || spaceHeldRef.current) return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (isSpaceForControl(e.target)) return;
       e.preventDefault();
       spaceHeldRef.current = true;
       updateCursor("grab");
@@ -543,7 +559,7 @@ export function SmartDetectionCanvas({
 
             if (!isEmpty) {
               const newBox: BoundingBox = {
-                id: `box_${Date.now()}`,
+                id: makeBoxId(),
                 x: finalX,
                 y: finalY,
                 width: finalW,
@@ -668,7 +684,7 @@ export function SmartDetectionCanvas({
 
     // ALT + Drag duplication!
     if (handle === "move" && e.altKey) {
-      const newId = `box_${Date.now()}`;
+      const newId = makeBoxId();
       const duplicatedBox = {
         ...box,
         id: newId,
@@ -686,122 +702,136 @@ export function SmartDetectionCanvas({
     boxDragRef.current = { id, handle, startWorld: world, startBox: { ...box }, moved: handle === "move" && e.altKey ? true : false };
   }
 
-  const sw = 2 / camera.zoom;
-  const h = HANDLE_PX / camera.zoom;
+  const colors = useCanvasColors();
+  const checkerId = `oa-checker-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+
+  const zoom = camera.zoom;
+  const h = HANDLE_PX / zoom;
+  const sheetW = imageWidth * zoom;
+  const sheetH = imageHeight * zoom;
+  // Selected boxes draw last so their orange outline and handles sit on top.
+  const ordered = [
+    ...boxes.filter((b) => !selectedIds.has(b.id)),
+    ...boxes.filter((b) => selectedIds.has(b.id)),
+  ];
+
+  function selectFromClick(e: React.MouseEvent, id: string) {
+    const isModifierHeld = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (isModifierHeld) {
+      onToggle(id);
+    } else if (onSetSelectedIds) {
+      onSetSelectedIds(new Set([id]));
+    } else {
+      onToggle(id);
+    }
+  }
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-full overflow-hidden bg-zinc-950 select-none"
+      className="absolute inset-0 select-none overflow-hidden"
       style={{ cursor: "default" }}
     >
       <svg
         ref={svgRef}
-        className="w-full h-full"
+        className="block h-full w-full"
+        role="img"
+        aria-label={`Sheet with ${boxes.length} box${boxes.length === 1 ? "" : "es"}`}
         onMouseDown={handleSvgMouseDown}
       >
-        {/* Dot grid — pans with camera */}
         <defs>
-          <pattern
-            id="dots"
-            x={camera.x % 24}
-            y={camera.y % 24}
-            width="24"
-            height="24"
-            patternUnits="userSpaceOnUse"
-          >
-            <circle cx="0.5" cy="0.5" r="0.85" fill="rgba(255,255,255,0.1)" />
+          <pattern id={checkerId} x={camera.x} y={camera.y} width={16} height={16} patternUnits="userSpaceOnUse">
+            <rect width={16} height={16} style={{ fill: colors.checkerA }} />
+            <rect width={8} height={8} style={{ fill: colors.checkerB }} />
+            <rect x={8} y={8} width={8} height={8} style={{ fill: colors.checkerB }} />
           </pattern>
         </defs>
-        <rect data-bg="true" width="100%" height="100%" fill="url(#dots)" />
 
-        {/* World space transform */}
-        <g transform={`translate(${camera.x},${camera.y}) scale(${camera.zoom})`}>
-          {/* Drop shadow */}
-          <rect
-            x={-12} y={-12}
-            width={imageWidth + 24} height={imageHeight + 24}
-            rx={4 / camera.zoom}
-            fill="rgba(0,0,0,0.45)"
-          />
-          {/* Image */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* Sheet surround: checkerboard for transparency and a 1px line, in screen space */}
+        <rect
+          x={camera.x - 0.5}
+          y={camera.y - 0.5}
+          width={sheetW + 1}
+          height={sheetH + 1}
+          fill={`url(#${checkerId})`}
+          style={{ stroke: colors.line, strokeWidth: 1 }}
+          pointerEvents="none"
+        />
+
+        {/* World space */}
+        <g transform={`translate(${camera.x},${camera.y}) scale(${zoom})`}>
           <image
             href={imageUrl}
-            x={0} y={0}
-            width={imageWidth} height={imageHeight}
+            x={0}
+            y={0}
+            width={imageWidth}
+            height={imageHeight}
             style={{ imageRendering: "pixelated" }}
           />
 
-          {/* Bounding boxes */}
-          {boxes.map((box) => {
+          {ordered.map((box) => {
             const selected = selectedIds.has(box.id);
-            const handles = selected ? getHandles(box, camera.zoom) : [];
+            const handles = selected ? getHandles(box, zoom) : [];
+            const strokeW = (selected ? 2 : 1.5) / zoom;
+            const fullName = boxName(box);
+            const name = fullName.length > TAG_MAX_CHARS ? `${fullName.slice(0, TAG_MAX_CHARS - 1)}…` : fullName;
+            const tagW = (name.length * TAG_CHAR_W + TAG_PAD * 2) / zoom;
+            const tagH = TAG_H / zoom;
+            const tagX = box.x - strokeW / 2;
+            const tagY = box.y - strokeW / 2 - tagH;
             return (
               <g key={box.id}>
                 <rect
-                  x={box.x} y={box.y}
-                  width={box.width} height={box.height}
-                  fill={selected ? "rgba(99,102,241,0.25)" : "rgba(99,102,241,0.06)"}
-                  stroke="rgb(99,102,241)"
-                  strokeWidth={selected ? sw * 1.5 : sw}
-                  style={{ cursor: selected && activeTool === "select" ? "move" : activeTool === "select" ? "pointer" : "default" }}
+                  x={box.x}
+                  y={box.y}
+                  width={box.width}
+                  height={box.height}
+                  fill="none"
+                  pointerEvents="all"
+                  style={{
+                    stroke: selected ? colors.accent : colors.ink,
+                    strokeWidth: strokeW,
+                    cursor: selected && activeTool === "select" ? "move" : activeTool === "select" ? "pointer" : "default",
+                  }}
                   onClick={(e) => {
                     if (activeTool === "select") {
-                      if (!clickBlockedRef.current) {
-                        const isModifierHeld = e.shiftKey || e.ctrlKey || e.metaKey;
-                        if (isModifierHeld) {
-                          onToggle(box.id);
-                        } else {
-                          if (onSetSelectedIds) {
-                            onSetSelectedIds(new Set([box.id]));
-                          } else {
-                            onToggle(box.id);
-                          }
-                        }
-                      }
+                      if (!clickBlockedRef.current) selectFromClick(e, box.id);
                       clickBlockedRef.current = false;
                     }
                   }}
                   onMouseDown={(e) => {
                     if (activeTool === "select") {
-                      const isModifierHeld = e.shiftKey || e.ctrlKey || e.metaKey;
-                      if (!selected) {
-                        if (isModifierHeld) {
-                          onToggle(box.id);
-                        } else {
-                          if (onSetSelectedIds) {
-                            onSetSelectedIds(new Set([box.id]));
-                          } else {
-                            onToggle(box.id);
-                          }
-                        }
-                      }
+                      if (!selected) selectFromClick(e, box.id);
                       startBoxDrag(e, box.id, "move");
                     }
                   }}
                 />
-                {selected && (
-                  <text
-                    x={box.x + 4 / camera.zoom}
-                    y={box.y > 20 / camera.zoom ? box.y - 5 / camera.zoom : box.y + 14 / camera.zoom}
-                    fill="rgb(129,140,248)"
-                    fontSize={11 / camera.zoom}
-                    fontWeight="600"
-                    style={{ pointerEvents: "none", userSelect: "none" }}
-                  >
-                    {box.label ?? box.id}
-                  </text>
-                )}
+                <rect
+                  x={tagX}
+                  y={tagY}
+                  width={tagW}
+                  height={tagH}
+                  pointerEvents="none"
+                  style={{ fill: selected ? colors.accent : colors.ink }}
+                />
+                <text
+                  x={tagX + TAG_PAD / zoom}
+                  y={tagY + 12.5 / zoom}
+                  fontSize={TAG_FONT / zoom}
+                  fontWeight={700}
+                  pointerEvents="none"
+                  style={{ fill: selected ? colors.accentFg : colors.paper, userSelect: "none" }}
+                >
+                  {name}
+                </text>
                 {handles.map((handle) => (
                   <rect
                     key={handle.id}
-                    x={handle.x} y={handle.y}
-                    width={h} height={h}
-                    fill="white"
-                    stroke="rgb(99,102,241)"
-                    strokeWidth={1.5 / camera.zoom}
-                    style={{ cursor: handle.cursor }}
+                    x={handle.x}
+                    y={handle.y}
+                    width={h}
+                    height={h}
+                    style={{ fill: colors.surface, stroke: colors.ink, strokeWidth: 1.5 / zoom, cursor: handle.cursor }}
                     onMouseDown={(e) => startBoxDrag(e, box.id, handle.id)}
                   />
                 ))}
@@ -809,29 +839,29 @@ export function SmartDetectionCanvas({
             );
           })}
 
-          {/* In-progress drawing box */}
+          {/* Box being drawn */}
           {drawingBox && drawingBox.width > 0 && drawingBox.height > 0 && (
             <rect
-              x={drawingBox.x} y={drawingBox.y}
-              width={drawingBox.width} height={drawingBox.height}
-              fill="rgba(99,102,241,0.1)"
-              stroke="rgb(99,102,241)"
-              strokeWidth={sw}
-              strokeDasharray={`${8 / camera.zoom} ${4 / camera.zoom}`}
-              style={{ pointerEvents: "none" }}
+              x={drawingBox.x}
+              y={drawingBox.y}
+              width={drawingBox.width}
+              height={drawingBox.height}
+              fill="none"
+              pointerEvents="none"
+              style={{ stroke: colors.accent, strokeWidth: 2 / zoom, strokeDasharray: `${6 / zoom} ${3 / zoom}` }}
             />
           )}
 
-          {/* Marquee selection box */}
+          {/* Marquee selection */}
           {marqueeBox && marqueeBox.width > 0 && marqueeBox.height > 0 && (
             <rect
-              x={marqueeBox.x} y={marqueeBox.y}
-              width={marqueeBox.width} height={marqueeBox.height}
-              fill="rgba(99,102,241,0.12)"
-              stroke="rgb(99,102,241)"
-              strokeWidth={1.5 / camera.zoom}
-              strokeDasharray={`${6 / camera.zoom} ${3 / camera.zoom}`}
-              style={{ pointerEvents: "none" }}
+              x={marqueeBox.x}
+              y={marqueeBox.y}
+              width={marqueeBox.width}
+              height={marqueeBox.height}
+              fill="none"
+              pointerEvents="none"
+              style={{ stroke: colors.ink, strokeWidth: 1.5 / zoom, strokeDasharray: `${4 / zoom} ${3 / zoom}` }}
             />
           )}
         </g>

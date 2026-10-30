@@ -1,11 +1,15 @@
 "use client";
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
-// Parallax workspace: LayerRail + live composite preview + active-layer
-// canvas (extend/review) + target bar (auto-extend, export).
+// Parallax workspace: form panel (layer rail, extend prompt, target width,
+// finishing tools) and results (live composite preview, active-layer stage
+// with edge buttons and the variant review bar).
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Plus, Sparkles, Upload } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useEffect, useId, useRef } from "react";
+import { Download, FileArchive, Plus, Sparkles, Upload } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/controls";
+import { Notice } from "@/components/ui/feedback";
 import type { Direction } from "@/features/studio/lib/app";
 import {
   LAYER_ROLES,
@@ -21,51 +25,24 @@ import { ParallaxPreview } from "@/features/studio/parallax/ParallaxPreview";
 import { ParallaxTargetBar } from "@/features/studio/parallax/ParallaxTargetBar";
 import { GenerateModal } from "@/features/studio/components/GenerateModal";
 import { CommandBar } from "@/features/studio/components/CommandBar";
-import { StatusPill } from "@/features/studio/components/StatusPill";
-import { VariantSelector, ResultActions } from "@/features/studio/components/VariantSelector";
-
-function ParallaxEdgeHandle({
-  direction,
-  onClick,
-  active,
-  disabled,
-}: {
-  direction: "left" | "right";
-  onClick: () => void;
-  active: boolean;
-  disabled: boolean;
-}) {
-  const Icon = direction === "left" ? ArrowLeft : ArrowRight;
-  const position: React.CSSProperties =
-    direction === "left"
-      ? { left: 8, top: "50%", transform: "translateY(-50%)" }
-      : { right: 8, top: "50%", transform: "translateY(-50%)" };
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={`Extend ${direction}`}
-      aria-label={`Extend ${direction}`}
-      style={position}
-      className={cn(
-        "absolute z-20 flex h-12 w-12 items-center justify-center border-2 rounded-none transition-all",
-        active
-          ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-black animate-pulse"
-          : "border-zinc-950 dark:border-zinc-700 bg-background text-muted-foreground hover:bg-zinc-950 hover:text-white dark:hover:bg-white dark:hover:text-black",
-        disabled && !active && "opacity-40",
-        disabled && "cursor-not-allowed",
-      )}
-    >
-      <Icon size={20} />
-    </button>
-  );
-}
+import { UploadDropZone } from "@/features/studio/components/EmptyState";
+import { VariantSelector } from "@/features/studio/components/VariantSelector";
+import { EDGE_NAME, EdgeHandle } from "@/features/studio/components/Workspace";
+import {
+  GeneratorLayout,
+  RunFooter,
+  RunHeader,
+  scrollBehavior,
+  shouldIgnoreShortcut,
+  useRunHint,
+} from "@/features/studio/components/GeneratorLayout";
 
 export function ParallaxScreen() {
   const px = useParallax();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [drag, setDrag] = useState(false);
+  const ids = { scene: useId(), layer: useId() };
+  const runHint = useRunHint(1);
 
   const isResult = !!px.activeCandidate;
   const variantCount = px.candidates.length;
@@ -84,17 +61,17 @@ export function ParallaxScreen() {
     const el = scrollRef.current;
     if (!el) return;
     if (isResult && (px.activeDirection === "right" || px.activeDirection === null)) {
-      el.scrollTo({ left: el.scrollWidth, behavior: "smooth" });
+      el.scrollTo({ left: el.scrollWidth, behavior: scrollBehavior() });
     } else if (isResult && px.activeDirection === "left") {
-      el.scrollTo({ left: 0, behavior: "smooth" });
+      el.scrollTo({ left: 0, behavior: scrollBehavior() });
     }
   }, [activeImage, isResult, px.activeDirection]);
 
   // Keyboard: ←/→ extend (horizontal only — vertical would warp game height);
-  // with result: cycle/accept/discard/regenerate.
+  // with result: ←/→ cycle, Enter accept, Esc discard, R regenerate.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (shouldIgnoreShortcut(e)) return;
       if (!px.activeLayer?.imageUrl || px.loading || px.autoExtending) return;
       if (px.activeCandidate) {
         if (e.key === "Enter") px.handleAccept();
@@ -142,21 +119,15 @@ export function ParallaxScreen() {
   const showSceneDirection = hasAnchorLayer || !!px.sceneBrief.trim() || px.sceneBriefLoading;
   const isEmpty = !activeImage;
   const activeLayer = px.activeLayer;
+  const activeSpec = activeLayer ? LAYER_ROLES[activeLayer.role] : null;
+  const busy = px.loading || px.autoExtending;
+  const canAutoExtend =
+    !px.loading && !!px.targetWidth && !!activeDimensions && activeDimensions.width < px.targetWidth;
+  const runningMessage =
+    px.progressMsg || (px.activeDirection ? `Extending ${EDGE_NAME[px.activeDirection]}` : "Working");
 
-  const variantSelectorEl =
-    isResult && variantCount > 1 ? (
-      <VariantSelector
-        index={px.selectedCandidateIdx}
-        total={variantCount}
-        isBest={px.selectedCandidateIdx === 0}
-        score={px.debugMode ? px.activeCandidate?.score : undefined}
-        onPrev={() => px.cycleVariant(-1)}
-        onNext={() => px.cycleVariant(1)}
-      />
-    ) : undefined;
-
-  return (
-    <div className="relative flex min-h-0 flex-1 font-mono">
+  const form = (
+    <>
       <LayerRail
         layers={px.layers}
         activeIdx={px.activeIdx}
@@ -164,247 +135,282 @@ export function ParallaxScreen() {
         onClearLayer={px.clearLayer}
         onScrollSpeedChange={px.setLayerScrollSpeed}
       />
+      {!!activeLayer?.imageUrl && activeSpec && (
+        <CommandBar
+          prompt={px.customPrompt}
+          setPrompt={px.setCustomPrompt}
+          artStyle={px.artStyle}
+          setArtStyle={px.setArtStyle}
+          loading={busy || isResult}
+          hint={
+            px.artStyle !== "none"
+              ? `${findStyleLabel(px.artStyle)}: what to add further along the ${activeSpec.short.toLowerCase()} layer`
+              : `What should appear further along the ${activeSpec.short.toLowerCase()} layer?`
+          }
+          sceneBrief={showSceneDirection ? px.sceneBrief : undefined}
+          setSceneBrief={showSceneDirection ? px.setSceneBrief : undefined}
+          sceneBriefLoading={px.sceneBriefLoading}
+        />
+      )}
+      {!isEmpty && !isResult && (
+        <ParallaxTargetBar
+          dimensions={activeDimensions}
+          targetWidth={px.targetWidth}
+          setTargetWidth={px.setTargetWidth}
+          progress={widthProgress}
+          remainingPx={remainingPx}
+          targetReached={targetReached}
+          autoExtending={px.autoExtending}
+          loading={px.loading}
+          onMakeTileable={() => void px.handleMakeActiveLayerTileable()}
+          makeTileableDisabled={!activeImage}
+          onHarmonize={() => void px.handleHarmonizeActiveLayer()}
+          harmonizeDisabled={!activeImage}
+        />
+      )}
+    </>
+  );
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4 pt-3 sm:px-6">
-        <div className="flex items-center justify-between">
-          <ParallaxPreview layers={px.layers} previewHeight={140} />
-        </div>
-        {populatedCount > 0 && (
-          <div className="flex justify-end">
-            <button
-              onClick={px.handleNewProject}
-              className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold uppercase text-muted-foreground hover:text-foreground"
-            >
-              <Plus size={12} />
-              New project
-            </button>
-          </div>
+  const footer = (
+    <RunFooter
+      running={busy}
+      message={runningMessage}
+      onStop={px.autoExtending ? px.handleStopAutoExtend : undefined}
+      stopLabel="Stop auto-extend"
+      hint={isResult ? undefined : isEmpty ? runHint : `${runHint} a step`}
+      announce={isResult ? "Extension ready. Review it on the stage." : undefined}
+    >
+      {isResult ? (
+        <p className="text-xs leading-[20px] text-ink-2">
+          Review the extension on the stage. <Kbd>←</Kbd> <Kbd>→</Kbd> compare, <Kbd>Enter</Kbd>{" "}
+          use it, <Kbd>Esc</Kbd> discard, <Kbd>R</Kbd> regenerate.
+        </p>
+      ) : isEmpty ? (
+        <>
+          <Button variant="primary" size="lg" block onClick={px.openGenerateModal} disabled={!activeLayer}>
+            <Sparkles aria-hidden />
+            Generate {activeSpec ? activeSpec.short.toLowerCase() : ""} layer
+          </Button>
+          <Button block onClick={() => fileInputRef.current?.click()}>
+            <Upload aria-hidden />
+            Upload image
+          </Button>
+        </>
+      ) : (
+        <Button
+          variant="primary"
+          size="lg"
+          block
+          onClick={() => void px.handleAutoExtend()}
+          disabled={!canAutoExtend}
+          title="Extend right until the layer reaches the target width"
+        >
+          <Sparkles aria-hidden />
+          {px.targetWidth ? `Auto-extend to ${px.targetWidth} px` : "Auto-extend"}
+        </Button>
+      )}
+    </RunFooter>
+  );
+
+  const emptyLayerView = (() => {
+    if (!activeLayer || !activeSpec) return null;
+    const prerequisite = getWorkflowPrerequisite(px.layers, activeLayer.role);
+    const prerequisiteIdx = prerequisite ? getLayerIndexByRole(px.layers, prerequisite.role) : -1;
+    const step = getWorkflowStep(activeLayer.role);
+    return (
+      <div className="flex flex-col gap-3">
+        {prerequisite && prerequisiteIdx >= 0 && (
+          <Notice tone="warning">
+            <p>
+              <strong className="font-semibold">
+                Step {step}: build {activeSpec.short.toLowerCase()} after{" "}
+                {LAYER_ROLES[prerequisite.role].short.toLowerCase()}.
+              </strong>{" "}
+              Layers stack back to front in the game, but you build them front to back. Finish{" "}
+              {LAYER_ROLES[prerequisite.role].label} first so this layer matches its palette,
+              lighting and art direction.
+            </p>
+            <Button size="sm" className="mt-2" onClick={() => px.setActiveIdx(prerequisiteIdx)}>
+              Go to {LAYER_ROLES[prerequisite.role].short} (step {getWorkflowStep(prerequisite.role)})
+            </Button>
+          </Notice>
         )}
+        <UploadDropZone
+          title={`Drop a ${activeSpec.short.toLowerCase()} layer`}
+          description={
+            activeSpec.isOpaque
+              ? "PNG, JPG or WEBP: an opaque image at your game height. Click to browse."
+              : "PNG with transparency works best. Click to browse."
+          }
+          onPickFile={() => fileInputRef.current?.click()}
+          onDropFile={px.handleFile}
+        />
+        <div className="flex items-center justify-center gap-2 text-xs text-ink-2">
+          <span>or</span>
+          <Button variant="ghost" size="sm" onClick={px.openGenerateModal}>
+            <Sparkles aria-hidden />
+            Generate this layer
+          </Button>
+        </div>
+      </div>
+    );
+  })();
 
-        {isEmpty && activeLayer ? (
-          (() => {
-            const spec = LAYER_ROLES[activeLayer.role];
-            const prerequisite = getWorkflowPrerequisite(px.layers, activeLayer.role);
-            const prerequisiteIdx = prerequisite
-              ? getLayerIndexByRole(px.layers, prerequisite.role)
-              : -1;
-            const step = getWorkflowStep(activeLayer.role);
-            return (
-              <div className="flex flex-1 items-center justify-center px-6 py-8">
-                <div className="w-full max-w-xl">
-                  {prerequisite && prerequisiteIdx >= 0 && (
-                    <div className="mb-4 border-2 border-zinc-950 dark:border-zinc-700 px-4 py-3 text-[12px] leading-relaxed">
-                      <p className="mb-2 font-black uppercase">
-                        Step {step}: build {spec.short.toLowerCase()} after{" "}
-                        {LAYER_ROLES[prerequisite.role].short.toLowerCase()}
-                      </p>
-                      <p className="mb-3 text-muted-foreground">
-                        Parallax layers stack back-to-front in the game, but we build them
-                        front-to-back. Finish <strong>{LAYER_ROLES[prerequisite.role].label}</strong>{" "}
-                        first so this layer matches the same palette, lighting, and art direction.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => px.setActiveIdx(prerequisiteIdx)}
-                        className="inline-flex items-center gap-1.5 bg-zinc-950 text-white dark:bg-white dark:text-black px-3 py-1.5 text-[11px] font-black uppercase rounded-none"
-                      >
-                        Go to {LAYER_ROLES[prerequisite.role].short} (step{" "}
-                        {getWorkflowStep(prerequisite.role)})
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="mb-4 flex items-center justify-center gap-2 text-[12px]">
-                    <span className="bg-zinc-950 text-white dark:bg-white dark:text-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
-                      {spec.label}
-                    </span>
-                    <span className="uppercase text-muted-foreground text-[10px]">{spec.hint}</span>
-                  </div>
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDrag(true);
-                    }}
-                    onDragLeave={() => setDrag(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDrag(false);
-                      const file = e.dataTransfer.files?.[0];
-                      if (file && file.type.startsWith("image/")) px.handleFile(file);
-                    }}
-                    className={cn(
-                      "group relative cursor-pointer border-2 border-dashed px-6 py-12 text-center transition-all rounded-none",
-                      drag
-                        ? "border-zinc-950 dark:border-white bg-zinc-100 dark:bg-zinc-900"
-                        : "border-zinc-300 dark:border-zinc-700 hover:border-zinc-500",
-                    )}
-                  >
-                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center border-2 border-zinc-950 dark:border-zinc-700 transition-transform group-hover:scale-110">
-                      <Upload size={20} />
-                    </div>
-                    <p className="mb-1 text-sm font-black uppercase tracking-wider">
-                      Drop a {spec.short.toLowerCase()} layer
-                    </p>
-                    <p className="text-[11px] uppercase text-muted-foreground">
-                      {spec.isOpaque
-                        ? "PNG, JPG, or WEBP — opaque image at this game height"
-                        : "PNG with transparency works best"}
-                    </p>
-                  </div>
-                  <div className="mt-3 flex items-center justify-center gap-2 text-[11px] uppercase">
-                    <span className="text-muted-foreground">or</span>
-                    <button
-                      onClick={px.openGenerateModal}
-                      className="inline-flex items-center gap-1.5 font-black underline underline-offset-4"
-                    >
-                      <Sparkles size={13} />
-                      generate this layer with AI
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })()
-        ) : (
-          <>
-            <div className="relative flex-1">
-              <div
-                ref={scrollRef}
-                className="overflow-x-auto border-2 border-zinc-950 dark:border-zinc-700 bg-[repeating-conic-gradient(#80808033_0%_25%,transparent_0%_50%)] bg-[length:16px_16px]"
-                style={{ height: `${displayHeight + 4}px` }}
-              >
-                {activeImage && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={activeImage}
-                    alt=""
-                    draggable={false}
-                    className="block"
-                    style={{
-                      height: `${displayHeight}px`,
-                      width: `${displayWidth}px`,
-                      maxWidth: "none",
-                      objectFit: "contain",
-                    }}
-                  />
-                )}
-              </div>
-              {!isResult && !px.autoExtending && (
+  return (
+    <>
+      <GeneratorLayout
+        formLabel="Parallax settings"
+        form={form}
+        footer={footer}
+        resultsLabel="Parallax scene"
+      >
+        <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-7">
+          <section aria-labelledby={ids.scene} className="flex flex-col gap-3">
+            <RunHeader
+              id={ids.scene}
+              title="Scene"
+              meta={
+                <span className="text-xs text-ink-3">
+                  {populatedCount}/{px.layers.length} layers
+                </span>
+              }
+              actions={
                 <>
-                  <ParallaxEdgeHandle
-                    direction="left"
-                    onClick={() => void px.handleExtend("left")}
-                    active={px.activeDirection === "left"}
-                    disabled={px.loading}
-                  />
-                  <ParallaxEdgeHandle
-                    direction="right"
-                    onClick={() => void px.handleExtend("right")}
-                    active={px.activeDirection === "right"}
-                    disabled={px.loading}
-                  />
+                  {populatedCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={px.handleNewProject}>
+                      <Plus aria-hidden />
+                      New project
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={() => void px.handleExportZip()}
+                    disabled={busy || !activeDimensions || populatedCount === 0}
+                    aria-label="Download project ZIP"
+                    title={`Export project: ${populatedCount}/${px.layers.length} populated layers and a manifest`}
+                  >
+                    <FileArchive aria-hidden />
+                    ZIP
+                  </Button>
+                </>
+              }
+            />
+            <ParallaxPreview layers={px.layers} previewHeight={160} />
+          </section>
+
+          {activeLayer && activeSpec && (
+            <section
+              aria-labelledby={ids.layer}
+              className="flex flex-col gap-3 border-t-[1.5px] border-line pt-5"
+            >
+              <RunHeader
+                id={ids.layer}
+                title={`${activeSpec.label} layer`}
+                meta={
+                  activeDimensions ? (
+                    <Badge>
+                      <span className="oa-value">
+                        {activeDimensions.width} × {activeDimensions.height}
+                      </span>
+                    </Badge>
+                  ) : undefined
+                }
+                actions={
+                  !isEmpty && !isResult ? (
+                    <Button size="sm" onClick={px.handleDownloadActiveLayerPng} disabled={busy}>
+                      <Download aria-hidden />
+                      Download PNG
+                    </Button>
+                  ) : undefined
+                }
+              />
+
+              {isEmpty ? (
+                emptyLayerView
+              ) : (
+                <>
+                  <div className="oa-stage border-[1.5px] border-line p-3">
+                    <div
+                      ref={scrollRef}
+                      className="oa-checker overflow-x-auto border-[1.5px] border-line-strong"
+                    >
+                      {activeImage && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={activeImage}
+                          alt={
+                            isResult
+                              ? `${activeSpec.short} layer with the new extension`
+                              : `${activeSpec.short} layer`
+                          }
+                          draggable={false}
+                          className="block"
+                          style={{
+                            height: `${displayHeight}px`,
+                            width: `${displayWidth}px`,
+                            maxWidth: "none",
+                            objectFit: "contain",
+                          }}
+                        />
+                      )}
+                    </div>
+                    {!isResult && !px.autoExtending && (
+                      <>
+                        <EdgeHandle
+                          direction="left"
+                          onClick={(d) => void px.handleExtend(d)}
+                          active={px.activeDirection === "left"}
+                          disabled={px.loading}
+                          className="absolute left-5 top-1/2 z-10 -translate-y-1/2"
+                        />
+                        <EdgeHandle
+                          direction="right"
+                          onClick={(d) => void px.handleExtend(d)}
+                          active={px.activeDirection === "right"}
+                          disabled={px.loading}
+                          className="absolute right-5 top-1/2 z-10 -translate-y-1/2"
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {isResult ? (
+                    <div className="flex justify-center">
+                      <VariantSelector
+                        index={px.selectedCandidateIdx}
+                        total={variantCount}
+                        isBest={px.selectedCandidateIdx === 0}
+                        score={px.debugMode ? px.activeCandidate?.score : undefined}
+                        onPrev={() => px.cycleVariant(-1)}
+                        onNext={() => px.cycleVariant(1)}
+                        onAccept={px.handleAccept}
+                        onRegenerate={() => void px.handleRegenerate()}
+                        onDiscard={px.handleDiscard}
+                        onDownload={px.handleDownloadActiveLayerPng}
+                        loading={px.loading}
+                      />
+                    </div>
+                  ) : (
+                    !busy && (
+                      <p className="text-xs leading-[18px] text-ink-2">
+                        Extend left or right from the stage (or press <Kbd>←</Kbd> <Kbd>→</Kbd>), or
+                        set a target width and auto-extend.
+                      </p>
+                    )
+                  )}
                 </>
               )}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {activeLayer && (
-                <div className="border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-                  {LAYER_ROLES[activeLayer.role].short}
-                  {activeDimensions
-                    ? ` · ${activeDimensions.width} × ${activeDimensions.height}`
-                    : ""}
-                </div>
-              )}
-              {isResult && variantSelectorEl}
-              {isResult && (
-                <StatusPill
-                  status="ok"
-                  message={
-                    variantCount > 1
-                      ? "Cycle variants with ← →, then accept"
-                      : "New extension ready — accept, regenerate, or discard"
-                  }
-                />
-              )}
-              {!isResult && !px.loading && !px.autoExtending && activeLayer && (
-                <span className="text-[11px] uppercase text-muted-foreground">
-                  Click an edge to extend the {LAYER_ROLES[activeLayer.role].short.toLowerCase()}{" "}
-                  layer, or set a target and auto-extend
-                </span>
-              )}
-              {(px.loading || px.autoExtending) && (
-                <StatusPill
-                  status="working"
-                  message={
-                    px.progressMsg ||
-                    (px.activeDirection ? `Extending ${px.activeDirection}…` : "Working…")
-                  }
-                />
-              )}
-            </div>
-
-            {isResult && (
-              <div className="flex justify-center">
-                <ResultActions
-                  onAccept={px.handleAccept}
-                  onRegenerate={() => void px.handleRegenerate()}
-                  onDiscard={px.handleDiscard}
-                  onDownload={px.handleDownloadActiveLayerPng}
-                  loading={px.loading}
-                />
-              </div>
-            )}
-
-            {!isResult && (
-              <ParallaxTargetBar
-                dimensions={activeDimensions}
-                targetWidth={px.targetWidth}
-                setTargetWidth={px.setTargetWidth}
-                progress={widthProgress}
-                remainingPx={remainingPx}
-                targetReached={targetReached}
-                autoExtending={px.autoExtending}
-                loading={px.loading}
-                onAutoExtend={() => void px.handleAutoExtend()}
-                onStopAutoExtend={px.handleStopAutoExtend}
-                onMakeTileable={() => void px.handleMakeActiveLayerTileable()}
-                makeTileableDisabled={!activeImage}
-                onHarmonize={() => void px.handleHarmonizeActiveLayer()}
-                harmonizeDisabled={!activeImage}
-                onDownloadFull={px.handleDownloadActiveLayerPng}
-                onExportZip={() => void px.handleExportZip()}
-                exportZipDisabled={populatedCount === 0}
-                exportZipTitle={`Export project: ${populatedCount}/${px.layers.length} populated layers + manifest`}
-              />
-            )}
-          </>
-        )}
-
-        {!!activeLayer?.imageUrl && !isResult && !px.autoExtending && (
-          <CommandBar
-            prompt={px.customPrompt}
-            setPrompt={px.setCustomPrompt}
-            artStyle={px.artStyle}
-            setArtStyle={px.setArtStyle}
-            loading={px.loading}
-            hint={
-              px.artStyle !== "none"
-                ? `Style: ${findStyleLabel(px.artStyle)} — describe what to extend in the ${LAYER_ROLES[activeLayer.role].short.toLowerCase()} layer`
-                : `Optional: describe what should appear further along the ${LAYER_ROLES[activeLayer.role].short.toLowerCase()} layer…`
-            }
-            sceneBrief={showSceneDirection ? px.sceneBrief : undefined}
-            setSceneBrief={showSceneDirection ? px.setSceneBrief : undefined}
-            sceneBriefLoading={px.sceneBriefLoading}
-          />
-        )}
-      </div>
+            </section>
+          )}
+        </div>
+      </GeneratorLayout>
 
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        tabIndex={-1}
+        aria-hidden
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) px.handleFile(file);
@@ -431,7 +437,7 @@ export function ParallaxScreen() {
               ? (() => {
                   const prereq = getWorkflowPrerequisite(px.layers, activeLayer.role);
                   if (!prereq) return null;
-                  return `Tip: ${LAYER_ROLES[prereq.role].label} isn't built yet. Layers work best when generated front-to-back (Near → Mid → Far → Sky) so palette and art direction stay consistent. You can still generate now if you're bringing your own matching assets.`;
+                  return `${LAYER_ROLES[prereq.role].label} isn't built yet. Layers match best when generated front to back (Near, Mid, Far, then Sky) so palette and art direction stay consistent. You can still generate now if you're bringing your own matching assets.`;
                 })()
               : null
           }
@@ -442,6 +448,6 @@ export function ParallaxScreen() {
           layerLabel={LAYER_ROLES[activeLayer.role].short}
         />
       )}
-    </div>
+    </>
   );
 }

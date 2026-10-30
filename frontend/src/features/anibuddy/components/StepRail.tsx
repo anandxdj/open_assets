@@ -13,12 +13,12 @@ import {
 import { stepLockReason } from "@/features/anibuddy/hooks/useAniBuddyProject";
 
 export const STEP_META: Record<StepId, { label: string; blurb: string }> = {
-  concept: { label: "Concept", blurb: "Optional prompt for an external tool" },
-  source: { label: "Your artwork", blurb: "Upload one character, confirm rights" },
-  prepare: { label: "Prepare", blurb: "Transparent, isolated, trimmed" },
-  rig: { label: "Rig", blurb: "Joints and mesh weights you can edit" },
-  animate: { label: "Animate", blurb: "Give it something to do — or animate it by hand" },
-  export: { label: "Export", blurb: "GIF, PNG frames, project manifest" },
+  concept: { label: "Concept", blurb: "Optional" },
+  source: { label: "Your artwork", blurb: "Add one character" },
+  prepare: { label: "Prepare", blurb: "Cut out" },
+  rig: { label: "Rig", blurb: "Place joints" },
+  animate: { label: "Animate", blurb: "Add motion" },
+  export: { label: "Export", blurb: "GIF, PNG, project" },
 };
 
 /** A step is done when its own output exists — not merely when it was visited. */
@@ -41,6 +41,26 @@ function isStepDone(project: AniBuddyProject, step: StepId): boolean {
   }
 }
 
+/** Short status under each step name, from what the project already holds. */
+function stepNote(project: AniBuddyProject, step: StepId): string {
+  switch (step) {
+    case "concept":
+      return project.concept.prompt ? "Prompt ready" : STEP_META.concept.blurb;
+    case "source":
+      return project.source?.name ?? STEP_META.source.blurb;
+    case "prepare":
+      return project.prepared ? `${project.prepared.width} × ${project.prepared.height}` : STEP_META.prepare.blurb;
+    case "rig":
+      return project.rig ? `${project.rig.joints.length} joints` : STEP_META.rig.blurb;
+    case "animate":
+      return project.clips.length
+        ? `${project.clips.length} ${project.clips.length === 1 ? "clip" : "clips"}`
+        : STEP_META.animate.blurb;
+    default:
+      return STEP_META[step].blurb;
+  }
+}
+
 interface StepRailProps {
   project: AniBuddyProject;
   activeStep: StepId;
@@ -49,59 +69,64 @@ interface StepRailProps {
 
 export function StepRail({ project, activeStep, onSelect }: StepRailProps) {
   return (
-    <nav aria-label="AniBuddy steps" className="border-2 border-zinc-950 dark:border-zinc-100">
-      <p className="border-b-2 border-zinc-950 px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500 dark:border-zinc-100">
-        Pipeline
-      </p>
-      <ol>
+    <nav
+      aria-label="AniBuddy steps"
+      className="flex flex-none flex-col border-b-[1.5px] border-line bg-surface md:w-[212px] md:border-b-0 md:border-r-[1.5px]"
+    >
+      <ol className="flex gap-0.5 overflow-x-auto p-2 md:flex-col md:overflow-y-auto md:px-2 md:py-2.5">
         {STEP_ORDER.map((step, index) => {
           const meta = STEP_META[step];
           const lockReason = stepLockReason(project, step);
           const locked = lockReason !== null;
           const done = isStepDone(project, step);
           const active = step === activeStep;
+          const note = locked ? lockReason : stepNote(project, step);
 
           return (
-            <li key={step} className="border-b border-zinc-200 last:border-b-0 dark:border-zinc-800">
+            <li key={step} className="min-w-[180px] md:min-w-0">
               <button
                 type="button"
                 disabled={locked}
                 aria-current={active ? "step" : undefined}
                 onClick={() => onSelect(step)}
                 className={cn(
-                  "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors",
-                  active && "bg-fuchsia-50 dark:bg-fuchsia-950/30",
-                  locked
-                    ? "cursor-not-allowed opacity-55"
-                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800",
+                  "oa-nav-item h-auto min-h-10 w-full items-start whitespace-normal py-1.5 text-left",
+                  active && "bg-inverse text-inverse-fg hover:bg-inverse hover:text-inverse-fg",
+                  locked && "cursor-not-allowed text-ink-3 hover:bg-transparent hover:text-ink-3",
                 )}
               >
                 <span
+                  aria-hidden
                   className={cn(
-                    "mt-0.5 grid h-6 w-6 shrink-0 place-items-center border font-mono text-[10px] font-bold",
+                    "mt-px flex size-5 flex-none items-center justify-center text-[11px] font-bold",
                     done
-                      ? "border-emerald-600 bg-emerald-600 text-white"
+                      ? "bg-success-soft text-success"
                       : active
-                        ? "border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-300"
-                        : "border-zinc-400 text-zinc-500 dark:border-zinc-600",
+                        ? "border-[1.5px] border-brand"
+                        : "border-[1.5px] border-line-strong",
+                    locked && !done && "border-line",
                   )}
                 >
                   {done ? (
-                    <Check className="h-3.5 w-3.5" aria-hidden />
+                    <Check className="size-3" strokeWidth={2.5} />
                   ) : locked ? (
-                    <Lock className="h-3 w-3" aria-hidden />
+                    <Lock className="size-3" />
                   ) : (
-                    String(index).padStart(2, "0")
+                    index + 1
                   )}
                 </span>
-                <span className="min-w-0">
-                  <span className={cn("block font-bold leading-5", active && "text-fuchsia-800 dark:text-fuchsia-200")}>
-                    {meta.label}
-                  </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span>{meta.label}</span>
                   {/* Locked steps explain themselves rather than sitting silently dead. */}
-                  <span className="mt-0.5 block text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-                    {locked ? lockReason : meta.blurb}
+                  <span
+                    className={cn(
+                      "break-words text-[11px] font-normal normal-case leading-4 tracking-normal",
+                      active ? "text-inherit opacity-80" : "text-ink-3",
+                    )}
+                  >
+                    {note}
                   </span>
+                  <span className="sr-only">{done ? "(done)" : locked ? "(locked)" : ""}</span>
                 </span>
               </button>
             </li>

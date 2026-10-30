@@ -1,45 +1,62 @@
-import { Swords, WandSparkles } from "lucide-react";
-import { EnhanceToolCard } from "@/features/enhance/components/EnhanceToolCard";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowRight, Sparkles, Wand } from "lucide-react";
+import { PageBody, PageTitle } from "@/components/layout/AppShell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { EnhanceTopbar } from "@/features/enhance/components/EnhanceTopbar";
+
+export const metadata: Metadata = { title: "Enhance · OpenAssets" };
 
 export default function EnhancePage() {
   return (
-    <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:py-16">
-      <section className="border-b-2 border-zinc-950 pb-6 dark:border-zinc-100">
-        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">Enhance workspace</p>
-        <h1 className="mt-2 text-2xl font-black uppercase tracking-tight">
-          Make the asset you already have work harder
-        </h1>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-          Clean linework deterministically or apply AI-backed asset improvements.
-        </p>
-      </section>
+    <>
+      <EnhanceTopbar />
+      <PageBody>
+        <PageTitle title="Enhance" description="Improve artwork you already have." />
 
-      <section aria-labelledby="enhance-tools" className="py-10 sm:py-14">
-        <div className="mb-6 flex items-baseline justify-between gap-4">
-          <h2 id="enhance-tools" className="text-lg font-black uppercase tracking-tight">Choose a job</h2>
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">2 focused tools</span>
-        </div>
-        <div className="grid gap-5 lg:grid-cols-2">
-          <EnhanceToolCard
-            href="/enhance/excalibur"
-            icon={Swords}
-            eyebrow="Deterministic cleanup"
-            title="Excalibur Enhance"
-            description="Polish line art, repair small breaks, control contrast, add flat color, and export a reproducible PNG."
-            detail="No image generation"
-            accentClassName="bg-amber-400"
-          />
-          <EnhanceToolCard
-            href="/enhance/ai"
-            icon={WandSparkles}
-            eyebrow="Account-enabled tools"
-            title="AI Enhance"
-            description="Use only the Cloudinary operations configured for this account, with clear availability and cost feedback."
-            detail="Provider capability check"
-            accentClassName="bg-sky-400"
-          />
-        </div>
-      </section>
-    </main>
+        <ul aria-label="Enhance tools" className="mt-6 grid gap-4 md:grid-cols-2">
+          <li className="flex flex-col gap-4 border-[1.5px] border-line-strong bg-surface p-5">
+            <span className="oa-icon-box">
+              <Wand aria-hidden className="size-5" />
+            </span>
+            <div className="flex flex-col gap-1.5">
+              <h2 className="oa-h3">Cleanup</h2>
+              <p className="text-[13px] leading-5 text-ink-2">
+                Sharpen lines and remove specks. No AI: the same settings always give the same
+                result.
+              </p>
+            </div>
+            <p className="text-xs leading-[18px] text-ink-3">
+              Stroke clarity, speck removal and contrast. PNG output at 1×, 2× or 3×.
+            </p>
+            <Button asChild variant="primary" className="mt-auto self-start">
+              <Link href="/enhance/excalibur">
+                Open cleanup
+                <ArrowRight aria-hidden />
+              </Link>
+            </Button>
+          </li>
+
+          <li className="flex flex-col gap-4 border-[1.5px] border-line bg-surface p-5">
+            <span className="oa-icon-box text-ink-2">
+              <Sparkles aria-hidden className="size-5" />
+            </span>
+            <div className="flex flex-col gap-1.5">
+              <h2 className="flex items-center gap-2.5">
+                <span className="oa-h3">AI enhance</span>
+                <Badge>Soon</Badge>
+              </h2>
+              <p className="text-[13px] leading-5 text-ink-2">
+                Improve artwork with AI. It isn&apos;t available yet.
+              </p>
+            </div>
+            <Button asChild variant="ghost" className="mt-auto self-start">
+              <Link href="/enhance/ai">See what&apos;s coming</Link>
+            </Button>
+          </li>
+        </ul>
+      </PageBody>
+    </>
   );
 }

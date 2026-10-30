@@ -1,53 +1,71 @@
 "use client";
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
-// Sprite Studio UI: body-plan + animation pickers, live player, 4×2 frame
-// grid with per-frame exclude, character upload/starter rail.
+// Sprite Studio: form panel (body plan, character, art style, animation,
+// advanced) and results (run header, live player, 4 × 2 frame grid with
+// per-frame skip, earlier runs for the current body plan).
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
+  ChevronDown,
+  ChevronRight,
   Download,
-  Eye,
-  EyeOff,
-  Layers,
-  Loader2,
+  FileArchive,
+  LoaderCircle,
+  Lock,
+  LockOpen,
   Pause,
+  PersonStanding,
   Play,
   RefreshCw,
   Sparkles,
-  Square,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Range } from "@/components/ui/controls";
+import { Checker, EmptyState } from "@/components/ui/feedback";
+import { Field } from "@/components/ui/field";
+import { Select } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { ART_STYLE_GROUPS } from "@/features/studio/lib/artStyles";
+import { findStyleLabel } from "@/features/studio/lib/artStyles";
+import { MODELS, getModelConfig } from "@/features/studio/lib/models";
 import {
   SPRITE_ANIMATIONS,
   SPRITE_FRAME_COUNT,
-  SPRITE_SHEET_H,
-  SPRITE_SHEET_W,
+  SPRITE_FRAME_SIZE,
+  SPRITE_GRID_COLS,
+  SPRITE_GRID_ROWS,
 } from "@/features/studio/lib/sprite";
 import type { SpriteAnimType, SpriteFrame, SpriteSheet } from "@/features/studio/lib/sprite";
 import { BODY_PLANS, BODY_PLAN_ORDER } from "@/features/studio/lib/bodyPlans";
 import type { BodyPlan } from "@/features/studio/lib/bodyPlans";
+import { useStudioSettings } from "@/features/studio/hooks/useStudioSettings";
+import {
+  ChipGroup,
+  GeneratorLayout,
+  PanelSection,
+  RunFooter,
+  RunHeader,
+  ToggleChip,
+  formatSeconds,
+  useRunHint,
+} from "@/features/studio/components/GeneratorLayout";
+import {
+  ArtStyleField,
+  PresetSelect,
+  PromptField,
+  matchPreset,
+} from "@/features/studio/components/fields";
 
-const CHECKER =
-  "bg-[repeating-conic-gradient(#80808033_0%_25%,transparent_0%_50%)] bg-[length:12px_12px]";
-
-const chip = (active: boolean, busy: boolean) =>
-  cn(
-    "inline-flex items-center gap-1.5 border px-3 py-1 text-[11px] font-bold uppercase transition-colors rounded-none",
-    active
-      ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-black"
-      : "border-zinc-300 dark:border-zinc-700 text-muted-foreground hover:border-zinc-500 hover:text-foreground",
-    busy && "opacity-50 cursor-not-allowed",
-  );
-
-const ghostBtn =
-  "inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase border border-zinc-300 dark:border-zinc-700 text-muted-foreground hover:text-foreground hover:border-zinc-500 disabled:opacity-40 rounded-none";
+const FPS_MIN = 1;
+const FPS_MAX = 30;
 
 export function SpriteAnimationPlayer({
   frames,
   fps,
+  setFps,
   loop,
   playing,
   setPlaying,
@@ -56,6 +74,7 @@ export function SpriteAnimationPlayer({
 }: {
   frames: SpriteFrame[];
   fps: number;
+  setFps: (v: number) => void;
   loop: boolean;
   playing: boolean;
   setPlaying: (v: boolean) => void;
@@ -66,6 +85,7 @@ export function SpriteAnimationPlayer({
   const populated = frames.filter((f) => !!f.imageUrl && !f.disabled);
   const hasFrames = populated.length > 0;
   const frameCount = populated.length;
+  const fpsId = useId();
 
   // setInterval + functional setState: a rAF version captured stale state and
   // froze after one frame. One-shot anims stop at the last frame.
@@ -107,23 +127,15 @@ export function SpriteAnimationPlayer({
     setPlaying(!playing);
   };
 
-  const activeFrame = populated[currentIdx] ?? populated[0] ?? null;
+  const shownIdx = Math.min(currentIdx, Math.max(0, frameCount - 1));
+  const activeFrame = populated[shownIdx] ?? populated[0] ?? null;
 
   return (
-    <div className="flex w-full flex-col gap-2">
-      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-        <span>Live playback</span>
-        <span className="font-mono normal-case tracking-normal">
-          {hasFrames ? `Frame ${currentIdx + 1}/${populated.length} · ${fps} FPS` : "No frames yet"}
-        </span>
-      </div>
-
-      <div
-        className={cn(
-          "relative flex aspect-square w-full items-center justify-center overflow-hidden border-2 border-zinc-950 dark:border-zinc-700 bg-gradient-to-b from-sky-300/15 to-blue-900/25",
-          CHECKER,
-        )}
-      >
+    <section
+      aria-label="Animation preview"
+      className="flex min-w-0 flex-[1_1_260px] flex-col border-[1.5px] border-line bg-surface sm:max-w-[300px]"
+    >
+      <Checker className="flex aspect-square w-full items-center justify-center overflow-hidden">
         {activeFrame?.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -133,56 +145,71 @@ export function SpriteAnimationPlayer({
             className="h-full w-full object-contain [image-rendering:pixelated]"
           />
         ) : anchorImageUrl ? (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-5 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={anchorImageUrl}
-              alt="Locked character"
+              alt={anchorUploaded ? "Uploaded character" : "Locked character"}
               draggable={false}
-              className="max-h-[62%] max-w-[62%] object-contain [image-rendering:pixelated] drop-shadow-xl"
+              className="max-h-[58%] max-w-[58%] object-contain [image-rendering:pixelated]"
             />
-            <div className="flex flex-col items-center gap-1 text-center">
-              <span className="bg-zinc-950 text-white dark:bg-white dark:text-black px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider">
-                {anchorUploaded ? "Uploaded character" : "Character ready"}
-              </span>
-              <span className="text-[11px] uppercase text-muted-foreground">
-                Pick an animation and hit generate to bring it to life
-              </span>
-            </div>
+            <Badge className="bg-surface">{anchorUploaded ? "Uploaded character" : "Character ready"}</Badge>
+            <p className="bg-surface px-1 text-xs leading-[18px] text-ink-2">
+              Pick an animation and generate to bring it to life.
+            </p>
           </div>
         ) : (
-          <div className="text-[11px] uppercase text-muted-foreground">
-            Generate a sheet to see the animation play
-          </div>
+          <p className="bg-surface px-2 text-center text-xs leading-[18px] text-ink-2">
+            Generate a sheet to see the animation play.
+          </p>
         )}
-      </div>
+      </Checker>
 
-      {/* Transport */}
-      <div className="flex items-center gap-2">
-        <button
+      <div className="flex items-center gap-2 border-t-[1.5px] border-line px-2.5 py-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          icon
           onClick={handleTogglePlay}
           disabled={!hasFrames}
-          className="flex h-7 w-7 items-center justify-center border border-zinc-300 dark:border-zinc-700 text-muted-foreground hover:text-foreground disabled:opacity-40"
           aria-label={playing ? "Pause" : "Play"}
           title={playing ? "Pause" : "Play"}
         >
-          {playing ? <Pause size={13} /> : <Play size={13} />}
-        </button>
-        <input
-          type="range"
+          {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
+        </Button>
+        <Range
           min={0}
-          max={Math.max(0, populated.length - 1)}
-          value={Math.min(currentIdx, Math.max(0, populated.length - 1))}
+          max={Math.max(0, frameCount - 1)}
+          value={shownIdx}
           onChange={(e) => {
             setPlaying(false);
             setCurrentIdx(Number(e.target.value));
           }}
           disabled={!hasFrames}
-          className="flex-1"
-          aria-label="Scrub frame"
+          aria-label="Scrub frames"
+          aria-valuetext={hasFrames ? `Frame ${shownIdx + 1} of ${frameCount}` : "No frames"}
+          className="min-w-0 flex-1"
         />
+        <label htmlFor={fpsId} className="oa-unit-input w-[72px] flex-none focus-within:shadow-[4px_4px_0_var(--oa-accent)]">
+          <input
+            id={fpsId}
+            type="number"
+            inputMode="numeric"
+            min={FPS_MIN}
+            max={FPS_MAX}
+            value={fps}
+            onChange={(e) => {
+              const n = Math.round(Number(e.target.value));
+              if (!Number.isFinite(n) || e.target.value === "") return;
+              setFps(Math.min(FPS_MAX, Math.max(FPS_MIN, n)));
+            }}
+            aria-label="Playback speed, frames per second"
+            className="tabular-nums"
+          />
+          <span aria-hidden>fps</span>
+        </label>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -195,87 +222,50 @@ export function SpriteFrameCell({
   loading?: boolean;
   onToggle?: (index: number) => void;
 }) {
+  const n = frame.index + 1;
   const hasImage = !!frame.imageUrl;
-  const disabled = !!frame.disabled;
+  const skipped = !!frame.disabled;
   const interactive = hasImage && !!onToggle && !loading;
   return (
-    <div
-      role={interactive ? "button" : undefined}
-      tabIndex={interactive ? 0 : undefined}
-      onClick={interactive ? () => onToggle!(frame.index) : undefined}
-      onKeyDown={
-        interactive
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onToggle!(frame.index);
-              }
-            }
-          : undefined
-      }
-      className={cn(
-        "group relative aspect-square overflow-hidden border rounded-none",
-        CHECKER,
-        disabled
-          ? "border-destructive"
-          : "border-zinc-300 dark:border-zinc-700",
-        interactive && "cursor-pointer",
-      )}
-      title={
-        interactive
-          ? disabled
-            ? `Frame ${frame.index + 1} — excluded · click to include`
-            : `Frame ${frame.index + 1} — click to exclude from animation & exports`
-          : `Frame ${frame.index + 1}`
-      }
-    >
-      {hasImage ? (
+    <li className="oa-checker relative flex aspect-square items-center justify-center">
+      {hasImage && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={frame.imageUrl as string}
-          alt={`Frame ${frame.index + 1}`}
+          alt={interactive ? "" : `Frame ${n}`}
           draggable={false}
           className={cn(
-            "block h-full w-full object-contain [image-rendering:pixelated] transition-all",
-            disabled && "opacity-25 grayscale",
+            "block h-full w-full object-contain [image-rendering:pixelated]",
+            skipped && "opacity-30"
           )}
         />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center font-mono text-[10px] text-muted-foreground">
-          {frame.index + 1}
-        </div>
       )}
-
-      {loading && !hasImage && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/55">
-          <Loader2 size={16} className="animate-spin text-white" />
-        </div>
-      )}
-
-      {disabled && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-destructive/10">
-          <span className="bg-destructive px-1.5 py-px font-mono text-[8px] font-black uppercase tracking-wider text-white">
-            Excluded
-          </span>
-        </div>
-      )}
-
-      <div className="pointer-events-none absolute left-1 top-1 bg-black/55 px-1 py-px font-mono text-[8px] text-white backdrop-blur">
-        {frame.index + 1}
-      </div>
-
       {interactive && (
-        <div
-          className={cn(
-            "pointer-events-none absolute right-1 top-1 bg-black/55 p-0.5 text-white backdrop-blur transition-opacity",
-            disabled ? "opacity-100 text-destructive" : "opacity-0 group-hover:opacity-100",
-          )}
-        >
-          {disabled ? <EyeOff size={12} /> : <Eye size={12} />}
-        </div>
+        <button
+          type="button"
+          onClick={() => onToggle!(frame.index)}
+          aria-pressed={skipped}
+          aria-label={`Skip frame ${n}`}
+          title={skipped ? `Frame ${n} is skipped. Click to include it.` : `Click to skip frame ${n}`}
+          className="absolute inset-0 cursor-pointer hover:bg-hover/40 focus-visible:outline-offset-[-3px]"
+        />
       )}
-    </div>
+      {loading && !hasImage && <LoaderCircle aria-hidden className="size-4 animate-spin text-ink-3" />}
+      <span aria-hidden className="pointer-events-none absolute left-1.5 top-1.5 text-[11px] leading-none text-ink-2">
+        {n}
+      </span>
+      {skipped && (
+        <Badge aria-hidden className="pointer-events-none absolute right-1.5 top-1.5 bg-surface">
+          Skipped
+        </Badge>
+      )}
+    </li>
   );
+}
+
+/** "Serpent / Fish" → "Serpent" for the compact body-plan grid. */
+function shortPlanLabel(label: string) {
+  return label.split(" / ")[0];
 }
 
 export function SpriteStudio({
@@ -329,15 +319,31 @@ export function SpriteStudio({
   onDownloadZip: () => void;
   onToggleFrame: (index: number) => void;
 }) {
+  const { selectedModel, setSelectedModel } = useStudioSettings();
   const [playing, setPlaying] = useState(true);
   const [dragOver, setDragOver] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const ids = { preset: useId(), model: useId(), advanced: useId(), run: useId(), earlier: useId() };
+
+  const plan = BODY_PLANS[bodyPlan];
   const spec = SPRITE_ANIMATIONS[selectedAnim];
+  const animLabel = spec.label.toLowerCase();
   const filledCount = sheet.frames.filter((f) => !!f.imageUrl).length;
   const activeCount = sheet.frames.filter((f) => !!f.imageUrl && !f.disabled).length;
-  const excludedCount = filledCount - activeCount;
+  const skippedCount = filledCount - activeCount;
   const hasAny = filledCount > 0;
   const canGenerate = !!prompt.trim() || !!anchor?.uploaded;
+  const showRun = hasAny || !!anchor || generating;
+  const model = getModelConfig(selectedModel);
+  // No anchor yet: pass 1 locks the character, pass 2 paints the sheet.
+  const runHint = useRunHint(anchor ? 1 : 2);
+
+  const preset = matchPreset(plan.presets, prompt);
+  const characterName = anchor?.uploaded
+    ? "Uploaded character"
+    : (preset?.label ?? (prompt.trim() ? "Custom character" : "Character"));
+  const earlierAnims = plan.anims.filter((a) => a !== selectedAnim && generatedAnims.has(a));
 
   // Auto-resume playback whenever a fresh generation arrives.
   useEffect(() => {
@@ -345,336 +351,388 @@ export function SpriteStudio({
     if (hasAny) setPlaying(true);
   }, [hasAny, sheet.anim, sheet.gridSheetUrl]);
 
-  return (
-    <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4 pt-3 font-mono sm:px-6">
-      <div className="flex items-center justify-center gap-2 text-[11px] uppercase">
-        <Play size={12} />
-        <span className="text-muted-foreground">
-          Sprite mode — pick a body plan, then an animation. Pass 1 locks a character anchor;
-          Pass 2 paints all 8 keyframes onto a deterministic pose map.
-        </span>
-      </div>
-
-      {/* Body plan */}
-      <div className="flex flex-wrap items-center justify-center gap-1.5">
-        <span className="mr-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-          Body plan
-        </span>
-        {BODY_PLAN_ORDER.map((planId) => {
-          const plan = BODY_PLANS[planId];
-          return (
-            <button
-              key={planId}
-              type="button"
-              onClick={() => setBodyPlan(planId)}
-              disabled={generating}
-              className={chip(bodyPlan === planId, generating)}
-              title={plan.hint}
-            >
-              {plan.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Animation picker */}
-      <div className="flex flex-wrap items-center justify-center gap-1.5">
-        {BODY_PLANS[bodyPlan].anims.map((animType) => {
-          const animSpec = SPRITE_ANIMATIONS[animType];
-          const active = selectedAnim === animType;
-          const hasSaved = generatedAnims.has(animType) && !active;
-          return (
-            <button
-              key={animType}
-              type="button"
-              onClick={() => setSelectedAnim(animType)}
-              disabled={generating}
-              className={chip(active, generating)}
-              title={hasSaved ? `${animSpec.hint} · saved animation — click to view` : animSpec.hint}
-            >
-              {animSpec.label}
-              {hasSaved && (
-                <span className="inline-block h-1.5 w-1.5 bg-current" aria-label="has saved animation" />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Action bar */}
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {generating ? (
-          <button
-            onClick={onStop}
-            className="inline-flex items-center gap-1.5 border border-destructive px-3 py-1.5 text-[11px] font-bold uppercase text-destructive rounded-none"
-            title="Stop the current generation"
-          >
-            <Square size={12} />
-            Stop
-          </button>
-        ) : (
-          <button
-            onClick={onGenerate}
-            disabled={!canGenerate}
-            className="inline-flex items-center gap-1.5 bg-zinc-950 text-white dark:bg-white dark:text-black border border-zinc-950 dark:border-white px-3 py-1.5 text-[11px] font-black uppercase rounded-none disabled:opacity-40 hover:bg-transparent hover:text-zinc-950 dark:hover:bg-transparent dark:hover:text-white transition-colors"
-            title={
-              anchor
-                ? `Generate the ${spec.label.toLowerCase()} sheet for the existing character (skips the anchor pass)`
-                : `Two-pass generation: lock character (Pass 1) + paint ${spec.label.toLowerCase()} sheet (Pass 2)`
-            }
-          >
-            <Sparkles size={14} />
-            {anchor
-              ? hasAny
-                ? `Re-roll ${spec.label.toLowerCase()}`
-                : `Generate ${spec.label.toLowerCase()}`
-              : `Lock character + ${spec.label.toLowerCase()}`}
-          </button>
-        )}
-        {anchor && !generating && (
-          <button
-            onClick={onRerollCharacter}
-            disabled={!prompt.trim()}
-            className={ghostBtn}
-            title="Discard the current character and re-roll a fresh anchor + sheet"
-          >
-            <RefreshCw size={14} />
-            Re-roll character
-          </button>
-        )}
-        <button
-          onClick={onDownloadSheet}
-          disabled={!hasAny || generating}
-          className={ghostBtn}
-          title="Export grid sheet + horizontal strip + JSON manifest"
-        >
-          <Download size={14} />
-          Sheets + manifest
-        </button>
-        <button
-          onClick={onDownloadZip}
-          disabled={!hasAny || generating}
-          className={ghostBtn}
-          title="Export individual frame PNGs + grid sheet + strip + manifest as a ZIP"
-        >
-          <Layers size={14} />
-          ZIP
-        </button>
-        <button
-          onClick={onClear}
-          disabled={(!hasAny && !anchor) || generating}
-          className={ghostBtn}
-          title="Clear frames, character anchor, and prompt"
-        >
-          <Trash2 size={14} />
-          Clear
-        </button>
-        <div className="border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-          {filledCount}/{SPRITE_FRAME_COUNT} frames
-          {progressMessage ? ` · ${progressMessage}` : ""}
-        </div>
-      </div>
-
-      {/* Player + frame grid */}
-      <div className="grid w-full flex-1 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-3">
-          <SpriteAnimationPlayer
-            frames={sheet.frames}
-            fps={fps}
-            loop={spec.loop}
-            playing={playing}
-            setPlaying={setPlaying}
-            anchorImageUrl={anchor?.imageUrl ?? null}
-            anchorUploaded={anchor?.uploaded}
-          />
-          <div className="flex items-center gap-2 border border-zinc-300 dark:border-zinc-700 px-3 py-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              FPS
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={30}
-              value={fps}
-              onChange={(e) => setFps(Number(e.target.value))}
-              className="flex-1"
-              aria-label="Playback FPS"
-            />
-            <span className="w-9 text-right font-mono text-[12px] text-muted-foreground">{fps}</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-            <span>Frame sheet (4×2)</span>
-            <span className="font-mono normal-case tracking-normal">
-              {SPRITE_SHEET_W}×{SPRITE_SHEET_H} export
-            </span>
-          </div>
-          <div
-            className="grid w-full gap-1.5"
-            style={{ gridTemplateColumns: `repeat(${SPRITE_FRAME_COUNT}, 1fr)` }}
-          >
-            {sheet.frames.map((frame, i) => (
-              <SpriteFrameCell
-                key={i}
-                frame={frame}
-                loading={generating && !frame.imageUrl}
-                onToggle={onToggleFrame}
-              />
-            ))}
-          </div>
-          <div className="text-[10px] uppercase text-muted-foreground">
-            Click a frame to exclude it from the animation and all exports.
-            {excludedCount > 0 && (
-              <span className="text-destructive">
-                {" "}
-                {excludedCount} excluded · {activeCount} active.
-              </span>
-            )}{" "}
-            Row-major order: top-left is frame 1.
-          </div>
-
-          {/* Character rail */}
-          <div className="mt-1 flex w-full flex-col gap-2">
-            <div className="flex flex-col gap-2.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                Character
-              </label>
-
-              <input
-                ref={uploadInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) onUploadCharacter(file);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => !generating && uploadInputRef.current?.click()}
+  const form = (
+    <>
+      <PanelSection>
+        <ChipGroup label="Body plan" className="grid grid-cols-3">
+          {BODY_PLAN_ORDER.map((planId) => {
+            const p = BODY_PLANS[planId];
+            return (
+              <ToggleChip
+                key={planId}
+                pressed={bodyPlan === planId}
+                onClick={() => setBodyPlan(planId)}
                 disabled={generating}
-                onDragOver={(e) => {
-                  if (generating) return;
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  if (generating) return;
-                  const file = e.dataTransfer.files?.[0];
-                  if (file) onUploadCharacter(file);
-                }}
-                className={cn(
-                  "group flex w-full items-center gap-3 border-2 border-dashed px-3.5 py-3 text-left transition-colors rounded-none disabled:opacity-50",
-                  dragOver
-                    ? "border-zinc-950 dark:border-white bg-zinc-100 dark:bg-zinc-900"
-                    : "border-zinc-300 dark:border-zinc-700 hover:border-zinc-500",
-                )}
-                title="Upload your own character image and animate it instead of generating one"
+                title={p.hint}
+                className="px-1.5"
               >
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center border-2 border-zinc-950 dark:border-zinc-700">
-                  <Upload size={15} />
-                </span>
-                <span className="flex min-w-0 flex-col">
-                  <span className="text-[12px] font-bold uppercase">
-                    {anchor?.uploaded ? "Replace uploaded character" : "Upload your own character"}
-                  </span>
-                  <span className="text-[10px] uppercase text-muted-foreground">
-                    Drag &amp; drop or click · transparent PNG works best
-                  </span>
-                </span>
-              </button>
+                {shortPlanLabel(p.label)}
+              </ToggleChip>
+            );
+          })}
+        </ChipGroup>
+      </PanelSection>
 
-              {anchor?.uploaded && (
-                <button
-                  type="button"
-                  onClick={onRemoveUploadedCharacter}
-                  disabled={generating}
-                  className="inline-flex items-center gap-1.5 self-start border border-destructive px-2.5 py-1 text-[10px] font-bold uppercase text-destructive rounded-none disabled:opacity-50"
-                  title="Remove the uploaded character and use a prompt instead"
-                >
-                  <Trash2 size={12} />
-                  Remove uploaded character
-                </button>
+      <PanelSection>
+        <div className="oa-field">
+          <span className="oa-field-label">
+            <label htmlFor={ids.preset}>Character</label>
+          </span>
+          <div
+            className={cn("-m-1 flex items-center gap-2.5 p-1", dragOver && "bg-brand-soft")}
+            onDragOver={(e) => {
+              if (generating) return;
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              if (generating) return;
+              const file = e.dataTransfer.files?.[0];
+              if (file) onUploadCharacter(file);
+            }}
+          >
+            <Checker className="flex size-14 flex-none items-center justify-center border border-line">
+              {anchor ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={anchor.imageUrl}
+                  alt={anchor.uploaded ? "Uploaded character" : "Locked character"}
+                  draggable={false}
+                  className="size-[42px] object-contain [image-rendering:pixelated]"
+                />
+              ) : (
+                <PersonStanding aria-hidden className="size-5 text-ink-3" />
               )}
-
-              <div className="flex items-center gap-2">
-                <span className="h-px flex-1 bg-border" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
-                  or pick a starter
-                </span>
-                <span className="h-px flex-1 bg-border" />
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {BODY_PLANS[bodyPlan].presets.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => setPrompt(preset.prompt)}
-                    disabled={generating}
-                    className={chip(prompt.trim() === preset.prompt, generating)}
-                    title={preset.prompt}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex w-full items-stretch gap-2 border-2 border-zinc-950 dark:border-zinc-700 bg-background p-1.5">
-              <input
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
+            </Checker>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <PresetSelect
+                id={ids.preset}
+                size="sm"
+                presets={plan.presets}
+                prompt={prompt}
+                setPrompt={setPrompt}
                 disabled={generating}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && canGenerate && !generating) {
-                    e.preventDefault();
-                    onGenerate();
-                  }
-                }}
-                placeholder={
-                  anchor?.uploaded
-                    ? "Optional: describe the character to refine results"
-                    : "Describe the character — or pick a starter above"
-                }
-                className="flex-1 bg-transparent px-3 py-2.5 text-[13px] focus:outline-none"
+                customLabel={anchor?.uploaded ? "Uploaded character" : "Describe your own"}
               />
-              <div className="hidden items-center border-l border-border sm:flex">
-                <select
-                  value={artStyle}
-                  onChange={(e) => setArtStyle(e.target.value)}
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="px-1.5"
+                  onClick={() => !generating && uploadInputRef.current?.click()}
                   disabled={generating}
-                  className="cursor-pointer border-0 bg-transparent py-2 pl-3 pr-7 text-[12px] uppercase font-bold text-muted-foreground focus:outline-none"
-                  title="Art style for the sprite"
+                  title="Upload a character image to animate. Drop a file here too. Transparent PNG works best."
                 >
-                  {ART_STYLE_GROUPS.map((group) =>
-                    group.options.length === 1 && group.label === "Match original" ? (
-                      <option key={group.options[0].value} value={group.options[0].value}>
-                        {group.options[0].label}
-                      </option>
-                    ) : (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.options.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ),
-                  )}
-                </select>
+                  <Upload aria-hidden />
+                  {anchor?.uploaded ? "Replace upload" : "Upload your own"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="px-1.5"
+                  onClick={onRerollCharacter}
+                  disabled={!anchor || !prompt.trim() || generating}
+                  title="Discard this character and lock a fresh one, then redraw the sheet"
+                >
+                  <RefreshCw aria-hidden />
+                  Re-roll
+                </Button>
+                {anchor?.uploaded && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="px-1.5"
+                    onClick={onRemoveUploadedCharacter}
+                    disabled={generating}
+                    title="Remove the uploaded character and use a description instead"
+                  >
+                    <X aria-hidden />
+                    Remove upload
+                  </Button>
+                )}
               </div>
             </div>
           </div>
+          <input
+            ref={uploadInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            tabIndex={-1}
+            aria-hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onUploadCharacter(file);
+              e.target.value = "";
+            }}
+          />
         </div>
-      </div>
-    </div>
+        <PromptField
+          value={prompt}
+          onChange={setPrompt}
+          onSubmit={onGenerate}
+          canSubmit={canGenerate && !generating}
+          disabled={generating}
+          optional={!!anchor?.uploaded}
+          placeholder={
+            anchor?.uploaded
+              ? "Describe the character to refine results"
+              : "A knight in silver armour with a blue tabard"
+          }
+        />
+        <ArtStyleField value={artStyle} onChange={setArtStyle} disabled={generating} />
+      </PanelSection>
+
+      <PanelSection>
+        <ChipGroup label="Animation">
+          {plan.anims.map((animType) => {
+            const animSpec = SPRITE_ANIMATIONS[animType];
+            const saved = generatedAnims.has(animType) && animType !== selectedAnim;
+            return (
+              <ToggleChip
+                key={animType}
+                pressed={selectedAnim === animType}
+                onClick={() => setSelectedAnim(animType)}
+                disabled={generating}
+                title={saved ? `${animSpec.hint}. Saved, click to view.` : animSpec.hint}
+              >
+                {animSpec.label}
+                {saved && (
+                  <>
+                    <span aria-hidden className="size-1.5 bg-current" />
+                    <span className="sr-only">, saved</span>
+                  </>
+                )}
+              </ToggleChip>
+            );
+          })}
+        </ChipGroup>
+        <p className="text-xs leading-[18px] text-ink-2">
+          {SPRITE_FRAME_COUNT} frames at {SPRITE_FRAME_SIZE} px, laid out as a {SPRITE_GRID_COLS} ×{" "}
+          {SPRITE_GRID_ROWS} sheet.
+        </p>
+      </PanelSection>
+
+      <PanelSection className="border-b-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="self-start px-1"
+          aria-expanded={advancedOpen}
+          aria-controls={ids.advanced}
+          onClick={() => setAdvancedOpen((o) => !o)}
+        >
+          {advancedOpen ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
+          Advanced: model, two-pass lock
+        </Button>
+        <div id={ids.advanced} hidden={!advancedOpen} className="flex flex-col gap-3.5">
+          <Field
+            label="Model"
+            htmlFor={ids.model}
+            help={`${model.hint ? `${model.hint} · ` : ""}about ${formatSeconds(model.approxSecondsPerCall)} a call`}
+          >
+            <Select
+              id={ids.model}
+              value={model.value}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={generating}
+              aria-describedby={`${ids.model}-note`}
+            >
+              {MODELS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="flex flex-col gap-1.5">
+            <span className="oa-field-label items-center">
+              Two-pass lock
+              {anchor ? (
+                <Badge tone="success">
+                  <Lock aria-hidden />
+                  Locked
+                </Badge>
+              ) : (
+                <Badge>
+                  <LockOpen aria-hidden />
+                  Not locked
+                </Badge>
+              )}
+            </span>
+            <p className="text-xs leading-[18px] text-ink-2">
+              Pass 1 locks a character. Pass 2 paints all {SPRITE_FRAME_COUNT} frames onto a fixed
+              pose map, so every animation keeps the same character. Re-roll or clear to unlock it.
+            </p>
+          </div>
+        </div>
+      </PanelSection>
+    </>
+  );
+
+  const footer = (
+    <RunFooter running={generating} message={progressMessage} onStop={onStop} hint={`${runHint}${anchor ? "" : " · 2 passes"}`}>
+      <Button
+        variant="primary"
+        size="lg"
+        block
+        onClick={onGenerate}
+        disabled={!canGenerate}
+        title={
+          anchor
+            ? `Draw the ${animLabel} sheet for the locked character`
+            : `Lock the character, then draw the ${animLabel} sheet`
+        }
+      >
+        <Sparkles aria-hidden />
+        {anchor && hasAny ? `Regenerate ${animLabel}` : `Generate ${animLabel}`}
+      </Button>
+    </RunFooter>
+  );
+
+  return (
+    <GeneratorLayout formLabel="Sprite settings" form={form} footer={footer} resultsLabel="Sprite results">
+      {showRun ? (
+        <div className="mx-auto flex w-full max-w-[980px] flex-col gap-7">
+          <section aria-labelledby={ids.run} className="flex flex-col gap-3">
+            <RunHeader
+              id={ids.run}
+              title={`${characterName} · ${spec.label}`}
+              meta={
+                <>
+                  {artStyle !== "none" && <Badge>{findStyleLabel(artStyle)}</Badge>}
+                  <span className="text-xs text-ink-3">
+                    {filledCount}/{SPRITE_FRAME_COUNT} frames
+                  </span>
+                </>
+              }
+              actions={
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClear}
+                    disabled={(!hasAny && !anchor) || generating}
+                    title="Clear frames, the locked character and the description"
+                  >
+                    <Trash2 aria-hidden />
+                    Clear
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={onDownloadZip}
+                    disabled={!hasAny || generating}
+                    aria-label="Download ZIP"
+                    title="Frame PNGs, grid sheet, strip and JSON manifest"
+                  >
+                    <FileArchive aria-hidden />
+                    ZIP
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={onDownloadSheet}
+                    disabled={!hasAny || generating}
+                    aria-label="Download sheet PNG and manifest"
+                    title="Grid sheet, horizontal strip and JSON manifest"
+                  >
+                    <Download aria-hidden />
+                    Sheet PNG
+                  </Button>
+                </>
+              }
+            />
+            <div className="flex flex-wrap items-start gap-4">
+              <SpriteAnimationPlayer
+                frames={sheet.frames}
+                fps={fps}
+                setFps={setFps}
+                loop={spec.loop}
+                playing={playing}
+                setPlaying={setPlaying}
+                anchorImageUrl={anchor?.imageUrl ?? null}
+                anchorUploaded={anchor?.uploaded}
+              />
+              <ol
+                aria-label={`Frames, ${SPRITE_GRID_COLS} by ${SPRITE_GRID_ROWS}`}
+                className="grid min-w-0 flex-[999_1_420px] gap-px border-[1.5px] border-line bg-line"
+                style={{ gridTemplateColumns: `repeat(${SPRITE_GRID_COLS}, minmax(0, 1fr))` }}
+              >
+                {sheet.frames.map((frame) => (
+                  <SpriteFrameCell
+                    key={frame.index}
+                    frame={frame}
+                    loading={generating && !frame.imageUrl}
+                    onToggle={onToggleFrame}
+                  />
+                ))}
+              </ol>
+            </div>
+            <p className="text-xs leading-[18px] text-ink-2">
+              Click a frame to skip it in the preview and export. Frame 1 is top left.
+              {skippedCount > 0 && (
+                <span className="text-ink">
+                  {" "}
+                  {skippedCount} skipped, {activeCount} in use.
+                </span>
+              )}
+            </p>
+          </section>
+
+          {earlierAnims.length > 0 && (
+            <section
+              aria-labelledby={ids.earlier}
+              className="flex flex-col gap-3 border-t-[1.5px] border-line pt-5"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 id={ids.earlier} className="oa-section">
+                  Earlier runs
+                </h2>
+                <span className="text-xs text-ink-3">{plan.label}</span>
+              </div>
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
+                {earlierAnims.map((a) => (
+                  <li key={a}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAnim(a)}
+                      disabled={generating}
+                      className="group flex w-full flex-col gap-1.5 text-left disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <span className="oa-tile oa-checker w-full group-hover:border-line-strong">
+                        {anchor?.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={anchor.imageUrl}
+                            alt=""
+                            draggable={false}
+                            className="h-3/4 w-3/4 object-contain [image-rendering:pixelated]"
+                          />
+                        ) : (
+                          <PersonStanding aria-hidden className="size-6 text-ink-3" />
+                        )}
+                      </span>
+                      <span className="flex justify-between gap-1.5 text-xs">
+                        <span className="truncate font-medium">{characterName}</span>
+                        <span className="flex-none text-ink-3">{SPRITE_ANIMATIONS[a].label}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      ) : (
+        <EmptyState
+          className="m-auto w-full max-w-xl"
+          icon={<PersonStanding aria-hidden className="size-5" />}
+          title="No sprite sheet yet"
+          description={`Pick a body plan and a character, then generate an animation. Frames appear here as a ${SPRITE_GRID_COLS} × ${SPRITE_GRID_ROWS} sheet you can preview, trim and export.`}
+        />
+      )}
+    </GeneratorLayout>
   );
 }

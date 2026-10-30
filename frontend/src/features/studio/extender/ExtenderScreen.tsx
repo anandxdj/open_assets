@@ -1,20 +1,36 @@
 "use client";
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
-// Extender mode screen: empty state ↔ workspace + command bar, keyboard-first.
+// Extender: form panel (source image, what to add, art style) and a stage
+// with an extend button on each edge and a floating review bar. Keyboard
+// first: arrows extend; with a result ←/→ cycle, Enter accept, Esc discard,
+// R regenerate.
 
-import { useEffect, useRef } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useId, useRef } from "react";
+import { Expand, ImagePlus, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/controls";
+import { Checker } from "@/components/ui/feedback";
 import type { Direction } from "@/features/studio/lib/app";
+import { EXTENSION_PERCENT } from "@/features/studio/lib/app";
 import { findStyleLabel } from "@/features/studio/lib/artStyles";
 import { useExtender } from "@/features/studio/hooks/useExtender";
-import { Workspace } from "@/features/studio/components/Workspace";
+import { EDGE_NAME, Workspace } from "@/features/studio/components/Workspace";
 import { CommandBar } from "@/features/studio/components/CommandBar";
-import { EmptyState } from "@/features/studio/components/EmptyState";
-import { VariantSelector, ResultActions } from "@/features/studio/components/VariantSelector";
+import { UploadDropZone } from "@/features/studio/components/EmptyState";
+import { VariantSelector } from "@/features/studio/components/VariantSelector";
+import {
+  GeneratorLayout,
+  PanelSection,
+  RunFooter,
+  shouldIgnoreShortcut,
+  useRunHint,
+} from "@/features/studio/components/GeneratorLayout";
 
 export function ExtenderScreen() {
   const ext = useExtender();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sourceId = useId();
+  const runHint = useRunHint(1);
 
   const isResult = !!ext.activeCandidate;
   const variantCount = ext.extendedCandidates.length;
@@ -24,10 +40,10 @@ export function ExtenderScreen() {
     : ext.currentImageDimensions;
 
   // Keyboard shortcuts: arrows extend; with a result: ←/→ cycle, Enter accept,
-  // Esc discard, R regenerate. Skipped while typing in inputs.
+  // Esc discard, R regenerate. Skipped while typing or on focused buttons.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (shouldIgnoreShortcut(e)) return;
       if (!ext.selectedImage || ext.loading) return;
       if (ext.activeCandidate) {
         if (e.key === "Enter") ext.handleAccept();
@@ -58,89 +74,150 @@ export function ExtenderScreen() {
     return () => window.removeEventListener("keydown", onKey);
   }, [ext, variantCount]);
 
-  const variantSelectorEl =
-    isResult && variantCount > 1 ? (
-      <VariantSelector
-        index={ext.selectedCandidateIdx}
-        total={variantCount}
-        isBest={ext.selectedCandidateIdx === 0}
-        score={ext.debugMode ? ext.activeCandidate?.score : undefined}
-        onPrev={() => ext.cycleVariant(-1)}
-        onNext={() => ext.cycleVariant(1)}
-      />
-    ) : undefined;
+  const pickFile = () => fileInputRef.current?.click();
 
-  const resultActionsEl = isResult ? (
-    <ResultActions
-      onAccept={ext.handleAccept}
-      onRegenerate={() => void ext.handleRegenerate()}
-      onDiscard={ext.handleDiscard}
-      onDownload={ext.handleDownload}
-      loading={ext.loading}
-    />
-  ) : undefined;
-
-  return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+  const form = (
+    <>
+      <PanelSection>
+        <span id={sourceId} className="oa-field-label">
+          Source image
+        </span>
+        {ext.selectedImage ? (
+          <div className="flex items-center gap-2.5" role="group" aria-labelledby={sourceId}>
+            <Checker className="flex size-14 flex-none items-center justify-center overflow-hidden border border-line">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={ext.selectedImage} alt="" draggable={false} className="max-h-full max-w-full object-contain" />
+            </Checker>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="oa-value text-ink-2">
+                {ext.currentImageDimensions
+                  ? `${ext.currentImageDimensions.width} × ${ext.currentImageDimensions.height} px`
+                  : "Loading"}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="self-start px-1.5"
+                onClick={ext.handleNewImage}
+              >
+                <ImagePlus aria-hidden />
+                New image
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs leading-[18px] text-ink-2">
+            Upload a PNG, JPG or WEBP to start. Each extension adds {EXTENSION_PERCENT}% of the
+            current size on the edge you pick.
+          </p>
+        )}
+      </PanelSection>
       {ext.selectedImage && (
-        <div className="flex h-10 shrink-0 items-center justify-end border-b border-zinc-200 dark:border-zinc-800 px-4 font-mono">
-          <button
-            onClick={ext.handleNewImage}
-            className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase text-muted-foreground hover:text-foreground"
-          >
-            <Plus size={13} />
-            New image
-          </button>
-        </div>
-      )}
-
-      {!displayImage ? (
-        <EmptyState
-          title="Drop an image to begin"
-          subtitle="PNG, JPG, or WEBP — click anywhere in this area to browse"
-          onPickFile={() => fileInputRef.current?.click()}
-          onDropFile={ext.handleFile}
-        />
-      ) : (
-        <Workspace
-          image={displayImage}
-          dimensions={displayDimensions}
-          onExtend={(d) => void ext.handleExtend(d)}
-          activeDirection={ext.activeDirection}
-          loading={ext.loading}
-          progressMessage={ext.progressMsg}
-          isResult={isResult}
-          resultMessage={
-            isResult
-              ? variantCount > 1
-                ? "Cycle variants with ← →, then accept"
-                : "New extension ready — accept, regenerate, or discard"
-              : undefined
-          }
-          variantSelector={variantSelectorEl}
-          resultActions={resultActionsEl}
-        />
-      )}
-
-      {!!ext.selectedImage && !isResult && (
         <CommandBar
           prompt={ext.customPrompt}
           setPrompt={ext.setCustomPrompt}
           artStyle={ext.artStyle}
           setArtStyle={ext.setArtStyle}
-          loading={ext.loading}
+          loading={ext.loading || isResult}
           hint={
             ext.artStyle !== "none"
-              ? `Style: ${findStyleLabel(ext.artStyle)} — describe what to add (optional)`
+              ? `${findStyleLabel(ext.artStyle)}: describe what to add`
               : undefined
           }
         />
       )}
+      {ext.selectedImage && (
+        <PanelSection className="border-b-0">
+          <p className="text-xs leading-[20px] text-ink-2">
+            Each extension adds {EXTENSION_PERCENT}% of the current size. Pick an edge on the stage
+            or press <Kbd>↑</Kbd> <Kbd>↓</Kbd> <Kbd>←</Kbd> <Kbd>→</Kbd>. Accept and extend again
+            for more.
+          </p>
+        </PanelSection>
+      )}
+    </>
+  );
+
+  const footer = (
+    <RunFooter
+      running={ext.loading}
+      message={ext.progressMsg || (ext.activeDirection ? `Extending ${EDGE_NAME[ext.activeDirection]}` : "Working")}
+      hint={!ext.selectedImage || isResult ? undefined : runHint}
+      announce={isResult ? "Extension ready. Review it on the stage." : undefined}
+    >
+      {!ext.selectedImage ? (
+        <Button variant="primary" size="lg" block onClick={pickFile}>
+          <Upload aria-hidden />
+          Upload image
+        </Button>
+      ) : isResult ? (
+        <p className="text-xs leading-[20px] text-ink-2">
+          Review the extension on the stage. <Kbd>←</Kbd> <Kbd>→</Kbd> compare, <Kbd>Enter</Kbd>{" "}
+          use it, <Kbd>Esc</Kbd> discard, <Kbd>R</Kbd> regenerate.
+        </p>
+      ) : (
+        <p className="flex items-center justify-center gap-2 text-xs leading-[18px] text-ink-2">
+          <Expand aria-hidden className="size-4 flex-none" />
+          Pick an edge on the stage to extend.
+        </p>
+      )}
+    </RunFooter>
+  );
+
+  return (
+    <>
+      <GeneratorLayout
+        formLabel="Extender settings"
+        form={form}
+        footer={footer}
+        resultsLabel="Extender stage"
+        resultsClassName={displayImage ? "p-0 md:p-0" : undefined}
+      >
+        {!displayImage ? (
+          <div className="m-auto w-full max-w-2xl">
+            <UploadDropZone
+              title="Drop an image to begin"
+              description="PNG, JPG or WEBP. Click to browse."
+              onPickFile={pickFile}
+              onDropFile={ext.handleFile}
+              className="py-20"
+            />
+          </div>
+        ) : (
+          <Workspace
+            image={displayImage}
+            dimensions={displayDimensions}
+            onExtend={(d) => void ext.handleExtend(d)}
+            activeDirection={ext.activeDirection}
+            loading={ext.loading}
+            isResult={isResult}
+            overlay={
+              isResult ? (
+                <VariantSelector
+                  index={ext.selectedCandidateIdx}
+                  total={variantCount}
+                  isBest={ext.selectedCandidateIdx === 0}
+                  score={ext.debugMode ? ext.activeCandidate?.score : undefined}
+                  onPrev={() => ext.cycleVariant(-1)}
+                  onNext={() => ext.cycleVariant(1)}
+                  onAccept={ext.handleAccept}
+                  onRegenerate={() => void ext.handleRegenerate()}
+                  onDiscard={ext.handleDiscard}
+                  onDownload={ext.handleDownload}
+                  loading={ext.loading}
+                />
+              ) : undefined
+            }
+          />
+        )}
+      </GeneratorLayout>
 
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        tabIndex={-1}
+        aria-hidden
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) ext.handleFile(file);
@@ -148,6 +225,6 @@ export function ExtenderScreen() {
         }}
         className="hidden"
       />
-    </div>
+    </>
   );
 }

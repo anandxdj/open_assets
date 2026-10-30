@@ -1,10 +1,14 @@
 "use client";
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
-// Left sidebar: 4 parallax layer cards (thumbnail, scroll speed, clear) with
-// front-to-back workflow guidance.
+// Layer list for the parallax form panel: one row per layer (thumbnail,
+// status, clear) with its scroll speed, plus front-to-back guidance.
 
-import { Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useId } from "react";
+import { Check, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Range } from "@/components/ui/controls";
+import { Notice } from "@/components/ui/feedback";
 import {
   LAYER_ROLES,
   getRecommendedLayerIndex,
@@ -12,6 +16,7 @@ import {
   getWorkflowStep,
 } from "@/features/studio/lib/parallax";
 import type { ParallaxLayer } from "@/features/studio/lib/parallax";
+import { PanelSection } from "@/features/studio/components/GeneratorLayout";
 
 export function LayerRail({
   layers,
@@ -26,137 +31,112 @@ export function LayerRail({
   onClearLayer: (idx: number) => void;
   onScrollSpeedChange: (idx: number, speed: number) => void;
 }) {
+  const headingId = useId();
   const recommendedIdx = getRecommendedLayerIndex(layers);
   const completedCount = layers.filter((l) => l.imageUrl).length;
 
   return (
-    <aside
-      className="flex w-[230px] shrink-0 flex-col gap-2 border-r-2 border-zinc-950 dark:border-zinc-800 bg-background p-3 font-mono"
-      aria-label="Parallax layers"
-    >
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-          Layers
-        </span>
-        <span className="text-[10px] uppercase text-muted-foreground">back → front</span>
+    <PanelSection>
+      <div className="oa-field-label">
+        <h2 id={headingId}>Layers</h2>
+        <span className="oa-value text-ink-3">Back to front</span>
       </div>
 
-      {completedCount < layers.length && recommendedIdx !== null && (
-        <div className="mb-1 border-2 border-zinc-950 dark:border-zinc-700 px-2.5 py-2 text-[10px] leading-snug">
-          <span className="font-black uppercase">
-            Step {getWorkflowStep(layers[recommendedIdx].role)} —{" "}
-            {LAYER_ROLES[layers[recommendedIdx].role].short}
-          </span>
-          <br />
-          <span className="text-muted-foreground">
-            Build layers front-to-back so each step matches the scene in front of it.
-          </span>
-        </div>
-      )}
-
-      {layers.map((layer, idx) => {
-        const spec = LAYER_ROLES[layer.role];
-        const isActive = idx === activeIdx;
-        const isEmpty = !layer.imageUrl;
-        const isRecommended = idx === recommendedIdx;
-        const prerequisite = isEmpty ? getWorkflowPrerequisite(layers, layer.role) : null;
-        const isWaiting = !!prerequisite;
-        const step = getWorkflowStep(layer.role);
-        return (
-          <div
-            key={layer.id}
-            className={cn(
-              "relative border-2 p-2 transition-all",
-              isActive
-                ? "border-zinc-950 dark:border-white"
-                : isRecommended
-                  ? "border-zinc-500"
-                  : "border-zinc-200 dark:border-zinc-800",
-              isWaiting && !isActive && "opacity-70",
-            )}
-          >
-            <button
-              onClick={() => onSelect(idx)}
-              className="flex w-full items-center gap-2 text-left"
-              aria-pressed={isActive}
-              title={spec.hint}
-            >
-              <div className="relative shrink-0">
-                <div className="flex h-9 w-14 items-center justify-center overflow-hidden border border-zinc-300 dark:border-zinc-700 bg-[repeating-conic-gradient(#80808033_0%_25%,transparent_0%_50%)] bg-[length:8px_8px]">
-                  {layer.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={layer.imageUrl}
-                      alt=""
-                      className="block h-full w-full object-cover"
-                      draggable={false}
-                    />
-                  ) : (
-                    <span className="text-[9px] uppercase text-muted-foreground">empty</span>
-                  )}
-                </div>
-                <span
-                  className={cn(
-                    "absolute -left-1 -top-1 flex h-4 w-4 items-center justify-center border text-[9px] font-black",
-                    layer.imageUrl || isRecommended
-                      ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-black"
-                      : "border-zinc-300 dark:border-zinc-700 bg-background text-muted-foreground",
-                  )}
+      <ul aria-labelledby={headingId} className="-mx-1.5 flex flex-col gap-1">
+        {layers.map((layer, idx) => {
+          const spec = LAYER_ROLES[layer.role];
+          const isActive = idx === activeIdx;
+          const isEmpty = !layer.imageUrl;
+          const isRecommended = idx === recommendedIdx;
+          const prerequisite = isEmpty ? getWorkflowPrerequisite(layers, layer.role) : null;
+          const step = getWorkflowStep(layer.role);
+          const meta = isEmpty
+            ? prerequisite
+              ? `Needs ${LAYER_ROLES[prerequisite.role].short} first`
+              : spec.hint
+            : `${layer.width} × ${layer.height}${spec.isOpaque ? "" : ", transparent"}`;
+          return (
+            <li key={layer.id} className="flex flex-col">
+              <div className="oa-layer h-auto min-h-[40px] py-1 pr-1" data-selected={isActive}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(idx)}
+                  aria-pressed={isActive}
+                  title={spec.hint}
+                  className="flex min-w-0 flex-1 items-center gap-2.5 self-stretch text-left"
                 >
-                  {layer.imageUrl ? "✓" : step}
+                  <span className="oa-checker relative flex h-7 w-11 flex-none items-center justify-center overflow-hidden border border-line">
+                    {layer.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={layer.imageUrl} alt="" draggable={false} className="block h-full w-full object-cover" />
+                    ) : (
+                      <span aria-hidden className="text-[10.5px] font-bold text-ink-3">
+                        {step}
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-xs font-semibold">{spec.label}</span>
+                      {!isEmpty && (
+                        <>
+                          <Check aria-hidden className="size-3.5 flex-none text-success" />
+                          <span className="sr-only">, done</span>
+                        </>
+                      )}
+                    </span>
+                    <span className="truncate text-[11px] leading-4 text-ink-3">{meta}</span>
+                  </span>
+                  {isRecommended && <Badge className="flex-none">Next</Badge>}
+                </button>
+                {!isEmpty && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon
+                    onClick={() => onClearLayer(idx)}
+                    aria-label={`Clear ${spec.short} layer`}
+                    title={`Clear ${spec.short}`}
+                  >
+                    <Trash2 aria-hidden />
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 py-1 pl-2.5 pr-2">
+                <span aria-hidden className="oa-label w-[44px] flex-none text-ink-3">
+                  Speed
+                </span>
+                <Range
+                  min={0}
+                  max={150}
+                  value={Math.round(layer.scrollSpeed * 100)}
+                  onChange={(e) => onScrollSpeedChange(idx, Number(e.target.value) / 100)}
+                  aria-label={`${spec.label} scroll speed`}
+                  aria-valuetext={`${layer.scrollSpeed.toFixed(2)} times camera speed`}
+                  className="min-w-0 flex-1"
+                />
+                <span className="oa-value w-11 flex-none text-right text-ink-2">
+                  {layer.scrollSpeed.toFixed(2)}×
                 </span>
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="truncate text-[11px] font-bold uppercase">{spec.label}</div>
-                  {isRecommended && (
-                    <span className="shrink-0 bg-zinc-950 text-white dark:bg-white dark:text-black px-1.5 py-px text-[8px] font-black uppercase tracking-wide">
-                      Next
-                    </span>
-                  )}
-                </div>
-                <div className="truncate text-[10px] text-muted-foreground">
-                  {isEmpty
-                    ? isWaiting
-                      ? `Needs ${LAYER_ROLES[prerequisite!.role].short} first`
-                      : spec.hint
-                    : `${layer.width}×${layer.height}${spec.isOpaque ? "" : " · α"}`}
-                </div>
-              </div>
-            </button>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-[9px] uppercase text-muted-foreground">Speed</span>
-              <input
-                type="range"
-                min={0}
-                max={150}
-                value={Math.round(layer.scrollSpeed * 100)}
-                onChange={(e) => onScrollSpeedChange(idx, Number(e.target.value) / 100)}
-                className="flex-1"
-                aria-label={`${spec.label} scroll speed`}
-                title={`${layer.scrollSpeed.toFixed(2)}× camera speed`}
-              />
-              <span className="min-w-[28px] font-mono text-[10px] tabular-nums text-muted-foreground">
-                {layer.scrollSpeed.toFixed(2)}×
-              </span>
-            </div>
-            {!isEmpty && (
-              <button
-                onClick={() => onClearLayer(idx)}
-                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-destructive"
-                title={`Clear ${spec.short}`}
-                aria-label={`Clear ${spec.short} layer`}
-              >
-                <Trash2 size={11} />
-              </button>
-            )}
-          </div>
-        );
-      })}
-      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-        Build front → back: Near, then Mid, Far, Sky. Sky is opaque; the others are
-        alpha-keyed over it.
-      </p>
-    </aside>
+            </li>
+          );
+        })}
+      </ul>
+
+      {completedCount < layers.length && recommendedIdx !== null ? (
+        <Notice tone="info">
+          <strong className="font-semibold">
+            Step {getWorkflowStep(layers[recommendedIdx].role)}: {LAYER_ROLES[layers[recommendedIdx].role].short}.
+          </strong>{" "}
+          Build front to back (Near, Mid, Far, then Sky) so each layer matches the one in front of
+          it. Sky is opaque; the others are transparent over it.
+        </Notice>
+      ) : (
+        <p className="text-xs leading-[18px] text-ink-2">
+          Sky is opaque; the other layers are transparent over it.
+        </p>
+      )}
+    </PanelSection>
   );
 }

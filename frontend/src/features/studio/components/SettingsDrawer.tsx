@@ -1,10 +1,28 @@
 "use client";
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
+// Studio settings as a right-hand sheet built on the dialog primitive: plan,
+// model, OpenRouter key, debug overlay and notes.
 
-import { useEffect } from "react";
-import { Key, Settings2, Trash2, X } from "lucide-react";
+import { useId } from "react";
+import { Dialog as DialogPrimitive } from "radix-ui";
+import { Coins, ExternalLink, KeyRound, Pencil, Trash2, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/controls";
 import { MODELS, maskKey } from "@/features/studio/lib/models";
+import { EXTENSION_PERCENT } from "@/features/studio/lib/app";
 import { useStudioSettings } from "@/features/studio/hooks/useStudioSettings";
+import { formatSeconds } from "@/features/studio/components/GeneratorLayout";
+
+function ExternalA({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="oa-link inline-flex items-center gap-1">
+      {children}
+      <ExternalLink aria-hidden className="size-3" />
+      <span className="sr-only">(opens in a new tab)</span>
+    </a>
+  );
+}
 
 export function SettingsDrawer({
   open,
@@ -15,215 +33,179 @@ export function SettingsDrawer({
   onClose: () => void;
   onEditApiKey: () => void;
 }) {
-  const {
-    apiKey,
-    setApiKey,
-    selectedModel,
-    setSelectedModel,
-    debugMode,
-    setDebugMode,
-    credits,
-  } = useStudioSettings();
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
+  const { apiKey, setApiKey, selectedModel, setSelectedModel, debugMode, setDebugMode, credits } =
+    useStudioSettings();
+  const debugLabelId = useId();
+  const debugHelpId = useId();
 
   return (
-    <>
-      <div className="fixed inset-0 z-30 bg-black/50" onClick={onClose} />
-      <aside className="fixed right-0 top-0 z-40 flex h-full w-[360px] flex-col border-l-2 border-zinc-950 dark:border-zinc-700 bg-background font-mono">
-        <div className="flex h-14 shrink-0 items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 px-5">
-          <h2 className="text-xs font-black uppercase tracking-widest">Studio Settings</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-900"
-            aria-label="Close"
-          >
-            <X size={16} />
-          </button>
-        </div>
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="oa-scrim fixed inset-0 z-50" />
+        <DialogPrimitive.Content className="oa-dialog fixed inset-y-0 right-0 z-50 flex w-[min(400px,100%)] flex-col border-y-0 border-r-0 outline-none">
+          <div className="flex h-14 flex-none items-center justify-between gap-3 border-b-[1.5px] border-line pl-5 pr-3">
+            <DialogPrimitive.Title className="oa-h3">Studio settings</DialogPrimitive.Title>
+            <DialogPrimitive.Description className="sr-only">
+              Plan, model, OpenRouter key and developer options for Studio.
+            </DialogPrimitive.Description>
+            <DialogPrimitive.Close className="oa-btn oa-btn-ghost oa-btn-sm oa-btn-icon" aria-label="Close">
+              <X aria-hidden />
+            </DialogPrimitive.Close>
+          </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
-          <Section title="Plan">
-            <div className="border-2 border-zinc-200 dark:border-zinc-800 p-3 text-[12px]">
-              {apiKey ? (
-                <p>
-                  <span className="font-black uppercase">BYOK</span>{" "}
-                  <span className="text-muted-foreground">
-                    — using your OpenRouter key, no credit limits. Requests go to
-                    OpenRouter only.
-                  </span>
-                </p>
-              ) : credits ? (
-                <p>
-                  <span className="font-black uppercase">Free tier</span>{" "}
-                  <span className="text-muted-foreground">
-                    — {credits.credits}/{credits.monthlyGrant} credits, resets{" "}
-                    {new Date(credits.resetAt).toLocaleDateString()}.
-                  </span>
-                </p>
-              ) : (
-                <p className="text-muted-foreground">
-                  Sign in for free monthly credits, or add your own OpenRouter key below.
-                </p>
-              )}
-              {!apiKey && (
-                <p className="mt-2 border-t-2 border-zinc-200 dark:border-zinc-800 pt-2 text-muted-foreground">
-                  Free-tier prompts and images are routed through{" "}
-                  <a
-                    href="https://openquota.anands.dev"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-bold underline underline-offset-4"
-                  >
-                    Open Quota
-                  </a>
-                  , which forwards them to whichever provider it picks, and fall back to
-                  OpenRouter. Add your own key to use OpenRouter only.
-                </p>
-              )}
-            </div>
-          </Section>
+          <div className="flex-1 overflow-y-auto">
+            <Section title="Plan">
+              <div className="flex flex-col gap-2 text-xs leading-[18px] text-ink-2">
+                {apiKey ? (
+                  <>
+                    <Badge tone="info" className="self-start">
+                      <KeyRound aria-hidden />
+                      Your own key
+                    </Badge>
+                    <p>Requests use your OpenRouter key with no credit limit and go to OpenRouter only.</p>
+                  </>
+                ) : credits ? (
+                  <>
+                    <Badge className="self-start">
+                      <Coins aria-hidden />
+                      Free tier
+                    </Badge>
+                    <p>
+                      <span className="text-ink">
+                        {credits.credits} of {credits.monthlyGrant} credits left
+                      </span>
+                      , resets {new Date(credits.resetAt).toLocaleDateString()}.
+                    </p>
+                  </>
+                ) : (
+                  <p>Sign in for free monthly credits, or add your own OpenRouter key below.</p>
+                )}
+                {!apiKey && (
+                  <p>
+                    Free-tier prompts and images go through{" "}
+                    <ExternalA href="https://openquota.anands.dev">Open Quota</ExternalA>, which
+                    forwards them to a provider it picks, and fall back to OpenRouter. Add your own
+                    key to use OpenRouter only.
+                  </p>
+                )}
+              </div>
+            </Section>
 
-          <Section title="Model">
-            <div className="space-y-2">
-              {MODELS.map((m) => {
-                const active = m.value === selectedModel;
-                return (
-                  <button
+            <Section>
+              <fieldset className="flex min-w-0 flex-col gap-1.5">
+                <legend className="oa-label mb-2.5">Model</legend>
+                {MODELS.map((m) => (
+                  <label
                     key={m.value}
-                    onClick={() => setSelectedModel(m.value)}
-                    className={`flex w-full items-start gap-3 border-2 p-3 text-left rounded-none transition-colors ${
-                      active
-                        ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-black"
-                        : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600"
-                    }`}
+                    className="flex cursor-pointer items-start gap-3 border-[1.5px] border-line p-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft"
                   >
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-bold uppercase">{m.label}</div>
-                      <div
-                        className={`mt-0.5 truncate text-[11px] ${
-                          active ? "opacity-70" : "text-muted-foreground"
-                        }`}
-                      >
-                        {m.hint ? `${m.hint} · ` : ""}~{m.approxSecondsPerCall}s/call
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </Section>
+                    <input
+                      type="radio"
+                      name="studio-model"
+                      value={m.value}
+                      checked={m.value === selectedModel}
+                      onChange={() => setSelectedModel(m.value)}
+                      className="oa-checkbox mt-0.5"
+                    />
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-[13px] font-semibold leading-5">{m.label}</span>
+                      {m.hint && <span className="text-xs leading-[18px] text-ink-2">{m.hint}</span>}
+                    </span>
+                    <span className="oa-value whitespace-nowrap text-ink-3">
+                      ~{formatSeconds(m.approxSecondsPerCall)} a call
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            </Section>
 
-          <Section title="OpenRouter key">
-            {apiKey ? (
-              <div className="flex items-center gap-3 border-2 border-zinc-200 dark:border-zinc-800 p-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center bg-zinc-950 text-white dark:bg-white dark:text-black">
-                  <Key size={13} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[12px] font-bold uppercase">Key saved locally</div>
-                  <div className="truncate font-mono text-[11px] text-muted-foreground">
-                    {maskKey(apiKey)}
+            <Section title="OpenRouter key">
+              {apiKey ? (
+                <div className="flex flex-col gap-3 border-[1.5px] border-line p-3">
+                  <div className="flex items-center gap-3">
+                    <span className="oa-icon-box size-8">
+                      <KeyRound aria-hidden className="size-4" />
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-xs font-semibold">Saved in this browser</span>
+                      <span className="oa-value truncate text-ink-2">{maskKey(apiKey)}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={onEditApiKey}>
+                      <Pencil aria-hidden />
+                      Edit key
+                    </Button>
+                    <Button variant="danger" size="sm" onClick={() => setApiKey("")}>
+                      <Trash2 aria-hidden />
+                      Remove key
+                    </Button>
                   </div>
                 </div>
-                <button
-                  onClick={onEditApiKey}
-                  className="p-1.5 text-muted-foreground hover:text-foreground"
-                  aria-label="Edit key"
-                  title="Edit key"
-                >
-                  <Settings2 size={14} />
-                </button>
-                <button
-                  onClick={() => setApiKey("")}
-                  className="p-1.5 text-muted-foreground hover:text-destructive"
-                  aria-label="Remove key"
-                  title="Remove key"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={onEditApiKey}
-                className="inline-flex w-full items-center gap-2 border-2 border-zinc-950 dark:border-zinc-700 px-3 py-2.5 text-xs font-black uppercase rounded-none hover:bg-zinc-950 hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors"
-              >
-                <Key size={14} />
-                Add OpenRouter key
-              </button>
-            )}
-            <p className="mt-2 text-[12px] text-muted-foreground">
-              Stored only in this browser. Get one at{" "}
-              <a
-                href="https://openrouter.ai/keys"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-bold underline underline-offset-4"
-              >
-                openrouter.ai/keys
-              </a>
-              .
-            </p>
-          </Section>
+              ) : (
+                <Button block onClick={onEditApiKey}>
+                  <KeyRound aria-hidden />
+                  Add OpenRouter key
+                </Button>
+              )}
+              <p className="text-xs leading-[18px] text-ink-2">
+                Stored only in this browser. Get one at{" "}
+                <ExternalA href="https://openrouter.ai/keys">openrouter.ai/keys</ExternalA>.
+              </p>
+            </Section>
 
-          <Section title="Developer">
-            <label className="flex cursor-pointer items-start justify-between gap-4 py-1">
-              <div className="flex-1">
-                <div className="text-[13px] font-bold uppercase">Debug overlay</div>
-                <div className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
-                  Draw seam guides and log Poisson scores to the console.
+            <Section title="Developer">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-0.5">
+                  <span id={debugLabelId} className="text-[13px] font-semibold leading-5">
+                    Debug overlay
+                  </span>
+                  <span id={debugHelpId} className="text-xs leading-[18px] text-ink-2">
+                    Draw seam guides, show seam scores and log Poisson scores to the console.
+                  </span>
                 </div>
-              </div>
-              <span
-                role="switch"
-                aria-checked={debugMode}
-                onClick={() => setDebugMode(!debugMode)}
-                className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 cursor-pointer items-center border-2 rounded-none transition-colors ${
-                  debugMode
-                    ? "border-zinc-950 dark:border-white bg-zinc-950 dark:bg-white"
-                    : "border-zinc-300 dark:border-zinc-700 bg-transparent"
-                }`}
-              >
-                <span
-                  className={`inline-block h-2.5 w-2.5 transition-transform ${
-                    debugMode
-                      ? "translate-x-[18px] bg-white dark:bg-black"
-                      : "translate-x-[3px] bg-zinc-400"
-                  }`}
+                <Switch
+                  checked={debugMode}
+                  onCheckedChange={setDebugMode}
+                  aria-labelledby={debugLabelId}
+                  aria-describedby={debugHelpId}
+                  className="mt-0.5"
                 />
-              </span>
-            </label>
-          </Section>
+              </div>
+            </Section>
 
-          <Section title="About">
-            <p className="text-[12px] leading-relaxed text-muted-foreground">
-              Extensions are 38% of the current image dimension. For larger extensions,
-              click an edge again after accepting. Seamless blending via Poisson editing
-              (Pérez et al. 2003).
-            </p>
-          </Section>
-        </div>
-      </aside>
-    </>
+            <Section title="About" last>
+              <p className="text-xs leading-[18px] text-ink-2">
+                Each extension adds {EXTENSION_PERCENT}% of the current image size. For a larger
+                extension, extend the same edge again after you accept. Seams are blended with
+                Poisson image editing (Pérez et al. 2003).
+              </p>
+            </Section>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
-export function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({
+  title,
+  last,
+  children,
+}: {
+  title?: string;
+  last?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mb-6">
-      <h3 className="mb-3 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-        {title}
-      </h3>
+    <section className={last ? "flex flex-col gap-2.5 px-5 py-4" : "flex flex-col gap-2.5 border-b border-rule px-5 py-4"}>
+      {title && <h3 className="oa-label">{title}</h3>}
       {children}
-    </div>
+    </section>
   );
 }

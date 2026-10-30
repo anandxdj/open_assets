@@ -1,13 +1,18 @@
 "use client";
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
-// Text-to-image modal. Mount conditionally — state lives in the parent hook.
+// Text-to-image dialog. Mount conditionally — state lives in the parent hook.
 
-import { useEffect } from "react";
-import { Loader2, Sparkles, X } from "lucide-react";
-import { ART_STYLE_GROUPS } from "@/features/studio/lib/artStyles";
+import { useId } from "react";
+import { LoaderCircle, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
+import { Select, Textarea } from "@/components/ui/input";
+import { Notice } from "@/components/ui/feedback";
+import { ArtStyleSelect, FieldBusy } from "@/features/studio/components/fields";
 
-const field =
-  "w-full border-2 border-zinc-300 dark:border-zinc-700 bg-background px-3 py-2 text-[13px] rounded-none focus:border-zinc-950 dark:focus:border-white focus:outline-none";
+const WIDTHS = [512, 768, 960, 1024, 1280, 1536, 1920];
+const HEIGHTS = [360, 540, 720, 768, 1024, 1080, 1280, 1536];
 
 export function GenerateModal({
   onClose,
@@ -46,152 +51,103 @@ export function GenerateModal({
   showSceneBrief?: boolean;
   layerLabel?: string;
 }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const ids = {
+    brief: useId(),
+    prompt: useId(),
+    width: useId(),
+    height: useId(),
+    style: useId(),
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 font-mono">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg border-2 border-zinc-950 dark:border-zinc-700 bg-background p-6 rounded-none shadow-[6px_6px_0_0_rgba(0,0,0,0.9)] dark:shadow-[6px_6px_0_0_rgba(255,255,255,0.15)]">
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center bg-zinc-950 text-white dark:bg-white dark:text-black">
-              <Sparkles size={15} />
-            </div>
-            <h2 className="text-sm font-black uppercase tracking-wider">Generate image</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-muted-foreground hover:text-foreground"
-            aria-label="Close"
-          >
-            <X size={16} />
-          </button>
-        </div>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        title={layerLabel ? `Generate the ${layerLabel.toLowerCase()} layer` : "Generate an image"}
+        description="Describe the image and pick a size. You can extend it afterwards."
+        className="w-[min(520px,calc(100%-32px))]"
+      >
+        <DialogBody>
+          {workflowNote && <Notice tone="warning">{workflowNote}</Notice>}
 
-        {workflowNote && (
-          <div className="mb-4 border-2 border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-            {workflowNote}
-          </div>
-        )}
-
-        <div className="space-y-4">
           {showSceneBrief && setSceneBrief && (
-            <div>
-              <div className="mb-1.5 flex items-center justify-between gap-2">
-                <label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                  Scene direction
-                </label>
-                {sceneBriefLoading ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
-                    <Loader2 size={10} className="animate-spin" />
-                    Deriving from Near…
-                  </span>
+            <Field
+              label="Scene direction"
+              htmlFor={ids.brief}
+              aside={
+                sceneBriefLoading ? (
+                  <FieldBusy>Drafting from Near</FieldBusy>
                 ) : (
-                  <span className="text-[10px] uppercase text-muted-foreground">
-                    Shared across all layers
-                  </span>
-                )}
-              </div>
-              <textarea
+                  <span className="oa-value text-ink-3">Shared by every layer</span>
+                )
+              }
+              help="Generate the Near layer first and we draft palette, lighting and mood from its prompt. Edit it before generating Mid, Far and Sky."
+            >
+              <Textarea
+                id={ids.brief}
+                rows={3}
                 value={sceneBrief ?? ""}
                 onChange={(e) => setSceneBrief(e.target.value)}
                 disabled={generating || sceneBriefLoading}
-                placeholder="Generate the Near layer first — we'll derive palette, lighting, and mood from that prompt. You can edit this before generating Mid, Far, and Sky."
-                rows={3}
-                className={`${field} resize-none leading-relaxed`}
+                aria-describedby={`${ids.brief}-note`}
+                className="min-h-[72px]"
               />
-            </div>
+            </Field>
           )}
 
-          <div>
-            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-              {layerLabel ? `${layerLabel} layer` : "Description"}
-            </label>
-            <textarea
+          <Field label={layerLabel ? `${layerLabel} layer` : "Description"} htmlFor={ids.prompt}>
+            <Textarea
+              id={ids.prompt}
+              rows={3}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="e.g. A wide mountain valley at golden hour, with a winding river through pine forest"
-              rows={3}
-              className={`${field} resize-none`}
+              placeholder="A wide mountain valley at golden hour, with a winding river through pine forest"
+              className="min-h-[72px]"
               autoFocus
             />
-          </div>
+          </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                Width
-              </label>
-              <select value={width} onChange={(e) => setWidth(Number(e.target.value))} className={field}>
-                {[512, 768, 960, 1024, 1280, 1536, 1920].map((v) => (
+            <Field label="Width" htmlFor={ids.width}>
+              <Select id={ids.width} value={width} onChange={(e) => setWidth(Number(e.target.value))}>
+                {WIDTHS.map((v) => (
                   <option key={v} value={v}>
-                    {v}px{v === 1280 ? " · 720p" : v === 1920 ? " · 1080p" : ""}
+                    {v} px{v === 1280 ? " · 720p" : v === 1920 ? " · 1080p" : ""}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                Height
-              </label>
-              <select value={height} onChange={(e) => setHeight(Number(e.target.value))} className={field}>
-                {[360, 540, 720, 768, 1024, 1080, 1280, 1536].map((v) => (
+              </Select>
+            </Field>
+            <Field label="Height" htmlFor={ids.height}>
+              <Select id={ids.height} value={height} onChange={(e) => setHeight(Number(e.target.value))}>
+                {HEIGHTS.map((v) => (
                   <option key={v} value={v}>
-                    {v}px{v === 720 ? " · 720p" : v === 1080 ? " · 1080p" : ""}
+                    {v} px{v === 720 ? " · 720p" : v === 1080 ? " · 1080p" : ""}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-              Style
-            </label>
-            <select value={artStyle} onChange={(e) => setArtStyle(e.target.value)} className={field}>
-              {ART_STYLE_GROUPS.map((group) =>
-                group.options.length === 1 && group.label === "Match original" ? (
-                  <option key={group.options[0].value} value={group.options[0].value}>
-                    Photorealistic
-                  </option>
-                ) : (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.options.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ),
-              )}
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-6 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            disabled={generating}
-            className="px-4 py-2 text-xs font-bold uppercase border border-zinc-300 dark:border-zinc-700 text-muted-foreground hover:text-foreground rounded-none disabled:opacity-40"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onGenerate}
-            disabled={generating || !prompt.trim()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black uppercase bg-zinc-950 text-white dark:bg-white dark:text-black border-2 border-zinc-950 dark:border-white rounded-none disabled:opacity-40 hover:bg-transparent hover:text-zinc-950 dark:hover:bg-transparent dark:hover:text-white transition-colors"
-          >
-            {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            {generating ? "Generating…" : "Generate"}
-          </button>
-        </div>
-      </div>
-    </div>
+          <Field label="Style" htmlFor={ids.style}>
+            <ArtStyleSelect id={ids.style} value={artStyle} onChange={setArtStyle} noneLabel="Photorealistic" />
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="ghost" disabled={generating}>
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button variant="primary" onClick={onGenerate} disabled={generating || !prompt.trim()}>
+            {generating ? <LoaderCircle aria-hidden className="animate-spin" /> : <Sparkles aria-hidden />}
+            {generating ? "Generating" : "Generate"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

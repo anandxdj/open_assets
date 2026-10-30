@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@wxt-dev/module-react": "^1.2.1",
     "lucide-react": "^0.468.0",
     "react": "19.2.4",

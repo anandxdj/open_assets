@@ -1,350 +1,495 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useJobPolling } from "@/features/editor/hooks/useJobPolling";
-import { useCanvasEditor } from "@/features/editor/hooks/useCanvasEditor";
+import { toast } from "sonner";
+import { Check, ChevronLeft, CircleAlert, Keyboard, LoaderCircle, Redo2, TriangleAlert, Undo2 } from "lucide-react";
+import type { JobStatus } from "@/types";
+import { Crumbs, Topbar } from "@/components/layout/AppShell";
+import { Badge, StatusBadge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/controls";
+import { EmptyState } from "@/components/ui/feedback";
+import { redetectJob, type DetectionMode } from "@/features/upload/services/uploadApi";
+import { useJobPolling } from "../hooks/useJobPolling";
+import { useCanvasEditor } from "../hooks/useCanvasEditor";
+import { startExport } from "../services/exportApi";
+import { exportBoxesAsZip } from "../services/localExport";
+import { isDialogOpen, isEditableTarget } from "../lib/keyboard";
+import { fileNameFromUrl } from "../lib/names";
 import { SmartDetectionCanvas } from "./SmartDetectionCanvas";
-import { AssetPanel } from "./AssetPanel";
-import { LayerProperties } from "./LayerProperties";
+import { DetectionsPanel } from "./DetectionsPanel";
+import { PropertiesPanel, type DetectionControls } from "./PropertiesPanel";
+import { DetectionStatusCard } from "./DetectionStatusCard";
+import { ReviewNotice } from "./ReviewNotice";
 import { Toolbar } from "./Toolbar";
 import { ZoomControls } from "./ZoomControls";
-import { ShortcutsLegend } from "./ShortcutsLegend";
-import { buttonVariants } from "@/components/ui/button";
-import { startExport } from "@/features/editor/services/exportApi";
-import { redetectJob, type DetectionMode } from "@/features/upload/services/uploadApi";
-import { Zap } from "lucide-react";
-import {
-  CircularProgress,
-  CircularProgressIndicator,
-  CircularProgressTrack,
-  CircularProgressRange,
-} from "@/components/ui/circular-progress";
+import { ShortcutsDialog } from "./ShortcutsDialog";
+
+// Once boxes are cut the sheet can no longer be edited; export takes over.
+const PAST_EDITING: JobStatus[] = ["cropped", "finalizing", "ready"];
+const EXPORT_RUNNING: JobStatus[] = ["removing_bg", "naming", "cropping"];
+const DETECTING: JobStatus[] = ["uploaded", "queued", "detecting"];
+
+function errorMessage(err: unknown, fallback: string) {
+  return err instanceof Error && err.message ? err.message : fallback;
+}
 
 export function EditorScreen({ jobId }: { jobId: string }) {
   const router = useRouter();
   const { job, loading, error } = useJobPolling(jobId);
-  const canvas = useCanvasEditor();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const {
+    activeTool, setActiveTool,
+    camera, setCamera,
+    boxes,
+    selectedIds, setSelectedIds,
+    drawingBox, setDrawingBox,
+    toggleId, clearSelection,
+    updateBoxSilently, moveBoxes, deleteBox, deleteSelected, addBox, initBoxes,
+    fitToScreen,
+    saveHistory, undo, redo, canUndo, canRedo,
+  } = useCanvasEditor();
+
+  const stageRef = useRef<HTMLElement>(null);
   const initializedRef = useRef(false);
   const [redetecting, setRedetecting] = useState(false);
-  const [detectionNotice, setDetectionNotice] = useState<string | null>(null);
+  const [detectMode, setDetectMode] = useState<DetectionMode>("auto");
+  // Starting value for the colour picker; the user picks the real sheet background.
   const [customBackground, setCustomBackground] = useState("#000000");
+  // Result of the last re-detect in this session; null until the user re-detects.
+  const [redetected, setRedetected] = useState<{ warning?: string } | null>(null);
+  const [reviewDismissed, setReviewDismissed] = useState(false);
+  const [exporting, setExporting] = useState<"raw" | "smart" | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
-  // Redirect if job has already advanced past the editing stage
+  const status = job?.status;
+
+  // Redirect if the job has already advanced past the editing stage.
   useEffect(() => {
-    if (!job) return;
-    if (job.status === "cropped" || job.status === "finalizing" || job.status === "ready") {
+    if (status && PAST_EDITING.includes(status)) {
       router.replace(`/editor/${jobId}/export`);
     }
-  }, [job?.status, jobId, router]);
+  }, [status, jobId, router]);
 
-  // Initialize boxes + fit to screen when job arrives
+  // Load the detected boxes and fit the sheet once, when detection finishes.
   useEffect(() => {
-    if (job?.status === "detected" && !initializedRef.current) {
-      initializedRef.current = true;
-      canvas.initBoxes(job.boxes);
-      // Defer so container has rendered dimensions
-      requestAnimationFrame(() => {
-        if (containerRef.current) {
-          const { offsetWidth: w, offsetHeight: h } = containerRef.current;
-          canvas.fitToScreen(w, h, job.imageWidth, job.imageHeight);
-        }
-      });
-    }
-  }, [job]);
+    if (!job || job.status !== "detected" || initializedRef.current) return;
+    initializedRef.current = true;
+    initBoxes(job.boxes);
+    const { imageWidth, imageHeight } = job;
+    // Defer so the stage has its rendered size.
+    requestAnimationFrame(() => {
+      const stage = stageRef.current;
+      if (stage) fitToScreen(stage.offsetWidth, stage.offsetHeight, imageWidth, imageHeight);
+    });
+  }, [job, initBoxes, fitToScreen]);
+
+  const imageWidth = job?.imageWidth ?? 0;
+  const imageHeight = job?.imageHeight ?? 0;
 
   const handleFitToScreen = useCallback(() => {
-    if (!containerRef.current || !job) return;
-    const { offsetWidth: w, offsetHeight: h } = containerRef.current;
-    canvas.fitToScreen(w, h, job.imageWidth, job.imageHeight);
-  }, [job, canvas.fitToScreen]);
+    const stage = stageRef.current;
+    if (!stage || !imageWidth || !imageHeight) return;
+    fitToScreen(stage.offsetWidth, stage.offsetHeight, imageWidth, imageHeight);
+  }, [fitToScreen, imageWidth, imageHeight]);
 
   const handleZoom = useCallback((newZoom: number) => {
-    if (!containerRef.current) return;
-    const { offsetWidth: w, offsetHeight: h } = containerRef.current;
-    const cx = w / 2;
-    const cy = h / 2;
-    const cam = canvas.camera;
-    const wx = (cx - cam.x) / cam.zoom;
-    const wy = (cy - cam.y) / cam.zoom;
+    const stage = stageRef.current;
+    if (!stage) return;
+    const cx = stage.offsetWidth / 2;
+    const cy = stage.offsetHeight / 2;
+    const wx = (cx - camera.x) / camera.zoom;
+    const wy = (cy - camera.y) / camera.zoom;
     const clamped = Math.max(0.05, Math.min(10, newZoom));
-    canvas.setCamera({ zoom: clamped, x: cx - wx * clamped, y: cy - wy * clamped });
-  }, [canvas.camera, canvas.setCamera]);
+    setCamera({ zoom: clamped, x: cx - wx * clamped, y: cy - wy * clamped });
+  }, [camera, setCamera]);
 
-  const handleRedetect = useCallback(async (mode: DetectionMode) => {
+  async function handleRedetect() {
+    if (redetecting) return;
     setRedetecting(true);
-    setDetectionNotice(null);
+    setReviewDismissed(false);
     try {
       const result = await redetectJob(jobId, {
-        mode,
-        backgroundColor: mode === "sampled" ? customBackground : undefined,
+        mode: detectMode,
+        backgroundColor: detectMode === "sampled" ? customBackground : undefined,
       });
-      canvas.initBoxes(result.boxes);
+      initBoxes(result.boxes);
+      clearSelection();
+      setRedetected({ warning: result.detectionWarning });
+      const count = result.boxes.length;
       const confidence = Math.round(result.detectionConfidence * 100);
-      setDetectionNotice(
-        result.detectionWarning ??
-          `Re-detected ${result.boxes.length} asset${result.boxes.length === 1 ? "" : "s"} using ${result.detectionMode} (${confidence}% confidence).`,
-      );
+      toast.success(`Found ${count} box${count === 1 ? "" : "es"}`, {
+        description: `Detected with the ${result.detectionMode} background setting, ${confidence}% confidence.`,
+      });
     } catch (err) {
-      setDetectionNotice(err instanceof Error ? err.message : "Re-detection failed");
+      toast.error("Detection failed", { description: errorMessage(err, "Try another background setting.") });
     } finally {
       setRedetecting(false);
     }
-  }, [canvas, customBackground, jobId]);
+  }
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      const tag = (document.activeElement as HTMLElement)?.tagName;
-      const inInput = tag === "INPUT" || tag === "TEXTAREA";
-
-      if (!inInput) {
-        if (e.key === "h" || e.key === "H") canvas.setActiveTool("hand");
-        if (e.key === "v" || e.key === "V") canvas.setActiveTool("select");
-        if (e.key === "r" || e.key === "R") canvas.setActiveTool("draw");
-        
-        if (e.key === "Escape") { 
-          canvas.setActiveTool("select"); 
-          canvas.clearSelection(); 
-        }
-        
-        if ((e.key === "Delete" || e.key === "Backspace") && canvas.selectedIds.size > 0) {
-          canvas.deleteSelected();
-        }
-        
-        if (e.key === "0" && (e.ctrlKey || e.metaKey)) {
-          e.preventDefault();
-          handleFitToScreen();
-        }
-
-        // Ctrl + A / Cmd + A (Select All)
-        if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey)) {
-          e.preventDefault();
-          canvas.setSelectedIds(new Set(canvas.boxes.map((b) => b.id)));
-        }
-
-        // Ctrl + Z / Cmd + Z (Undo) and Shift + Ctrl + Z / Shift + Cmd + Z (Redo)
-        if ((e.key === "z" || e.key === "Z") && (e.ctrlKey || e.metaKey)) {
-          e.preventDefault();
-          if (e.shiftKey) {
-            canvas.redo();
-          } else {
-            canvas.undo();
-          }
-        }
-
-        // Ctrl + Y / Cmd + Y (Redo)
-        if ((e.key === "y" || e.key === "Y") && (e.ctrlKey || e.metaKey)) {
-          e.preventDefault();
-          canvas.redo();
-        }
-
-        // Discrete arrow keys nudging
-        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) && canvas.selectedIds.size > 0) {
-          e.preventDefault();
-          const amount = e.shiftKey ? 10 : 1;
-          let dx = 0;
-          let dy = 0;
-          if (e.key === "ArrowUp") dy = -amount;
-          if (e.key === "ArrowDown") dy = amount;
-          if (e.key === "ArrowLeft") dx = -amount;
-          if (e.key === "ArrowRight") dx = amount;
-
-          canvas.selectedIds.forEach((id) => {
-            const box = canvas.boxes.find((b) => b.id === id);
-            if (box) {
-              canvas.updateBox(id, { x: box.x + dx, y: box.y + dy });
-            }
-          });
-        }
-      }
+  // Raw: cut every box locally in the browser and download a ZIP (no cloud).
+  async function handleRawExport() {
+    if (!job || boxes.length === 0 || exporting) return;
+    const zipName = `assets_${jobId}.zip`;
+    setExporting("raw");
+    try {
+      const count = await exportBoxesAsZip(job.cloudinaryUrl, boxes, zipName);
+      toast.success(`Downloaded ${count} asset${count === 1 ? "" : "s"}`, { description: zipName });
+    } catch (err) {
+      toast.error("Couldn't build the ZIP", { description: errorMessage(err, "Try again in a moment.") });
+    } finally {
+      setExporting(null);
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [canvas.selectedIds, canvas.boxes, canvas.updateBox, canvas.setSelectedIds, canvas.undo, canvas.redo, handleFitToScreen]);
-
-  if (error || job?.status === "failed") {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-zinc-950">
-        <p className="text-red-400 text-sm">{error ?? job?.error ?? "Detection failed"}</p>
-        <Link href="/upload" className={buttonVariants({ variant: "outline" })}>
-          Try again
-        </Link>
-      </div>
-    );
   }
 
-  if (loading || !job || job.status !== "detected") {
-    const statusLabel: Record<string, string> = {
-      uploaded: "Upload received — queuing for detection…",
-      queued: "Queued for detection…",
-      detecting: "Detecting assets…",
-    };
-    const label = job?.status
-      ? (statusLabel[job.status] ?? "Processing…")
-      : "Upload received — detecting assets…";
-
-    return (
-      <div className="flex h-screen overflow-hidden bg-zinc-950">
-        <div className="flex-1 overflow-auto flex items-start justify-center p-6">
-          <div className="max-w-4xl w-full space-y-3 mt-8">
-            <div className="animate-pulse rounded-lg bg-zinc-800 h-[480px] w-full" />
-            <div className="flex items-center gap-3">
-              <CircularProgress>
-                <CircularProgressIndicator>
-                  <CircularProgressTrack />
-                  <CircularProgressRange />
-                </CircularProgressIndicator>
-              </CircularProgress>
-              <p className="text-sm text-zinc-400">{label}</p>
-            </div>
-          </div>
-        </div>
-        <div className="w-72 flex-shrink-0 border-l border-zinc-800 bg-zinc-900">
-          <div className="px-4 py-3 border-b border-zinc-800">
-            <div className="animate-pulse h-4 w-32 rounded bg-zinc-800" />
-          </div>
-          <div className="p-4 space-y-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="animate-pulse flex items-center gap-3">
-                <div className="h-3 w-3 rounded-sm bg-zinc-800 flex-shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3 rounded bg-zinc-800 w-3/4" />
-                  <div className="h-2.5 rounded bg-zinc-800 w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+  // Name and export: run the cloud pipeline, then hand off to the export screen.
+  async function handleSmartExport() {
+    if (boxes.length === 0 || exporting) return;
+    setExporting("smart");
+    try {
+      await startExport(jobId, boxes, false);
+      router.push(`/editor/${jobId}/export`);
+    } catch (err) {
+      toast.error("Couldn't start the export", { description: errorMessage(err, "Try again in a moment.") });
+      setExporting(null);
+    }
   }
 
-  const singleSelectedId = canvas.selectedIds.size === 1 ? Array.from(canvas.selectedIds)[0] : null;
-  const selectedBox = singleSelectedId ? canvas.boxes.find(b => b.id === singleSelectedId) : null;
-  const hasFullSheetDetection = canvas.boxes.length === 1 &&
-    canvas.boxes[0].width >= job.imageWidth * 0.9 &&
-    canvas.boxes[0].height >= job.imageHeight * 0.9;
-  const detectionMessage = detectionNotice ?? job.detectionWarning ??
-    (hasFullSheetDetection
-      ? "The previous detector treated most of this sheet as one asset. Re-detect it with a background-aware mode."
-      : "Trying another background strategy…");
+  // Keyboard shortcuts (listed in ShortcutsDialog).
+  const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
+    if (status !== "detected" || e.defaultPrevented) return;
+    if (isEditableTarget(e.target) || isDialogOpen()) return;
+
+    const mod = e.ctrlKey || e.metaKey;
+    const key = e.key.toLowerCase();
+
+    if (e.key === "?") {
+      e.preventDefault();
+      setShortcutsOpen(true);
+      return;
+    }
+
+    if (!mod && !e.altKey) {
+      if (key === "h") setActiveTool("hand");
+      if (key === "v") setActiveTool("select");
+      if (key === "r") setActiveTool("draw");
+    }
+
+    if (e.key === "Escape") {
+      setActiveTool("select");
+      clearSelection();
+    }
+
+    if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.size > 0) {
+      e.preventDefault();
+      deleteSelected();
+    }
+
+    if (mod && e.key === "0") {
+      e.preventDefault();
+      handleFitToScreen();
+    }
+
+    if (mod && key === "a") {
+      e.preventDefault();
+      setSelectedIds(new Set(boxes.map((b) => b.id)));
+    }
+
+    if (mod && key === "z") {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+    }
+
+    if (mod && key === "y") {
+      e.preventDefault();
+      redo();
+    }
+
+    if (e.key.startsWith("Arrow") && selectedIds.size > 0) {
+      e.preventDefault();
+      const amount = e.shiftKey ? 10 : 1;
+      const dx = e.key === "ArrowLeft" ? -amount : e.key === "ArrowRight" ? amount : 0;
+      const dy = e.key === "ArrowUp" ? -amount : e.key === "ArrowDown" ? amount : 0;
+      moveBoxes(selectedIds, dx, dy);
+    }
+  });
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onKeyDown(e);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  const failed = Boolean(error) || status === "failed";
+  const detected = status === "detected";
+  const exportRunning = Boolean(status && EXPORT_RUNNING.includes(status));
+  const fileName = fileNameFromUrl(job?.cloudinaryUrl) ?? "Sheet";
+
+  const wholeSheet =
+    detected &&
+    boxes.length === 1 &&
+    boxes[0].width >= imageWidth * 0.9 &&
+    boxes[0].height >= imageHeight * 0.9;
+  const warning = redetected ? redetected.warning : job?.detectionWarning;
+  const needsReview = detected && (Boolean(warning) || wholeSheet);
+
+  const detection: DetectionControls = {
+    mode: detectMode,
+    onModeChange: setDetectMode,
+    colour: customBackground,
+    onColourChange: setCustomBackground,
+    redetecting,
+    onRedetect: () => void handleRedetect(),
+  };
+
+  let badge: React.ReactNode;
+  if (failed) {
+    badge = <StatusBadge status="failed" />;
+  } else if (redetecting || !job || (status && DETECTING.includes(status))) {
+    badge = (
+      <Badge tone="info">
+        <LoaderCircle aria-hidden className="animate-spin" />
+        Detecting
+      </Badge>
+    );
+  } else if (detected) {
+    badge = needsReview ? (
+      <Badge tone="warning">
+        <TriangleAlert aria-hidden />
+        Needs review
+      </Badge>
+    ) : (
+      <Badge tone="success">
+        <Check aria-hidden />
+        {boxes.length} detected
+      </Badge>
+    );
+  } else if (status) {
+    badge = <StatusBadge status={status} />;
+  }
+
+  const canExport = detected && boxes.length > 0 && exporting === null;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950">
-      {/* 1. Left Sidebar: Layers/Detections and Proceed pipeline engine */}
-      <AssetPanel
-        jobId={jobId}
-        imageUrl={job.cloudinaryUrl}
-        imageWidth={job.imageWidth}
-        imageHeight={job.imageHeight}
-        boxes={canvas.boxes}
-        selectedIds={canvas.selectedIds}
-        jobStatus={job.status}
-        onToggle={canvas.toggleId}
-        onUpdate={canvas.updateBox}
-        onDelete={canvas.deleteBox}
-        onDeleteSelected={canvas.deleteSelected}
-      />
-
-      {/* 2. Center Viewport: Canvas workspace */}
-      <div ref={containerRef} className="flex-1 relative overflow-hidden">
-        <SmartDetectionCanvas
-          imageUrl={job.cloudinaryUrl}
-          imageWidth={job.imageWidth}
-          imageHeight={job.imageHeight}
-          boxes={canvas.boxes}
-          selectedIds={canvas.selectedIds}
-          activeTool={canvas.activeTool}
-          camera={canvas.camera}
-          onCameraChange={canvas.setCamera}
-          onToggle={canvas.toggleId}
-          onClearSelection={canvas.clearSelection}
-          onSetSelectedIds={canvas.setSelectedIds}
-          onUpdate={canvas.updateBoxSilently}
-          onAddBox={canvas.addBox}
-          onSetActiveTool={canvas.setActiveTool}
-          drawingBox={canvas.drawingBox}
-          onDrawingBoxChange={canvas.setDrawingBox}
-          onDeleteBox={canvas.deleteBox}
-          onSaveHistory={canvas.saveHistory}
-        />
-        <ZoomControls
-          zoom={canvas.camera.zoom}
-          onZoom={handleZoom}
-          onFit={handleFitToScreen}
-        />
-        {(job.detectionWarning || detectionNotice || redetecting || hasFullSheetDetection) && (
-          <div className="absolute left-4 top-4 z-20 w-[min(390px,calc(100%-2rem))] border border-amber-500/50 bg-zinc-950/95 p-3 font-mono shadow-xl backdrop-blur-sm">
-            <p className="text-[10px] font-black uppercase tracking-wider text-amber-300">
-              Detection review
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-zinc-300">
-              {detectionMessage}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {([
-                ["auto", "Auto"],
-                ["dark", "Dark bg"],
-                ["light", "Light bg"],
-              ] as const).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  disabled={redetecting}
-                  onClick={() => void handleRedetect(mode)}
-                  className="border border-zinc-700 px-2 py-1 text-[10px] font-bold uppercase text-zinc-200 hover:border-amber-400 hover:text-amber-200 disabled:cursor-wait disabled:opacity-50"
-                >
-                  {label}
-                </button>
-              ))}
-              <label className="flex items-center gap-1 border border-zinc-700 px-1.5 py-0.5 text-[10px] text-zinc-300">
-                <span>Custom</span>
-                <input
-                  aria-label="Custom background colour"
-                  type="color"
-                  value={customBackground}
-                  onChange={(event) => setCustomBackground(event.target.value)}
-                  className="h-4 w-4 cursor-pointer bg-transparent"
-                />
-                <button
-                  type="button"
-                  disabled={redetecting}
-                  onClick={() => void handleRedetect("sampled")}
-                  className="font-bold uppercase text-amber-200 disabled:cursor-wait disabled:opacity-50"
-                >
-                  Try
-                </button>
-              </label>
-            </div>
-          </div>
-        )}
-        <ShortcutsLegend />
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
-          <Toolbar activeTool={canvas.activeTool} onToolChange={canvas.setActiveTool} />
+    <>
+      <Topbar className="gap-2 pl-2 md:gap-3 md:pl-2">
+        <Button asChild variant="ghost" icon>
+          <Link href="/upload" aria-label="Back to Extract">
+            <ChevronLeft aria-hidden />
+          </Link>
+        </Button>
+        <Crumbs items={[{ label: "Extract", href: "/upload" }, { label: <span className="oa-value text-[13px]">{fileName}</span> }]} />
+        <span role="status" className="sr-only flex-none sm:not-sr-only">
+          {badge}
+        </span>
+        <span className="flex-1" />
+        <div className="hidden items-center gap-0.5 sm:flex">
+          <Button variant="ghost" size="sm" icon aria-label="Undo (Ctrl+Z)" title="Undo (Ctrl+Z)" disabled={!detected || !canUndo} onClick={undo}>
+            <Undo2 aria-hidden />
+          </Button>
+          <Button variant="ghost" size="sm" icon aria-label="Redo (Ctrl+Y)" title="Redo (Ctrl+Y)" disabled={!detected || !canRedo} onClick={redo}>
+            <Redo2 aria-hidden />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon
+            aria-label="Keyboard shortcuts (?)"
+            title="Keyboard shortcuts (?)"
+            aria-haspopup="dialog"
+            onClick={() => setShortcutsOpen(true)}
+          >
+            <Keyboard aria-hidden />
+          </Button>
         </div>
-      </div>
+        <span aria-hidden className="oa-vsep hidden sm:block" />
+        <Button
+          variant="secondary"
+          disabled={!canExport}
+          aria-describedby="raw-export-note"
+          title="Cut in your browser and download a ZIP"
+          onClick={() => void handleRawExport()}
+        >
+          {exporting === "raw" && <LoaderCircle aria-hidden className="animate-spin" />}
+          {exporting === "raw" ? "Zipping" : "Raw ZIP"}
+        </Button>
+        <Button
+          variant="primary"
+          disabled={!canExport}
+          aria-describedby="smart-export-note"
+          title="Remove the background, name each asset with AI, then export"
+          onClick={() => void handleSmartExport()}
+        >
+          {exporting === "smart" ? (
+            <>
+              <LoaderCircle aria-hidden className="animate-spin" />
+              Starting
+            </>
+          ) : (
+            <>
+              <span className="hidden sm:inline">Name and export</span>
+              <span className="sm:hidden">Export</span>
+              <span className="oa-count">{boxes.length}</span>
+            </>
+          )}
+        </Button>
+        <span id="raw-export-note" className="sr-only">
+          Cuts every box in your browser and downloads a ZIP. Keeps the sheet background and your labels.
+        </span>
+        <span id="smart-export-note" className="sr-only">
+          Removes the background, names each asset with AI, then opens the export page.
+        </span>
+      </Topbar>
 
-      {/* 3. Right Sidebar: Contextual selected box property editor (Figma-Style) */}
-      {selectedBox && (
-        <div className="w-80 flex-shrink-0 border-l border-zinc-800 bg-[#070708] flex flex-col h-full overflow-y-auto select-none">
-          <div className="px-4 py-3.5 border-b border-zinc-800 flex items-center justify-between shrink-0 bg-black/50 select-none">
-            <span className="text-[10px] font-black tracking-widest text-[#ff7c00] uppercase">
-              [ 00_PROP ] LAYER PROPERTIES
-            </span>
-          </div>
-          <LayerProperties
-            box={selectedBox}
-            imageUrl={job.cloudinaryUrl}
-            imageWidth={job.imageWidth}
-            imageHeight={job.imageHeight}
-            onUpdate={canvas.updateBox}
-            onDelete={canvas.deleteBox}
+      {failed ? (
+        <main className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-sunken p-4 md:p-6">
+          <EmptyState
+            tone="danger"
+            icon={<CircleAlert aria-hidden />}
+            title="Detection failed"
+            description={error ?? job?.error ?? "We couldn't find assets on this sheet."}
+            actions={
+              <Button asChild variant="primary">
+                <Link href="/upload">Try again</Link>
+              </Button>
+            }
+            className="w-full max-w-md"
+          />
+        </main>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+          <DetectionsPanel
+            className="order-2 w-full flex-none border-t-[1.5px] border-line lg:order-none lg:w-[248px] lg:border-r-[1.5px] lg:border-t-0"
+            loading={!detected}
+            imageUrl={job?.cloudinaryUrl ?? ""}
+            imageWidth={imageWidth}
+            imageHeight={imageHeight}
+            boxes={boxes}
+            selectedIds={selectedIds}
+            onToggle={toggleId}
+            onSetSelectedIds={setSelectedIds}
+            onDeleteSelected={deleteSelected}
+            onDrawBox={() => setActiveTool("draw")}
+          />
+
+          <section
+            ref={stageRef}
+            aria-label="Canvas"
+            className="oa-stage order-1 h-[min(560px,65dvh)] min-h-[360px] flex-none lg:order-none lg:h-auto lg:min-h-0 lg:flex-1"
+            style={detected ? { backgroundPosition: `${camera.x}px ${camera.y}px` } : undefined}
+          >
+            {detected && job ? (
+              <>
+                <SmartDetectionCanvas
+                  imageUrl={job.cloudinaryUrl}
+                  imageWidth={job.imageWidth}
+                  imageHeight={job.imageHeight}
+                  boxes={boxes}
+                  selectedIds={selectedIds}
+                  activeTool={activeTool}
+                  camera={camera}
+                  onCameraChange={setCamera}
+                  onToggle={toggleId}
+                  onClearSelection={clearSelection}
+                  onSetSelectedIds={setSelectedIds}
+                  onUpdate={updateBoxSilently}
+                  onAddBox={addBox}
+                  onSetActiveTool={setActiveTool}
+                  drawingBox={drawingBox}
+                  onDrawingBoxChange={setDrawingBox}
+                  onDeleteBox={deleteBox}
+                  onSaveHistory={saveHistory}
+                />
+
+                {needsReview && !reviewDismissed && (
+                  <ReviewNotice
+                    className="absolute left-1/2 top-4 z-10 -translate-x-1/2"
+                    wholeSheet={wholeSheet}
+                    warning={warning}
+                    detection={detection}
+                    onDismiss={() => setReviewDismissed(true)}
+                  />
+                )}
+
+                <div className="pointer-events-none absolute bottom-5 left-4 z-10 hidden items-center gap-3 text-[11px] text-ink-3 md:flex lg:hidden xl:flex">
+                  <span className="flex items-center gap-1">
+                    <Kbd>Space</Kbd> drag to pan
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Kbd>Alt</Kbd> drag to duplicate
+                  </span>
+                </div>
+
+                <Toolbar
+                  className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2"
+                  activeTool={activeTool}
+                  onToolChange={setActiveTool}
+                />
+
+                <ZoomControls
+                  className="absolute bottom-4 right-4 z-10"
+                  zoom={camera.zoom}
+                  onZoom={handleZoom}
+                  onFit={handleFitToScreen}
+                />
+              </>
+            ) : (
+              <>
+                {job?.cloudinaryUrl && (
+                  <div className="absolute inset-0 flex items-center justify-center p-8 md:p-12">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={job.cloudinaryUrl}
+                      alt=""
+                      className="oa-checker max-h-full max-w-full border border-line object-contain opacity-55"
+                    />
+                  </div>
+                )}
+                {exportRunning ? (
+                  <div
+                    role="status"
+                    className="oa-float absolute left-1/2 top-1/2 w-[min(320px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col items-stretch gap-3.5 p-5"
+                  >
+                    <h2 className="oa-section">Export in progress</h2>
+                    <p className="text-xs leading-[18px] text-ink-2">
+                      These boxes are being cut and named. Follow along on the export page.
+                    </p>
+                    <Button asChild variant="secondary" size="sm" className="self-start">
+                      <Link href={`/editor/${jobId}/export`}>Open export</Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <DetectionStatusCard
+                    job={loading ? null : job}
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                  />
+                )}
+              </>
+            )}
+          </section>
+
+          <PropertiesPanel
+            className="order-3 w-full flex-none border-t-[1.5px] border-line lg:order-none lg:w-[280px] lg:border-l-[1.5px] lg:border-t-0"
+            loading={!detected}
+            fileName={fileName}
+            imageUrl={job?.cloudinaryUrl ?? ""}
+            imageWidth={imageWidth}
+            imageHeight={imageHeight}
+            boxes={boxes}
+            selectedIds={selectedIds}
+            onBeginEdit={saveHistory}
+            onEdit={updateBoxSilently}
+            onDeleteBox={deleteBox}
+            onDeleteSelected={deleteSelected}
+            detection={detection}
           />
         </div>
       )}
-    </div>
+
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+    </>
   );
 }

@@ -1,8 +1,240 @@
 "use client";
-import { useState } from "react";
-import { Copy, Loader2, Sparkles } from "lucide-react";
+
+import { useId, useState } from "react";
+import { Copy, LoaderCircle, Sparkles } from "lucide-react";
 import type { QaTurn } from "@/features/anibuddy/types";
 import { requestPromptTurn } from "@/features/anibuddy/api/anibuddyClient";
-interface Question { id:string; question:string; options:string[]; allowFree:boolean; multi:boolean }
-interface Props { idea:string; prompt:string|null; transcript:QaTurn[]; onIdea:(value:string)=>void; onPrompt:(value:string|null)=>void; onTranscript:(value:QaTurn[])=>void; onSkip:()=>void }
-export function ConceptStep({idea,prompt,transcript,onIdea,onPrompt,onTranscript,onSkip}:Props){const [question,setQuestion]=useState<Question|null>(null);const [selected,setSelected]=useState<string[]>([]);const [free,setFree]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [copied,setCopied]=useState(false);const ask=async()=>{if(!idea.trim())return;setBusy(true);setError(null);try{const result=await requestPromptTurn({action:"ask",idea:idea.trim(),transcript});if(result.done){setQuestion(null)}else setQuestion(result.questions?.[0]??null)}catch(cause){setError(cause instanceof Error?cause.message:"The interview failed.")}finally{setBusy(false)}};const write=async()=>{setBusy(true);setError(null);try{const result=await requestPromptTurn({action:"write",idea:idea.trim(),transcript});if(result.prompt)onPrompt(result.prompt)}catch(cause){setError(cause instanceof Error?cause.message:"The prompt helper failed.")}finally{setBusy(false)}};const answer=async()=>{if(!question)return;const value=[...selected,free.trim()].filter(Boolean).join(", ");if(!value)return;onTranscript([...transcript,{question:question.question,answer:value}]);setQuestion(null);setSelected([]);setFree("");window.setTimeout(()=>void ask(),0)};return <section className="border-2 border-zinc-950 bg-card p-5 dark:border-zinc-100 sm:p-7"><p className="font-mono text-[10px] font-bold uppercase tracking-[.16em] text-zinc-500">00 / optional</p><h2 className="mt-1 text-xl font-black uppercase">Start from an idea</h2><p className="mt-2 text-sm text-zinc-500">A short interview turns your idea into a rig-friendly prompt for an external art tool.</p><textarea value={idea} onChange={(event)=>onIdea(event.target.value)} rows={3} placeholder="A red fox courier in a canvas backpack" className="mt-5 w-full border-2 border-zinc-300 bg-transparent p-3 text-sm"/>{transcript.length>0&&<div className="mt-4 space-y-2">{transcript.map((turn,index)=><button key={`${turn.question}-${index}`} onClick={()=>{onTranscript(transcript.slice(0,index));setQuestion({id:`edit-${index}`,question:turn.question,options:[],allowFree:true,multi:false});setFree(turn.answer)}} className="block w-full border p-2 text-left text-sm"><b>{turn.question}</b><br/><span className="text-zinc-500">{turn.answer}</span></button>)}</div>}{question&&<div className="mt-4 border-2 border-fuchsia-700 p-4"><p className="font-bold">{question.question}</p><div className="mt-3 flex flex-wrap gap-2">{question.options.map((option)=>{const active=selected.includes(option);return <button key={option} onClick={()=>setSelected(question.multi?(active?selected.filter((value)=>value!==option):[...selected,option]):[option])} className={`border px-3 py-1 text-sm ${active?"border-fuchsia-700 bg-fuchsia-700 text-white":"border-zinc-300"}`}>{option}</button>})}</div>{question.allowFree&&<input value={free} onChange={(event)=>setFree(event.target.value)} placeholder="Or add your own answer" className="mt-3 w-full border p-2 text-sm"/>}<button onClick={()=>void answer()} className="mt-3 bg-fuchsia-700 px-3 py-2 font-mono text-xs font-bold uppercase text-white">Next</button></div>}<div className="mt-5 flex flex-wrap gap-3"><button onClick={()=>void (question?write():ask())} disabled={busy||!idea.trim()} className="flex items-center gap-2 border-2 border-zinc-950 px-4 py-2 font-mono text-xs font-bold uppercase dark:border-zinc-100">{busy?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:<Sparkles className="h-3.5 w-3.5"/>}{question?"Write my prompt":transcript.length?"Ask next question":"Start interview"}</button>{(transcript.length>=2||!question)&&<button onClick={()=>void write()} disabled={busy||!idea.trim()} className="font-mono text-xs font-bold uppercase text-fuchsia-700">Write my prompt</button>}<button onClick={onSkip} className="font-mono text-xs font-bold uppercase text-zinc-500 underline">Skip — I already have art</button></div>{error&&<p className="mt-3 border border-red-500 p-2 text-sm">{error}</p>}{prompt&&<div className="mt-5 border-2 border-zinc-950 p-4 dark:border-zinc-100"><p className="whitespace-pre-wrap text-sm">{prompt}</p><button onClick={()=>void navigator.clipboard.writeText(prompt).then(()=>{setCopied(true);window.setTimeout(()=>setCopied(false),1600)})} className="mt-3 flex items-center gap-2 font-mono text-xs font-bold uppercase text-fuchsia-700"><Copy className="h-3.5 w-3.5"/>{copied?"Copied":"Copy prompt"}</button></div>}</section>}
+import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/feedback";
+import { Field } from "@/components/ui/field";
+import { Input, Textarea } from "@/components/ui/input";
+import { Hint, Inspector, PanelSection, StageArea } from "@/features/anibuddy/components/WorkspacePanels";
+
+interface Question {
+  id: string;
+  question: string;
+  options: string[];
+  allowFree: boolean;
+  multi: boolean;
+}
+interface Props {
+  idea: string;
+  prompt: string | null;
+  transcript: QaTurn[];
+  onIdea: (value: string) => void;
+  onPrompt: (value: string | null) => void;
+  onTranscript: (value: QaTurn[]) => void;
+  onSkip: () => void;
+}
+
+export function ConceptStep({ idea, prompt, transcript, onIdea, onPrompt, onTranscript, onSkip }: Props) {
+  const id = useId();
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [free, setFree] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const ask = async () => {
+    if (!idea.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await requestPromptTurn({ action: "ask", idea: idea.trim(), transcript });
+      if (result.done) {
+        setQuestion(null);
+      } else setQuestion(result.questions?.[0] ?? null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The interview failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const write = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await requestPromptTurn({ action: "write", idea: idea.trim(), transcript });
+      if (result.prompt) onPrompt(result.prompt);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The prompt helper failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const answer = async () => {
+    if (!question) return;
+    const value = [...selected, free.trim()].filter(Boolean).join(", ");
+    if (!value) return;
+    onTranscript([...transcript, { question: question.question, answer: value }]);
+    setQuestion(null);
+    setSelected([]);
+    setFree("");
+    window.setTimeout(() => void ask(), 0);
+  };
+
+  const mainLabel = question ? "Write my prompt" : transcript.length ? "Ask next question" : "Start interview";
+  const showWrite = transcript.length >= 2 || !question;
+
+  return (
+    <>
+      <StageArea label="Interview" className="overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3 p-4 md:p-6">
+          {transcript.length === 0 && !question && !prompt && (
+            <div className="flex flex-col items-center gap-3 border-2 border-dashed border-line bg-surface px-6 py-10 text-center">
+              <span className="oa-icon-box">
+                <Sparkles aria-hidden className="size-5" />
+              </span>
+              <h3 className="oa-section">Start from an idea</h3>
+              <p className="max-w-sm text-xs leading-[18px] text-ink-2">
+                Describe your character, then answer a few questions. You get a rig-friendly prompt to use in
+                another art tool.
+              </p>
+            </div>
+          )}
+
+          {transcript.length > 0 && (
+            <ol aria-label="Answers so far" className="flex flex-col gap-2">
+              {transcript.map((turn, index) => (
+                <li key={`${turn.question}-${index}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onTranscript(transcript.slice(0, index));
+                      setQuestion({ id: `edit-${index}`, question: turn.question, options: [], allowFree: true, multi: false });
+                      setFree(turn.answer);
+                    }}
+                    className="flex w-full flex-col gap-1 border-[1.5px] border-line bg-surface px-3 py-2.5 text-left hover:bg-hover"
+                    aria-label={`Edit answer: ${turn.question}`}
+                  >
+                    <span className="text-xs font-bold leading-[18px] text-ink">{turn.question}</span>
+                    <span className="text-xs leading-[18px] text-ink-2">{turn.answer}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {question && (
+            <fieldset className="flex flex-col gap-3 border-[1.5px] border-line-strong bg-surface p-4 shadow-float">
+              <legend className="sr-only">{question.question}</legend>
+              <p aria-hidden className="text-[13px] font-bold leading-5">
+                {question.question}
+              </p>
+              {question.options.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {question.options.map((option) => {
+                    const active = selected.includes(option);
+                    return (
+                      <Button
+                        key={option}
+                        size="sm"
+                        aria-pressed={active}
+                        className={active ? "bg-inverse text-inverse-fg" : undefined}
+                        onClick={() =>
+                          setSelected(
+                            question.multi
+                              ? active
+                                ? selected.filter((value) => value !== option)
+                                : [...selected, option]
+                              : [option],
+                          )
+                        }
+                      >
+                        {option}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+              {question.allowFree && (
+                <Input
+                  aria-label="Your own answer"
+                  value={free}
+                  onChange={(event) => setFree(event.target.value)}
+                  placeholder="Or add your own answer"
+                />
+              )}
+              <Button variant="secondary" className="self-start" onClick={() => void answer()}>
+                Save answer
+              </Button>
+            </fieldset>
+          )}
+
+          {prompt && (
+            <section aria-labelledby={`${id}-prompt`} className="flex flex-col gap-3 border-[1.5px] border-line-strong bg-surface p-4">
+              <h3 id={`${id}-prompt`} className="oa-panel-title">
+                Your prompt
+              </h3>
+              <p className="whitespace-pre-wrap text-[13px] leading-5">{prompt}</p>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="self-start"
+                onClick={() =>
+                  void navigator.clipboard.writeText(prompt).then(() => {
+                    setCopied(true);
+                    window.setTimeout(() => setCopied(false), 1600);
+                  })
+                }
+              >
+                <Copy aria-hidden />
+                {copied ? "Copied" : "Copy prompt"}
+              </Button>
+              <span role="status" className="sr-only">
+                {copied ? "Prompt copied" : ""}
+              </span>
+            </section>
+          )}
+        </div>
+      </StageArea>
+
+      <Inspector
+        title="Concept"
+        footer={
+          <Button variant="ghost" size="sm" className="self-center" onClick={onSkip}>
+            Skip to my artwork
+          </Button>
+        }
+      >
+        <PanelSection>
+          <Field label="Your character" htmlFor={`${id}-idea`} help="Optional. Skip this if you already have art.">
+            <Textarea
+              id={`${id}-idea`}
+              aria-describedby={`${id}-idea-note`}
+              value={idea}
+              onChange={(event) => onIdea(event.target.value)}
+              rows={3}
+              placeholder="A red fox courier in a canvas backpack"
+              className="min-h-[76px]"
+            />
+          </Field>
+          <div className="flex flex-wrap gap-1.5">
+            <Button
+              variant="primary"
+              size="sm"
+              className="flex-1"
+              disabled={busy || !idea.trim()}
+              onClick={() => void (question ? write() : ask())}
+            >
+              {busy ? <LoaderCircle aria-hidden className="animate-spin" /> : <Sparkles aria-hidden />}
+              {mainLabel}
+            </Button>
+            {showWrite && mainLabel !== "Write my prompt" && (
+              <Button variant="secondary" size="sm" disabled={busy || !idea.trim()} onClick={() => void write()}>
+                Write my prompt
+              </Button>
+            )}
+          </div>
+          <Hint>The interview and prompt use AI. No images are made here.</Hint>
+          {error && (
+            <Notice tone="danger" role="alert">
+              {error}
+            </Notice>
+          )}
+        </PanelSection>
+      </Inspector>
+    </>
+  );
+}
