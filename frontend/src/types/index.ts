@@ -30,6 +30,7 @@ export interface BoundingBox {
 export interface JobResponse {
   jobId: string;
   status: JobStatus;
+  fileName?: string;
   cloudinaryUrl: string;
   workingUrl?: string;
   isTransparent?: boolean;
@@ -42,6 +43,23 @@ export interface JobResponse {
   assets?: Asset[];
   downloadUrl?: string;
   error?: string;
+}
+
+/** One row of GET /api/jobs: what a job list shows, without boxes or assets. */
+export interface JobSummary {
+  jobId: string;
+  status: JobStatus;
+  fileName?: string;
+  assetCount: number;
+  createdAt: string; // ISO 8601
+  imageUrl: string;
+  error?: string;
+}
+
+/** A page of GET /api/jobs. `nextCursor` is null on the last page. */
+export interface JobListPage {
+  jobs: JobSummary[];
+  nextCursor: string | null;
 }
 
 export interface Asset {
