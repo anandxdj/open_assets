@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Logo } from "@/components/layout/Logo";
-import { DOCS_URL, SALES_EMAIL, SOCIAL, WRAP, type MarketingLink } from "./site";
+import { DOCS_URL, LEGAL_LINKS, SALES_EMAIL, SOCIAL, WRAP, type MarketingLink } from "./site";
 
 const COLUMNS: { title: string; links: MarketingLink[] }[] = [
   {
@@ -30,6 +30,7 @@ const COLUMNS: { title: string; links: MarketingLink[] }[] = [
       { label: "X", href: SOCIAL.x, external: true },
     ],
   },
+  { title: "Legal", links: LEGAL_LINKS },
 ];
 
 const LINK =
