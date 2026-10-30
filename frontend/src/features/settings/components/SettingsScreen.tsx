@@ -4,6 +4,7 @@ import { Crumbs, PageBody, PageTitle, Topbar } from "@/components/layout/AppShel
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { getAccount } from "@/features/settings/api";
 import { DangerZoneContent } from "@/features/settings/components/DangerZone";
+import { ExportContent } from "@/features/settings/components/ExportSection";
 import { PlanUsageContent } from "@/features/settings/components/PlanUsageSection";
 import { ProfileSection } from "@/features/settings/components/ProfileSection";
 import { SecurityContent } from "@/features/settings/components/SecuritySection";
@@ -63,6 +64,10 @@ export function SettingsScreen() {
                 />
               )}
             </WithAccount>
+          </SettingsSection>
+
+          <SettingsSection id="export" title="Export" description="How your exported files are named.">
+            <ExportContent />
           </SettingsSection>
 
           <SettingsSection id="plan" title="Plan and usage" description="Your plan, your credits for the month, and what spent them.">
