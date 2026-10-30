@@ -44,6 +44,9 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        # Unknown keys (a shared .env, PORT, REDIS_URL passed by compose) must not stop the
+        # service from starting: pydantic-settings rejects extras from a dotenv file by default.
+        extra = "ignore"
 
 
 settings = Settings()

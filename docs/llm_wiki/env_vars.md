@@ -1,138 +1,37 @@
 # Environment Variables
 
-## backend/.env
+The `.env.example` files are the reference. Every variable the code reads is listed in
+one of them with a comment, so this page only says which file belongs to what. (It used
+to repeat the values and drifted out of date.)
 
-```bash
-# Server
-PORT=4000
-NODE_ENV=development
-
-# MongoDB — auth data only
-MONGO_URI=mongodb://localhost:27017/open_assets
-
-# Redis — job state + BullMQ queues
-REDIS_URL=redis://127.0.0.1:6379
-
-# Cloudinary — all image storage
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-
-# JWT
-JWT_ACCESS_SECRET=change-me-access
-JWT_REFRESH_SECRET=change-me-refresh
-
-# Google OAuth
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=http://localhost:4000/api/auth/google/callback
-
-# Resend — transactional email
-RESEND_API_KEY=
-RESEND_FROM_EMAIL=noreply@yourdomain.com
-
-# Python AI service
-PY_BACKEND_URL=http://localhost:8000
-
-# CORS
-FRONTEND_URL=http://localhost:3000
-```
-
-## py_backend/.env
-
-```bash
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-
-# Asset naming — provider chain is Open Quota, then Gemini, then identity names.
-# Open Quota (primary). Empty = Gemini-only. Note the /llm root, not /llm/v1:
-# we call the native Gemini surface at <root>/v1beta/models/<model>:generateContent.
-OPENQUOTA_API_KEY=
-OPENQUOTA_BASE_URL=https://openquota.anands.dev/llm
-# Asset naming is a vision task. This overrides the legacy unified value.
-OPENQUOTA_VISION_MODEL=auto
-# Legacy fallback used when the specialized setting is absent.
-OPENQUOTA_MODEL=auto
-
-# Gemini (fallback) — get key from https://aistudio.google.com/
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash
-
-# Shared secret the Node backend must send in X-Internal-Token (empty disables)
-INTERNAL_API_TOKEN=
-
-# Host allowlist for image fetches (comma-separated)
-ALLOWED_IMAGE_HOSTS=res.cloudinary.com,cloudinary.com
-
-# OpenCV detection tuning
-MIN_BOX_WIDTH=20
-MIN_BOX_HEIGHT=20
-MIN_BOX_AREA=400
-BINARY_THRESH_VALUE=240
-```
-
-## frontend/.env.local
-
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:4000
-
-# Studio (server-only, used by /api/studio/* route handlers)
-EXPRESS_INTERNAL_URL=http://localhost:4000
-INTERNAL_SERVICE_TOKEN=change-me-service-token
-
-# Open Quota — primary provider for the text/vision studio routes.
-# Empty = OpenRouter-only. BYOK requests never reach it.
-OPENQUOTA_API_KEY=
-OPENQUOTA_BASE_URL=https://openquota.anands.dev/llm/v1
-# Text-only routes use the smarter profile; image-bearing routes use the
-# dashboard fallback chain by default.
-OPENQUOTA_TEXT_MODEL=auto:smart
-OPENQUOTA_VISION_MODEL=auto
-# Legacy fallback used when a specialized setting is absent.
-OPENQUOTA_MODEL=auto
-
-# OpenRouter — fallback for text/vision, sole provider for the image routes
-OPENROUTER_API_KEY=
-OPENROUTER_FALLBACK_MODEL=google/gemini-2.5-flash
-OPENROUTER_MOCK=0
-```
-
-## Service Dependency Map
-
-| Var | Used By | Purpose |
+| File | Used by | Copy to |
 |---|---|---|
-| MONGO_URI | backend | auth user storage |
-| REDIS_URL | backend | job state + BullMQ |
-| CLOUDINARY_* | backend + py_backend | image upload/retrieve |
-| JWT_ACCESS_SECRET | backend | JWT sign/verify |
-| JWT_REFRESH_SECRET | backend | refresh JWT sign/verify |
-| GOOGLE_CLIENT_ID/SECRET | backend | OAuth |
-| GOOGLE_CALLBACK_URL | backend | OAuth redirect |
-| RESEND_API_KEY | backend | email delivery |
-| RESEND_FROM_EMAIL | backend | email from address |
-| PY_BACKEND_URL | backend | HTTP calls to FastAPI |
-| FRONTEND_URL | backend | CORS allow-list |
-| OPENQUOTA_API_KEY | py_backend + frontend | primary LLM provider (optional — falls back) |
-| OPENQUOTA_BASE_URL | py_backend + frontend | proxy root; `/llm` for py_backend, `/llm/v1` for frontend |
-| OPENQUOTA_TEXT_MODEL | frontend | text-only routing strategy (default `auto:smart`) |
-| OPENQUOTA_VISION_MODEL | py_backend + frontend | image-bearing routing strategy (default `auto`) |
-| OPENQUOTA_MODEL | py_backend + frontend | legacy routing-strategy fallback, not a model ID |
-| GEMINI_API_KEY / GEMINI_MODEL | py_backend | asset-naming fallback (optional — degrades gracefully) |
-| INTERNAL_API_TOKEN | py_backend | shared secret for Node→FastAPI calls |
-| ALLOWED_IMAGE_HOSTS | py_backend | host allowlist for image fetches |
-| MIN_BOX_* / BINARY_THRESH_* | py_backend | OpenCV detection tuning |
-| NEXT_PUBLIC_API_URL | frontend | backend base URL for API calls |
-| EXPRESS_INTERNAL_URL | frontend | Express reachable from the Next server (credits) |
-| INTERNAL_SERVICE_TOKEN | frontend + backend | guards the credit-refund endpoint |
-| OPENROUTER_API_KEY | frontend | fallback text/vision provider; sole image provider |
-| OPENROUTER_FALLBACK_MODEL | frontend | OpenRouter model ID used after Open Quota fails |
-| OPENROUTER_MOCK | frontend | `1` returns fixtures, no provider call |
+| [`/.env.example`](../../.env.example) | `docker compose` (the whole stack) | `.env` |
+| [`/backend/.env.example`](../../backend/.env.example) | Express API + workers, run from source | `backend/.env` |
+| [`/py_backend/.env.example`](../../py_backend/.env.example) | FastAPI AI service, run from source | `py_backend/.env` |
+| [`/frontend/.env.example`](../../frontend/.env.example) | Next.js web app, run from source | `frontend/.env.local` |
+| [`/extension/.env.example`](../../extension/.env.example) | Chrome extension build | `extension/.env` |
 
-## Docker services (docker-compose.yml)
+## Things worth knowing
 
-```bash
-# MongoDB accessible at: mongodb://localhost:27017/open_assets
-# Redis accessible at: redis://localhost:6379
-```
-No additional env vars needed for local Docker services.
+- **Backend validates on start.** `backend/src/common/config/env.ts` checks the
+  environment before any other module loads and exits with a list of every problem.
+  In production it requires `MONGO_URI`, `REDIS_URL`, `FRONTEND_URL`, `PY_BACKEND_URL`,
+  two different JWT secrets of 32+ characters (not the `.env.example` placeholders) and
+  the credentials of the selected `STORAGE_PROVIDER`. Missing optional pieces (email,
+  extension origin, shared tokens) are logged as warnings.
+- **CORS and cookies are env-driven.** Allowed origins are `FRONTEND_URL`, `CORS_ORIGINS`
+  and `EXTENSION_ORIGINS`; outside production any localhost port and unpacked extension
+  also pass. `COOKIE_SECURE`, `COOKIE_SAMESITE` and `COOKIE_DOMAIN` control the refresh-token
+  cookie (production default: `Secure`, `SameSite=None`).
+- **`NEXT_PUBLIC_*` are build-time.** The frontend inlines them into the bundle, so a change
+  needs a rebuild (a new image under Docker). The same goes for the extension's
+  `WXT_PUBLIC_*`. Never put a secret in one of them.
+- **Shared secrets.** `INTERNAL_API_TOKEN` is shared by the backend and the AI service;
+  `INTERNAL_SERVICE_TOKEN` by the backend and the web app's Studio routes. Under Compose,
+  set each once in the root `.env`.
+- **Two Open Quota URLs.** The web app calls `https://openquota.anands.dev/llm/v1`; the AI
+  service calls the `/llm` root. In the root `.env` they are `OPENQUOTA_BASE_URL` and
+  `OPENQUOTA_PY_BASE_URL`.
+- **Job lifetime.** Job state in Redis expires after 24 hours (`JOB_TTL` in
+  `backend/src/modules/jobs/job.store.ts`). It is a constant, not a variable.
