@@ -42,7 +42,7 @@ export function MarketingHeader() {
         <ul className="hidden items-center gap-1 lg:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.label}>
-              <NavAnchor link={link} current={!link.external && pathname === link.href} />
+              <NavAnchor link={link} current={!link.external && (pathname === link.href || pathname.startsWith(`${link.href}/`))} />
             </li>
           ))}
         </ul>

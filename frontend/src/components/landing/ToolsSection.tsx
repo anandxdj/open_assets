@@ -79,10 +79,17 @@ export function ToolsSection() {
               aria-label="Example request"
               className={`oa-value overflow-x-auto border-[1.5px] border-page px-4 py-3.5 leading-[18px] ${FOCUS}`}
             >
-              {`curl -X POST "$OPENASSETS_API/api/upload" \\
-  -H "Authorization: Bearer $OPENASSETS_TOKEN" \\
+              {`curl -X POST "$OPENASSETS_API/api/v1/jobs" \\
+  -H "Authorization: Bearer $OPENASSETS_KEY" \\
   -F image=@rpg_pack_v1.png`}
             </pre>
+            <Link
+              href="/docs/api"
+              className={`inline-flex w-fit items-center gap-1.5 text-xs underline decoration-[1.5px] underline-offset-4 ${FOCUS}`}
+            >
+              API keys and reference
+              <ArrowRight aria-hidden className="size-3.5" />
+            </Link>
           </div>
         </div>
       </div>

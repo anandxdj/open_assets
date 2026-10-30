@@ -47,7 +47,7 @@ export default function NotFound() {
         links={[
           { label: "Pricing", hint: "Plans and limits", href: "/pricing" },
           { label: "Community packs", hint: "Browse shared asset packs", href: "/collections" },
-          { label: "Docs", hint: "How OpenAssets works", href: DOCS_URL, external: true },
+          { label: "Docs", hint: "How OpenAssets works", href: DOCS_URL },
           { label: "Support", hint: SUPPORT_EMAIL, href: `mailto:${SUPPORT_EMAIL}`, external: true },
         ]}
       />

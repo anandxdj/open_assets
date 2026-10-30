@@ -90,6 +90,11 @@ const SECTIONS: LegalSectionData[] = [
               "You, when you connect the extension.",
             ],
             [
+              "API keys",
+              "For each key you create: its name, the first characters of the key, a hash of the full key, when it was created and last used, and when you revoked it. We cannot show a key again after you create it.",
+              "You, when you create a key. Our systems, when a key is used.",
+            ],
+            [
               "Email",
               "Your address and the content of verification and password-reset emails, plus anything you send to us for support.",
               "You. Our systems.",
@@ -341,6 +346,11 @@ const SECTIONS: LegalSectionData[] = [
               "Sign-in sessions",
               "Cookie and MongoDB",
               "The browser session lasts 7 days and ends when you sign out. An extension session lasts 30 days from last use and is revoked when you sign out in the extension.",
+            ],
+            [
+              "API keys",
+              "MongoDB (hashed)",
+              "Until you revoke the key or delete the account. A revoked key’s record is deleted 90 days after you revoke it.",
             ],
             [
               "Verification and reset tokens",

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { DOCS_ORDER, DOCS_PAGES } from "@/components/marketing/docs.config";
 
 /**
  * Public identity of the site, shared by metadata, robots, sitemap, the web
@@ -66,6 +67,12 @@ export const PUBLIC_ROUTES: {
 }[] = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/pricing", changeFrequency: "monthly", priority: 0.9 },
+  // The docs set: overview, getting started, API reference (see docs.config.ts).
+  ...DOCS_ORDER.map((id) => ({
+    path: DOCS_PAGES[id].href,
+    changeFrequency: "monthly" as const,
+    priority: id === "overview" ? 0.8 : 0.7,
+  })),
   { path: "/collections", changeFrequency: "daily", priority: 0.7 },
   { path: "/careers", changeFrequency: "monthly", priority: 0.4 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.3 },

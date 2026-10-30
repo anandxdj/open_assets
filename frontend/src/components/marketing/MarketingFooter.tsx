@@ -16,8 +16,8 @@ const COLUMNS: { title: string; links: MarketingLink[] }[] = [
   {
     title: "Resources",
     links: [
-      { label: "Docs", href: DOCS_URL, external: true },
-      { label: "API", href: "/#api" },
+      { label: "Docs", href: DOCS_URL },
+      { label: "API reference", href: `${DOCS_URL}/api` },
       { label: "Contact sales", href: `mailto:${SALES_EMAIL}` },
     ],
   },
