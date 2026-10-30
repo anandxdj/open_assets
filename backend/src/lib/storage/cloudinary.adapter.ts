@@ -1,7 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import axios from 'axios';
-import type { StorageAdapter, UploadOptions, UploadResult, ResourceType } from './interface';
-import { UPSCALE_PASSES } from '../../modules/plans/upscale';
+import type { StorageAdapter, UploadOptions, UploadResult, ResourceType, EnhanceTransform } from './interface';
 import type { UpscaleScale } from '../../modules/plans/upscale';
 
 const POLL_TIMEOUT_MS = 120_000;
@@ -65,13 +64,39 @@ export class CloudinaryAdapter implements StorageAdapter {
     return url;
   }
 
-  async applyUpscale(publicId: string, scale: UpscaleScale = 2): Promise<string> {
+  async applyUpscale(publicId: string, scale: UpscaleScale = 2, sourceWidth?: number): Promise<string> {
     // e_upscale flattens alpha → chain e_background_removal to re-cut transparency.
-    // 4x chains a second upscale pass (see UPSCALE_PASSES).
-    const passes = Array.from({ length: UPSCALE_PASSES[scale] }, () => ({ effect: 'upscale' }));
+    // e_upscale is a fixed 4x: 2x resizes the 4x result back down (needs the source width).
+    const transformation: Record<string, unknown>[] = [{ effect: 'upscale' }];
+    if (scale === 2 && sourceWidth) transformation.push({ width: sourceWidth * 2, crop: 'scale' });
+    transformation.push({ effect: 'background_removal' });
     const url = cloudinary.url(publicId, {
       resource_type: 'image',
-      transformation: [...passes, { effect: 'background_removal' }],
+      transformation,
+      fetch_format: 'png',
+      secure: true,
+    });
+    await this.pollUntilReady(url);
+    return url;
+  }
+
+  async applyEnhance(publicId: string, transform: EnhanceTransform): Promise<string> {
+    const { upscale, removeBackground } = transform;
+    if (!upscale && !removeBackground) {
+      throw new Error('applyEnhance needs an upscale, a background removal, or both.');
+    }
+    // Order matters: e_upscale flattens alpha, so e_background_removal must come
+    // after it. e_upscale is a fixed 4x; 2x resizes the 4x result back down.
+    const transformation: Record<string, unknown>[] = [];
+    if (upscale) {
+      transformation.push({ effect: 'upscale' });
+      if (upscale.scale === 2) transformation.push({ width: upscale.sourceWidth * 2, crop: 'scale' });
+    }
+    if (removeBackground) transformation.push({ effect: 'background_removal' });
+
+    const url = cloudinary.url(publicId, {
+      resource_type: 'image',
+      transformation,
       fetch_format: 'png',
       secure: true,
     });

@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Ghost, Grid2x2, Shapes, type LucideIcon } from "lucide-react";
+import { ChevronRight, Ghost, Grid2x2, LoaderCircle, Shapes, type LucideIcon } from "lucide-react";
 import { Crumbs, PageBody, PageTitle, Topbar } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/feedback";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { usePlan } from "@/features/plans/PlanContext";
 import { RecentJobsTable } from "@/features/jobs/components/RecentJobsTable";
-import { useRecentJobs } from "@/features/jobs/recentJobs";
+import { useJobList } from "@/features/jobs/useJobList";
 import { DropZone, PHASE_TEXT } from "@/features/upload/components/DropZone";
 import { UsageMeter, useSheetLimitReached } from "@/features/upload/components/UsageMeter";
 import { useFileUpload } from "@/features/upload/hooks/useFileUpload";
@@ -25,8 +25,9 @@ const RECENT_ON_HOME = 5;
 
 function RecentExtractions() {
   const { user } = useAuth();
-  const jobs = useRecentJobs(user?._id);
+  const { list, reload, remove } = useJobList(user?._id, RECENT_ON_HOME);
   if (!user) return null;
+  const jobs = list.kind === "ready" ? list.jobs : [];
 
   return (
     <section aria-labelledby="recent-heading" className="flex flex-col gap-3">
@@ -43,12 +44,24 @@ function RecentExtractions() {
           </Button>
         )}
       </div>
-      {jobs.length > 0 ? (
-        <RecentJobsTable jobs={jobs.slice(0, RECENT_ON_HOME)} userId={user._id} caption="Recent extractions" />
-      ) : (
-        <p className="text-xs leading-[18px] text-ink-2">
-          Sheets you upload from this browser show up here for 24 hours.
+      {list.kind === "loading" ? (
+        <p role="status" className="flex items-center gap-2 text-xs leading-[18px] text-ink-2">
+          <LoaderCircle aria-hidden className="size-3.5 animate-spin" />
+          Loading recent extractions
         </p>
+      ) : list.kind === "error" ? (
+        <Notice tone="warning">
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            Could not load your recent extractions. {list.message}
+            <Button size="sm" onClick={reload}>
+              Try again
+            </Button>
+          </span>
+        </Notice>
+      ) : jobs.length > 0 ? (
+        <RecentJobsTable jobs={jobs} onRemove={remove} caption="Recent extractions" />
+      ) : (
+        <p className="text-xs leading-[18px] text-ink-2">Sheets you upload show up here for 24 hours.</p>
       )}
     </section>
   );

@@ -11,7 +11,7 @@ export interface AuthRequest extends Request {
     name: string;
     role: string;
     /** Plan fields, so entitlement checks need no second lookup. Use modules/plans. */
-    plan: IUser['plan'];
+    plan?: IUser['plan'];
     trialEndsAt?: Date;
   };
 }

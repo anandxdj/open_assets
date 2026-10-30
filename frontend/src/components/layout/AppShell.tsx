@@ -10,6 +10,7 @@ import {
   LogIn,
   PersonStanding,
   ScanSearch,
+  Settings,
   Sparkles,
   WandSparkles,
   type LucideIcon,
@@ -41,6 +42,10 @@ const LIBRARY: NavEntry[] = [
   { href: "/dashboard/collections", label: "My collections", icon: Folder, match: (p) => p.startsWith("/dashboard/collections"), requiresAuth: true },
   { href: "/collections", label: "Community", icon: Compass, match: (p) => p === "/collections" || p.startsWith("/collections/") },
 ];
+
+// Account pages. On desktop they live in the UserMenu; phones have no sidebar,
+// so MobileBar carries Settings itself.
+const SETTINGS: NavEntry = { href: "/settings", label: "Settings", icon: Settings, match: (p) => p.startsWith("/settings"), requiresAuth: true };
 
 const TOOLS: NavEntry[] = [
   { href: "/enhance", label: "Enhance", icon: WandSparkles, match: (p) => p.startsWith("/enhance") && !p.startsWith("/enhance/anibuddy") },
@@ -113,7 +118,7 @@ function MobileBar() {
   const path = usePathname();
   const { user } = useAuth();
   const items: NavEntry[] = user
-    ? [PRIMARY[0], PRIMARY[1], LIBRARY[0], { ...TOOLS[0], label: "Tools", icon: LayoutGrid }]
+    ? [PRIMARY[0], PRIMARY[1], LIBRARY[0], { ...TOOLS[0], label: "Tools", icon: LayoutGrid }, SETTINGS]
     : [
         LIBRARY[1],
         { ...TOOLS[0], label: "Tools", icon: LayoutGrid },

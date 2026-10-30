@@ -27,6 +27,8 @@ export interface IUser extends Document {
   trialEndsAt?: Date;
   /** Set once when the one-per-account trial starts; never cleared by normal flows. */
   trialStartedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 

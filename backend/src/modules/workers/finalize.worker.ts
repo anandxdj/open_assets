@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq';
 import { redis } from '../../common/config/redis';
-import { getJob, updateJob, parseAssets } from '../jobs/job.store';
+import { getJob, updateJob, parseAssets, parseBoxes } from '../jobs/job.store';
 import { storage } from '../../lib/storage';
 import { extractError } from '../../common/utils/extractError';
 import { mapLimit } from '../../common/utils/mapLimit';
@@ -9,6 +9,17 @@ import { UPSCALE_SCALES } from '../plans/upscale';
 import type { UpscaleScale } from '../plans/upscale';
 
 const UPSCALE_CONCURRENCY = 4;
+
+/**
+ * Width in px of the crop for a box, as the crop service cuts it: the rounded
+ * box clamped to the sheet. The provider's AI upscale is a fixed 4x, so the
+ * export resizes to exactly `scale` times this width.
+ */
+function croppedWidth(box: { x: number; width: number }, sheetWidth: number): number {
+  const x = Math.max(0, Math.round(box.x));
+  const x2 = Math.round(box.x) + Math.round(box.width);
+  return Math.max(1, (sheetWidth > 0 ? Math.min(sheetWidth, x2) : x2) - x);
+}
 
 interface FinalizeJobData {
   jobId: string;
@@ -44,6 +55,9 @@ export function startFinalizeWorker(): void {
       // and then zip the upscaled URLs locally. No server-side zip / Cloudinary upload.
       console.log(`[finalize.worker] Job ${jobId}: upscaling ${selected.length} assets (${scale}x)…`);
       const byId = new Map(assets.map((a) => [a.id, { ...a }]));
+      // Asset ids are box ids: the box gives the source width the factor applies to.
+      const sheetWidth = Number(jobData.imageWidth) || 0;
+      const boxById = new Map(parseBoxes(jobData.boxes).map((b) => [b.id, b]));
 
       await mapLimit(selected, UPSCALE_CONCURRENCY, async (asset) => {
         let url: string;
@@ -51,7 +65,8 @@ export function startFinalizeWorker(): void {
           url = asset.cropped_url;
         } else {
           try {
-            url = await storage.applyUpscale(asset.public_id, scale);
+            const box = boxById.get(asset.id);
+            url = await storage.applyUpscale(asset.public_id, scale, box ? croppedWidth(box, sheetWidth) : undefined);
           } catch (err) {
             throw new Error(`Upscale failed for asset "${asset.name}" (${asset.public_id}): ${extractError(err)}`);
           }

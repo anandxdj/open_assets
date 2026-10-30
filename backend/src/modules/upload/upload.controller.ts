@@ -7,6 +7,7 @@ import { ApiError } from '../../common/utils/ApiError';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import type { AuthRequest } from '../auth/auth.middleware';
 import { commitSheetReservation } from '../plans/plans.middleware';
+import { originalFileName } from './fileName';
 
 const ALLOWED_FORMATS = ['png', 'jpg', 'jpeg', 'webp'];
 const MIN_DIMENSION = 64;
@@ -51,6 +52,7 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
     cloudinaryUrl: uploadResult.url,
     publicId: uploadResult.publicId,
     userId,
+    fileName: originalFileName(req.file.originalname),
   });
 
   // The sheet is spent from here on: a job exists. Before this point a failure

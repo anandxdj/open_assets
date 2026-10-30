@@ -161,7 +161,7 @@ open_assets/
 │       ├── modules/
 │       │   ├── auth/        register/login/OAuth/verify/reset — JWT (complete)
 │       │   ├── upload/      POST /api/upload
-│       │   ├── jobs/        GET /api/jobs/:id  ·  Redis job store + types
+│       │   ├── jobs/        GET /api/jobs, /api/jobs/:id  ·  Redis job store + per-user index + types
 │       │   ├── crop/        POST /api/crop
 │       │   ├── finalize/    POST /api/finalize
 │       │   ├── collections/ public galleries: folders, images, likes, downloads
@@ -203,6 +203,9 @@ All `/api/*` routes (except auth + public collection reads) require
 | GET | `/api/auth/google` · `/google/callback` | Google OAuth |
 | GET/POST/PUT | `/api/auth/me`, `verify-email/:t`, `forgot-password`, `reset-password/:t` | Account lifecycle |
 | POST | `/api/upload` | Multipart image → starts detection pipeline |
+| GET | `/api/jobs?limit=&cursor=` | The signed-in user's jobs (history), newest first, `{ jobs, nextCursor }`; `limit` 1–100, default 50 |
+| DELETE | `/api/jobs/:jobId/history` | Remove one job from the user's history (the job itself stays until it expires) |
+| DELETE | `/api/jobs/history` | Clear the user's history |
 | GET | `/api/jobs/:jobId` | Full job state (status, boxes, assets, downloadUrl) |
 | GET | `/api/jobs/:jobId/download` | 302 → ZIP URL (when `ready`) |
 | POST | `/api/crop` | `{ jobId, boxes }` → name + crop pipeline |
