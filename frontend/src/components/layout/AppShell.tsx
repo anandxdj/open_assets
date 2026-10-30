@@ -16,8 +16,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { Logo } from "@/components/layout/Logo";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { UserMenu } from "@/components/layout/UserMenu";
@@ -28,7 +28,6 @@ type NavEntry = {
   label: string;
   icon: LucideIcon;
   match: (path: string) => boolean;
-  soon?: boolean;
   requiresAuth?: boolean;
 };
 
@@ -47,9 +46,9 @@ const LIBRARY: NavEntry[] = [
 const SETTINGS: NavEntry = { href: "/settings", label: "Settings", icon: Settings, match: (p) => p.startsWith("/settings"), requiresAuth: true };
 
 const TOOLS: NavEntry[] = [
-  { href: "/enhance", label: "Enhance", icon: WandSparkles, match: (p) => p.startsWith("/enhance") && !p.startsWith("/enhance/anibuddy") },
-  { href: "/studio", label: "Studio", icon: Sparkles, match: (p) => p.startsWith("/studio"), soon: true },
-  { href: "/anibuddy", label: "AniBuddy", icon: PersonStanding, match: (p) => p.startsWith("/anibuddy"), soon: true },
+  { href: "/enhance", label: "Enhance", icon: WandSparkles, match: (p) => p.startsWith("/enhance") },
+  { href: "/studio", label: "Studio", icon: Sparkles, match: (p) => p.startsWith("/studio") },
+  { href: "/anibuddy", label: "AniBuddy", icon: PersonStanding, match: (p) => p.startsWith("/anibuddy") },
 ];
 
 function NavLink({ entry, path }: { entry: NavEntry; path: string }) {
@@ -59,7 +58,6 @@ function NavLink({ entry, path }: { entry: NavEntry; path: string }) {
     <Link href={entry.href} className="oa-nav-item" aria-current={active ? "page" : undefined}>
       <Icon aria-hidden />
       {entry.label}
-      {entry.soon && <Badge className="ml-auto">Soon</Badge>}
     </Link>
   );
 }
@@ -112,40 +110,63 @@ function Sidebar() {
   );
 }
 
+const MOBILE_ITEM =
+  "flex min-w-16 flex-col items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.05em] text-ink-2";
+const MOBILE_ACTIVE = "text-ink shadow-[inset_0_3px_0_var(--oa-accent)]";
+
+/** The tools do not fit the bottom bar one by one, so they open as a menu. */
+function MobileTools({ path }: { path: string }) {
+  const active = TOOLS.some((e) => e.match(path));
+  return (
+    <Menu>
+      <MenuTrigger asChild>
+        <button type="button" className={cn(MOBILE_ITEM, active && MOBILE_ACTIVE)}>
+          <LayoutGrid aria-hidden className="size-5" />
+          Tools
+        </button>
+      </MenuTrigger>
+      <MenuContent side="top" align="end" className="mb-1">
+        {TOOLS.map((e) => (
+          <MenuItem key={e.href} asChild>
+            <Link href={e.href} aria-current={e.match(path) ? "page" : undefined}>
+              <e.icon aria-hidden />
+              {e.label}
+            </Link>
+          </MenuItem>
+        ))}
+      </MenuContent>
+    </Menu>
+  );
+}
+
+function MobileLink({ entry, path }: { entry: NavEntry; path: string }) {
+  const active = entry.match(path);
+  const Icon = entry.icon;
+  return (
+    <Link href={entry.href} aria-current={active ? "page" : undefined} className={cn(MOBILE_ITEM, active && MOBILE_ACTIVE)}>
+      <Icon aria-hidden className="size-5" />
+      {entry.label === "My collections" ? "Library" : entry.label}
+    </Link>
+  );
+}
+
+const SIGN_IN: NavEntry = { href: "/login", label: "Sign in", icon: LogIn, match: (p) => p === "/login" };
+
 function MobileBar() {
   const path = usePathname();
   const { user } = useAuth();
-  const items: NavEntry[] = user
-    ? [PRIMARY[0], PRIMARY[1], LIBRARY[0], { ...TOOLS[0], label: "Tools", icon: LayoutGrid }, SETTINGS]
-    : [
-        LIBRARY[1],
-        { ...TOOLS[0], label: "Tools", icon: LayoutGrid },
-        { href: "/login", label: "Sign in", icon: LogIn, match: (p) => p === "/login" },
-      ];
+  const lead = user ? [PRIMARY[0], PRIMARY[1], LIBRARY[0]] : [LIBRARY[1]];
 
   return (
     <nav
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-20 flex h-14 items-stretch justify-around border-t-[1.5px] border-line-strong bg-surface md:hidden"
     >
-      {items.map((e) => {
-        const active = e.match(path);
-        const Icon = e.icon;
-        return (
-          <Link
-            key={e.href}
-            href={e.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "flex min-w-16 flex-col items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.05em] text-ink-2",
-              active && "text-ink shadow-[inset_0_3px_0_var(--oa-accent)]"
-            )}
-          >
-            <Icon aria-hidden className="size-5" />
-            {e.label === "My collections" ? "Library" : e.label}
-          </Link>
-        );
-      })}
+      {lead.map((e) => (
+        <MobileLink key={e.href} entry={e} path={path} />
+      ))}
+      <MobileTools path={path} />
+      <MobileLink entry={user ? SETTINGS : SIGN_IN} path={path} />
     </nav>
   );
 }

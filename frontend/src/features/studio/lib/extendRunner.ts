@@ -16,7 +16,7 @@ import {
   measureSeamResidual,
   stitchExtendedChunk,
 } from "@/features/studio/lib/imageProcessor";
-import { studioPost } from "@/features/studio/api/studioClient";
+import { StudioApiError, studioPost } from "@/features/studio/api/studioClient";
 import type { LayerRole } from "@/features/studio/lib/parallax";
 
 export type RunExtendOptions = {
@@ -108,6 +108,11 @@ export async function runExtendCore(opts: RunExtendOptions): Promise<Candidate[]
           console.log(`🔬 Variant ${attempt + 1} seam residual: ${score.toFixed(2)}`);
         }
         candidates.push(await finalizeCandidate(blended, score, attempt + 1));
+      } catch (err) {
+        // Out of credits partway through the best-of-N: keep the variants that
+        // were already paid for instead of discarding them with the error.
+        if (candidates.length > 0 && err instanceof StudioApiError && err.code === "INSUFFICIENT_CREDITS") break;
+        throw err;
       } finally {
         clearInterval(tickHandle);
       }
