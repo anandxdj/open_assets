@@ -1,7 +1,8 @@
+import base64
+
 import cv2
 from fastapi import APIRouter
 from app.models.schemas import CropRequest, CropResponse, AssetResult
-from app.services.cloudinary_client import upload_bytes
 from app.services.image_io import download_image
 
 router = APIRouter()
@@ -23,6 +24,18 @@ async def crop(request: CropRequest) -> CropResponse:
 
         cropped = img[y:y2, x:x2]
         _, buf = cv2.imencode(".png", cropped)
+
+        if request.inline:
+            # No storage here: the caller (local storage provider) keeps the bytes.
+            assets.append(AssetResult(
+                id=box.id,
+                name=box.name,
+                data_base64=base64.b64encode(buf.tobytes()).decode("ascii"),
+            ))
+            continue
+
+        # Imported here so inline crops work without Cloudinary configured or installed.
+        from app.services.cloudinary_client import upload_bytes
 
         result = upload_bytes(
             data=buf.tobytes(),

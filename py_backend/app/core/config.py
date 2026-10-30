@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     # disables host allowlisting (private-IP blocking still applies).
     ALLOWED_IMAGE_HOSTS: str = "res.cloudinary.com,cloudinary.com"
 
+    # Development / local storage only. Lets image URLs be http:// and point at a
+    # loopback or private host (the Node API serving STORAGE_PROVIDER=local files),
+    # but only hosts listed in ALLOWED_IMAGE_HOSTS, which must then name them
+    # explicitly (for example "localhost,127.0.0.1"). Leave it off in production.
+    ALLOW_PRIVATE_IMAGE_HOSTS: bool = False
+
     # SECURITY (#10): shared secret the Node backend must send in X-Internal-Token.
     # Empty disables the check (e.g. local dev) — set it in production.
     INTERNAL_API_TOKEN: str = ""

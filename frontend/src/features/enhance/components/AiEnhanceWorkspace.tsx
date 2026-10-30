@@ -6,7 +6,7 @@ import { ImageUp, LoaderCircle, Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Segmented, Switch } from "@/components/ui/controls";
 import { EmptyState, Notice } from "@/components/ui/feedback";
-import { STORAGE_NOT_CONFIGURED, type AiEnhanceLimits, type AiEnhanceOptions } from "@/features/enhance/aiEnhanceApi";
+import { STORAGE_NOT_CONFIGURED, STORAGE_UNSUPPORTED, type AiEnhanceLimits, type AiEnhanceOptions } from "@/features/enhance/aiEnhanceApi";
 import { AiComparePane } from "@/features/enhance/components/AiComparePane";
 import { EnhanceTopbar } from "@/features/enhance/components/EnhanceTopbar";
 import { useAiCapabilities, useAiEnhance } from "@/features/enhance/hooks/useAiEnhance";
@@ -221,8 +221,16 @@ export function AiEnhanceWorkspace() {
             {unavailable && caps && (
               <div className="oa-panel-sec">
                 <Notice tone="warning" role="status">
-                  <p className="font-bold">AI enhance is unavailable</p>
-                  <p className="mt-1">It needs image storage that is not set up on this server.</p>
+                  <p className="font-bold">
+                    {caps.reason === STORAGE_UNSUPPORTED
+                      ? "Not supported by this server's storage"
+                      : "AI enhance is unavailable"}
+                  </p>
+                  <p className="mt-1">
+                    {caps.reason === STORAGE_UNSUPPORTED
+                      ? (caps.message ?? "This server's storage cannot run AI enhance.")
+                      : "It needs image storage that is not set up on this server."}
+                  </p>
                 </Notice>
               </div>
             )}
@@ -369,7 +377,11 @@ export function AiEnhanceWorkspace() {
                 className="flex-1 justify-center"
                 icon={<Sparkles aria-hidden className="size-5" />}
                 title="AI enhance is not available here"
-                description={`${caps.message ?? "Image storage is not set up on this server."} Ask whoever runs this server to set it up. Cleanup works without it.`}
+                description={
+                  caps.reason === STORAGE_UNSUPPORTED
+                    ? `${caps.message ?? "This server's storage cannot run AI enhance."} Cleanup works without it.`
+                    : `${caps.message ?? "Image storage is not set up on this server."} Ask whoever runs this server to set it up. Cleanup works without it.`
+                }
                 actions={
                   <Button asChild>
                     <Link href="/enhance/excalibur">Go to cleanup</Link>

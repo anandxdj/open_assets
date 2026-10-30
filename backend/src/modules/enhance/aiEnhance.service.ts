@@ -24,16 +24,27 @@ export interface AiEnhanceDeps {
 }
 
 export const STORAGE_NOT_CONFIGURED = 'STORAGE_NOT_CONFIGURED';
+/** The active storage provider works but has no AI transforms (local storage). */
+export const STORAGE_UNSUPPORTED = 'STORAGE_UNSUPPORTED';
 
 export function storageNotConfiguredMessage(status: StorageStatus): string {
   return `AI enhance needs ${providerLabel(status.provider)} for storage, and it isn't configured on this server.`;
 }
 
+export function storageUnsupportedMessage(status: StorageStatus): string {
+  return `AI enhance isn't supported by ${providerLabel(status.provider)}, which has no AI upscale or background removal. Switch this server to Cloudinary or ImageKit to use it.`;
+}
+
+/** The error code and message that say why AI enhance can't run on this storage, or null when it can. */
+export function aiUnavailable(status: StorageStatus): { code: string; message: string } | null {
+  if (!status.configured) return { code: STORAGE_NOT_CONFIGURED, message: storageNotConfiguredMessage(status) };
+  if (!status.supportsAi) return { code: STORAGE_UNSUPPORTED, message: storageUnsupportedMessage(status) };
+  return null;
+}
+
 export function requireStorage(deps: Pick<AiEnhanceDeps, 'getStorageStatus'>): void {
-  const status = deps.getStorageStatus();
-  if (!status.configured) {
-    throw ApiError.serviceUnavailable(storageNotConfiguredMessage(status), STORAGE_NOT_CONFIGURED);
-  }
+  const unavailable = aiUnavailable(deps.getStorageStatus());
+  if (unavailable) throw ApiError.serviceUnavailable(unavailable.message, unavailable.code);
 }
 
 export function buildRecipe(record: AiEnhanceJobRecord): AiEnhanceRecipe {
@@ -75,9 +86,8 @@ export interface SubmitInput {
  */
 export async function submitAiEnhance(deps: AiEnhanceDeps, input: SubmitInput): Promise<AiEnhanceJobRecord> {
   const status = deps.getStorageStatus();
-  if (!status.configured) {
-    throw ApiError.serviceUnavailable(storageNotConfiguredMessage(status), STORAGE_NOT_CONFIGURED);
-  }
+  const unavailable = aiUnavailable(status);
+  if (unavailable) throw ApiError.serviceUnavailable(unavailable.message, unavailable.code);
   const limits = getAiEnhanceLimits(status.provider);
   const bytes = input.buffer.length;
   validateAiEnhance({ ...input.probe, bytes }, input.options, limits);
@@ -131,6 +141,9 @@ export async function submitAiEnhance(deps: AiEnhanceDeps, input: SubmitInput): 
 /** Turn a provider failure into a message the user can act on. */
 export function describeProviderFailure(error: unknown): { message: string; code: string } {
   const text = error instanceof Error ? error.message : String(error);
+  if (error instanceof Error && error.name === 'StorageTransformUnsupportedError') {
+    return { message: text, code: STORAGE_UNSUPPORTED };
+  }
   if (/timed out/i.test(text)) {
     return {
       message: 'The provider took too long to finish this image. Try a smaller image or a lower scale.',

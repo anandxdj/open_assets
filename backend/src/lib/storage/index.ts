@@ -1,6 +1,7 @@
 import type { StorageAdapter } from './interface';
 import { CloudinaryAdapter } from './cloudinary.adapter';
 import { ImageKitAdapter } from './imagekit.adapter';
+import { LocalStorageAdapter } from './local.adapter';
 import { resolveProviderName } from './status';
 
 export type {
@@ -12,10 +13,13 @@ export type {
   EnhanceTransform,
 } from './interface';
 export { getStorageStatus, resolveProviderName } from './status';
+export { StorageTransformUnsupportedError } from './local.transforms';
 export type { StorageStatus, StorageProviderName } from './status';
 
 function createAdapter(): StorageAdapter {
-  if (resolveProviderName() === 'imagekit') return new ImageKitAdapter();
+  const provider = resolveProviderName();
+  if (provider === 'imagekit') return new ImageKitAdapter();
+  if (provider === 'local') return new LocalStorageAdapter();
   return new CloudinaryAdapter();
 }
 

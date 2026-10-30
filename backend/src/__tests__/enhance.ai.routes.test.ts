@@ -40,7 +40,7 @@ const fakeAuth: RequestHandler = (req, _res, next) => {
   next();
 };
 
-function makeDeps(configured = true) {
+function makeDeps(configured: boolean | 'local' = true) {
   const storage = new MockStorage();
   const store = new MemoryStore();
   const queued: string[] = [];
@@ -51,9 +51,11 @@ function makeDeps(configured = true) {
       queued.push(jobId);
     },
     getStorageStatus: () =>
-      configured
-        ? { provider: 'cloudinary', configured: true, missing: [] }
-        : { provider: 'cloudinary', configured: false, missing: ['CLOUDINARY_CLOUD_NAME'] },
+      configured === 'local'
+        ? { provider: 'local', configured: true, missing: [], supportsAi: false }
+        : configured
+        ? { provider: 'cloudinary', configured: true, missing: [], supportsAi: true }
+        : { provider: 'cloudinary', configured: false, missing: ['CLOUDINARY_CLOUD_NAME'], supportsAi: true },
   };
   return { deps, storage, store, queued };
 }
@@ -73,7 +75,7 @@ async function appWith(options: Parameters<typeof createEnhanceRouter>[0]): Prom
 }
 
 /** Router with the fake auth and a limiter that never trips. */
-async function start(configured = true) {
+async function start(configured: boolean | 'local' = true) {
   const ctx = makeDeps(configured);
   const base = await appWith({
     getDeps: async () => ctx.deps,
@@ -179,6 +181,24 @@ test('without storage credentials a submit answers 503 STORAGE_NOT_CONFIGURED an
   assert.equal(body.success, false);
   assert.equal(body.code, 'STORAGE_NOT_CONFIGURED');
   assert.match(body.message, /Cloudinary/);
+  assert.equal(storage.uploads.length, 0);
+  assert.equal(queued.length, 0);
+});
+
+test('on local storage the capabilities route says AI enhance is not supported, and a submit answers 503 STORAGE_UNSUPPORTED', async () => {
+  const { base, storage, queued } = await start('local');
+  const response = await fetch(`${base}/api/enhance/capabilities`, { headers: { 'x-test-user': 'user-1' } });
+  assert.equal(response.status, 200);
+  const { data } = (await response.json()) as { data: Record<string, any> };
+  assert.equal(data.available, false);
+  assert.equal(data.reason, 'STORAGE_UNSUPPORTED');
+  assert.equal(data.provider, 'local');
+  assert.equal(data.providerLabel, 'Local storage');
+  assert.match(data.message, /isn't supported by Local storage/);
+
+  const { status, body } = await post(base, form(fakePng(64, 64), { scale: '2' }));
+  assert.equal(status, 503);
+  assert.equal(body.code, 'STORAGE_UNSUPPORTED');
   assert.equal(storage.uploads.length, 0);
   assert.equal(queued.length, 0);
 });

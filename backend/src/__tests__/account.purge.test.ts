@@ -85,6 +85,22 @@ test('purge removes the user\'s history index, job hashes and enhance jobs, and 
   assert.equal(await client.zcard(userJobsKey(b)), 1);
 });
 
+test('purge also removes a job the user took out of their history, and its files', { skip }, async () => {
+  const a = `purge-hist-a-${randomUUID()}`;
+  const b = `purge-hist-b-${randomUUID()}`;
+  // In nobody's index any more (removed or cleared), but the hash and the files are still there.
+  const gone = await seedJob(a, a, 'orig-gone', ['crop-gone-1'], `purge-hist-index-${randomUUID()}`);
+  const other = await seedJob(b, b, 'orig-other', ['crop-other'], `purge-hist-index-${randomUUID()}`);
+
+  const deleted: string[] = [];
+  const result = await purgeUserRedisData(a, { client, deleteFile: async (id) => void deleted.push(id) });
+
+  assert.deepEqual(result, { jobs: 1, enhanceJobs: 0, filesDeleted: 2, filesFailed: 0 });
+  assert.deepEqual(deleted.sort(), ['crop-gone-1', 'orig-gone']);
+  assert.equal(await client.exists(jobKey(gone)), 0);
+  assert.equal(await client.exists(jobKey(other)), 1, "another user's job is left alone");
+});
+
 test('purge for a user with nothing stored is a no-op', { skip }, async () => {
   const deleted: string[] = [];
   const result = await purgeUserRedisData(`purge-none-${randomUUID()}`, {

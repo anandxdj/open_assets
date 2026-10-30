@@ -410,7 +410,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
 
   const status = job?.status;
   const failed = Boolean(jobError) || status === "failed";
-  const fileName = fileNameFromUrl(job?.cloudinaryUrl) ?? "Sheet";
+  const fileName = job?.fileName?.trim() || fileNameFromUrl(job?.cloudinaryUrl) || "Sheet";
   const cropInProgress = Boolean(status && CROP_IN_PROGRESS.includes(status));
   const cropDone = assets.length > 0 && !cropInProgress;
 

@@ -83,8 +83,10 @@ Four deployable surfaces around two data stores and one object-storage provider.
 - **py_backend is stateless.** It owns no database; it downloads an image, computes,
   uploads results, and returns JSON. The Express backend owns all persistence.
 - **Storage is pluggable.** Everything goes through a `StorageAdapter` interface
-  (`backend/src/lib/storage/`). Set `STORAGE_PROVIDER=cloudinary` (default) or
-  `imagekit` — the rest of the code never knows which is active.
+  (`backend/src/lib/storage/`). Set `STORAGE_PROVIDER=cloudinary` (default),
+  `imagekit`, or `local` (files on disk, for development and self-hosting without
+  cloud keys; see [Local storage](#local-storage-no-cloud-keys)) — the rest of the code
+  never knows which is active.
 - **LLMs are pluggable too, and chained.** Same adapter shape, in two places:
   `frontend/src/app/api/studio/_lib/llm/` (studio text/vision) and
   `py_backend/app/services/llm/` (asset naming). Both put **Open Quota** first and
@@ -168,7 +170,7 @@ open_assets/
 │       │   ├── collections/ public galleries: folders, images, likes, downloads
 │       │   └── workers/     detection · crop · finalize BullMQ processors
 │       └── lib/
-│           ├── storage/     StorageAdapter interface + cloudinary / imagekit
+│           ├── storage/     StorageAdapter interface + cloudinary / imagekit / local (disk)
 │           ├── py.client.ts typed HTTP client for py_backend
 │           └── zip.builder.ts
 │
@@ -352,6 +354,44 @@ pnpm dev
 `pnpm install && pnpm build` in `extension/`, then **Load unpacked** on
 `chrome://extensions`. For local work set `WXT_PUBLIC_API_URL=http://localhost:4000` and
 `WXT_PUBLIC_FRONTEND_URL=http://localhost:3000` in `extension/.env` before building.
+
+### Local storage (no cloud keys)
+
+`STORAGE_PROVIDER=local` keeps every image on this machine's disk, so the whole pipeline runs
+without Cloudinary or ImageKit. It is meant for development and self-hosting. In `backend/.env`:
+
+```bash
+STORAGE_PROVIDER=local
+LOCAL_STORAGE_DIR=./.local-storage          # where files go (git-ignored)
+LOCAL_STORAGE_BASE_URL=http://localhost:4000 # public URL of this API; files are served at /storage/<key>
+```
+
+and in `py_backend/.env`, because the AI service fetches the images over plain http from the
+backend and hands the crops back instead of uploading them to Cloudinary:
+
+```bash
+ALLOW_PRIVATE_IMAGE_HOSTS=true
+ALLOWED_IMAGE_HOSTS=localhost,127.0.0.1     # the host of LOCAL_STORAGE_BASE_URL
+```
+
+What works the same: upload, detection, naming, crop, export (ZIP, 2x, naming patterns),
+collections, the public API, and Cleanup. What is different, because the cloud providers' AI
+add-ons are not available on your machine:
+
+| Step | Cloudinary / ImageKit | Local storage |
+|---|---|---|
+| Background removal (extract) | AI | Only a **flat, single-colour** background (white, black, a solid colour) is keyed out, from the image border inwards. A sheet that is already transparent is used as it is. Any other background fails the job with a message saying so |
+| Export upscale (2x / 4x) | AI upscale | A plain Lanczos **resize** to the same size. Sharp edges, no invented detail |
+| AI enhance | AI upscale / background removal | **Not available**: the page and `GET /api/enhance/capabilities` report `STORAGE_UNSUPPORTED` |
+
+Detection itself does not depend on any of this: py_backend's light, dark and sampled
+background modes find assets on opaque sheets.
+
+Files are served by the API without a login (like Cloudinary URLs, the paths contain a random
+job id), with their real content type, no directory listing, and nothing outside
+`LOCAL_STORAGE_DIR` reachable. **Production refuses `local`** unless you set
+`ALLOW_LOCAL_STORAGE=1` (and `LOCAL_STORAGE_BASE_URL` to the API's public URL): files then live on
+that one server only, so run a single API instance and back up the directory.
 
 ### Checks
 

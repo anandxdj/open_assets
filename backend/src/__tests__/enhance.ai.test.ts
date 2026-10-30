@@ -17,7 +17,9 @@ import {
   submitAiEnhance,
   toJobResponse,
   STORAGE_NOT_CONFIGURED,
+  STORAGE_UNSUPPORTED,
 } from '../modules/enhance/aiEnhance.service';
+import { StorageTransformUnsupportedError } from '../lib/storage/local.transforms';
 import type { AiEnhanceDeps } from '../modules/enhance/aiEnhance.service';
 import type { AiEnhanceOptions } from '../modules/enhance/enhance.types';
 import { getStorageStatus } from '../lib/storage/status';
@@ -163,6 +165,7 @@ test('getStorageStatus reports missing Cloudinary credentials', () => {
     provider: 'cloudinary',
     configured: false,
     missing: ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'],
+    supportsAi: true,
   });
   const partial = getStorageStatus({ CLOUDINARY_CLOUD_NAME: 'demo', CLOUDINARY_API_KEY: '  ', CLOUDINARY_API_SECRET: 's' });
   assert.equal(partial.configured, false);
@@ -172,8 +175,33 @@ test('getStorageStatus reports missing Cloudinary credentials', () => {
 test('getStorageStatus checks ImageKit variables when STORAGE_PROVIDER=imagekit', () => {
   assert.deepEqual(getStorageStatus({ STORAGE_PROVIDER: 'imagekit' }).missing, ['IMAGEKIT_PRIVATE_KEY', 'IMAGEKIT_URL_ENDPOINT']);
   const ok = getStorageStatus({ STORAGE_PROVIDER: 'imagekit', IMAGEKIT_PRIVATE_KEY: 'k', IMAGEKIT_URL_ENDPOINT: 'https://ik.imagekit.io/demo' });
-  assert.deepEqual(ok, { provider: 'imagekit', configured: true, missing: [] });
+  assert.deepEqual(ok, { provider: 'imagekit', configured: true, missing: [], supportsAi: true });
   assert.equal(getStorageStatus({ CLOUDINARY_CLOUD_NAME: 'a', CLOUDINARY_API_KEY: 'b', CLOUDINARY_API_SECRET: 'c' }).configured, true);
+});
+
+test('local storage is configured without keys but has no AI transforms', () => {
+  assert.deepEqual(getStorageStatus({ STORAGE_PROVIDER: 'local' }), { provider: 'local', configured: true, missing: [], supportsAi: false });
+});
+
+test('submitAiEnhance fails with STORAGE_UNSUPPORTED on local storage and never touches storage', async () => {
+  const { deps, storage, queued } = makeDeps({
+    getStorageStatus: () => ({ provider: 'local', configured: true, missing: [], supportsAi: false }),
+  });
+  await assert.rejects(submitAiEnhance(deps, submitInput(64, 64, { scale: 2, removeBackground: false })), (error: unknown) => {
+    assert.ok(error instanceof ApiError);
+    assert.equal(error.statusCode, 503);
+    assert.equal(error.code, STORAGE_UNSUPPORTED);
+    assert.match(error.message, /isn't supported by Local storage/);
+    assert.match(error.message, /Cloudinary or ImageKit/);
+    return true;
+  });
+  assert.equal(storage.uploads.length, 0);
+  assert.equal(queued.length, 0);
+});
+
+test('a provider that reports an unsupported transform becomes STORAGE_UNSUPPORTED, not a generic failure', () => {
+  const error = new StorageTransformUnsupportedError('AI enhance is not supported by local storage.');
+  assert.deepEqual(describeProviderFailure(error), { message: 'AI enhance is not supported by local storage.', code: STORAGE_UNSUPPORTED });
 });
 
 // ── submit and worker, with a mocked storage adapter ─────────────────────────
@@ -188,7 +216,7 @@ function makeDeps(overrides: Partial<AiEnhanceDeps> = {}) {
     async enqueue(jobId) {
       queued.push(jobId);
     },
-    getStorageStatus: () => ({ provider: 'cloudinary', configured: true, missing: [] }),
+    getStorageStatus: () => ({ provider: 'cloudinary', configured: true, missing: [], supportsAi: true }),
     ...overrides,
   };
   return { deps, storage, store, queued };
@@ -230,7 +258,7 @@ test('submitAiEnhance validates before anything is uploaded', async () => {
 
 test('submitAiEnhance fails with STORAGE_NOT_CONFIGURED and never touches storage', async () => {
   const { deps, storage } = makeDeps({
-    getStorageStatus: () => ({ provider: 'cloudinary', configured: false, missing: ['CLOUDINARY_CLOUD_NAME'] }),
+    getStorageStatus: () => ({ provider: 'cloudinary', configured: false, missing: ['CLOUDINARY_CLOUD_NAME'], supportsAi: true }),
   });
   await assert.rejects(submitAiEnhance(deps, submitInput(64, 64, { scale: 2, removeBackground: false })), (error: unknown) => {
     assert.ok(error instanceof ApiError);

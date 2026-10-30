@@ -79,13 +79,18 @@ class CropRequest(BaseModel):
     image_url: HttpUrl
     boxes: list[BoxInput]   # names already resolved to final asset names
     job_id: str
+    # False (default): upload each crop to Cloudinary and return its URL.
+    # True: touch no storage and return each crop as base64 PNG in `data_base64`;
+    # the caller stores them (the local storage provider).
+    inline: bool = False
 
 
 class AssetResult(BaseModel):
     id: str
     name: str
-    cropped_url: str
-    public_id: str
+    cropped_url: str = ""
+    public_id: str = ""
+    data_base64: Optional[str] = None   # only for `inline` crops
 
 
 class CropResponse(BaseModel):

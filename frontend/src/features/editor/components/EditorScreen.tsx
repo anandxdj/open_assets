@@ -239,7 +239,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   const failed = Boolean(error) || status === "failed";
   const detected = status === "detected";
   const exportRunning = Boolean(status && EXPORT_RUNNING.includes(status));
-  const fileName = fileNameFromUrl(job?.cloudinaryUrl) ?? "Sheet";
+  const fileName = job?.fileName?.trim() || fileNameFromUrl(job?.cloudinaryUrl) || "Sheet";
 
   const wholeSheet =
     detected &&

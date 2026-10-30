@@ -49,8 +49,8 @@ export default function EnhancePage() {
               </p>
             </div>
             <p className="text-xs leading-[18px] text-ink-3">
-              2× on Free, 4× on Pro. It runs on the server&apos;s image storage, so it can be
-              unavailable.
+              2× on Free, 4× on Pro. It needs image storage that supports it, so it can be
+              unavailable on some servers.
             </p>
             <Button asChild variant="secondary" className="mt-auto self-start">
               <Link href="/enhance/ai">
