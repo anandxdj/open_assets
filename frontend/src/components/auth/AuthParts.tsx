@@ -1,7 +1,7 @@
 import * as React from "react";
-import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Loading } from "@/components/ui/feedback";
+import { rememberNextPath } from "@/features/auth/lib/next-path";
 
 /** Page title and one line of context at the top of the auth column. */
 export function AuthIntro({ title, children }: { title: React.ReactNode; children?: React.ReactNode }) {
@@ -27,18 +27,15 @@ export function OrDivider({ children = "or with email" }: { children?: React.Rea
 /** Announced, in-progress line used while a session check or redirect runs. */
 export function AuthStatus({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <p role="status" className={cn("oa-label flex items-center gap-2.5", className)}>
-      <LoaderCircle aria-hidden className="size-4 flex-none animate-spin" />
-      {children}
-    </p>
+    <Loading label={children} className={className} />
   );
 }
 
 /** Starts the backend Google OAuth flow (same URL as before the redesign). */
-export function GoogleButton({ children }: { children: React.ReactNode }) {
+export function GoogleButton({ children, next }: { children: React.ReactNode; next?: string | null }) {
   return (
     <Button asChild variant="secondary" size="lg" block>
-      <a href={`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google`}>
+      <a href={`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google`} onClick={() => rememberNextPath(next)}>
         <svg viewBox="0 0 24 24" aria-hidden>
           <path fill="#4285F4" d="M22.6 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2-1.9 3.3-4.7 3.3-8z" />
           <path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.8c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.1v2.9A11 11 0 0 0 12 23z" />

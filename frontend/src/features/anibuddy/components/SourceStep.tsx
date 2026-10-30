@@ -171,7 +171,7 @@ export function SourceStep({
               <input {...getInputProps()} />
               {busy ? (
                 <>
-                  <LoaderCircle aria-hidden className="size-8 animate-spin text-brand" />
+                  <LoaderCircle aria-hidden className="size-8 animate-spin text-ink" />
                   <p className="oa-section" role="status">
                     Checking the image against the saved rig…
                   </p>
@@ -191,7 +191,7 @@ export function SourceStep({
                         : "Drop an image here. PNG works best: one mostly front-facing character with a clean silhouette. JPEG and WebP work too."}
                     </p>
                   </div>
-                  <Button variant="primary" size="lg" onClick={open}>
+                  <Button size="lg" onClick={open}>
                     <ImageUp aria-hidden />
                     Choose image
                   </Button>

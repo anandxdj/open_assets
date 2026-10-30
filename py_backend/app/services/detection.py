@@ -62,22 +62,31 @@ def _clean_mask(mask: np.ndarray) -> np.ndarray:
     return cv2.dilate(opened, kernel, iterations=1)
 
 
-def _mask_from_border_distance(img: np.ndarray, background: np.ndarray) -> np.ndarray:
+DEFAULT_THRESHOLD = 50
+
+
+def _cutoff(base: float, threshold: int) -> float:
+    """Scale a built-in cut-off by the 1-100 threshold (50 = unchanged)."""
+    return base * (threshold / DEFAULT_THRESHOLD)
+
+
+def _mask_from_border_distance(img: np.ndarray, background: np.ndarray, threshold: int = DEFAULT_THRESHOLD) -> np.ndarray:
     bgr = img[:, :, :3].astype(np.float32)
     distance = np.linalg.norm(bgr - background, axis=2)
     # Compression creates a small halo around otherwise flat backgrounds.
-    return np.where(distance > 28, 255, 0).astype(np.uint8)
+    return np.where(distance > _cutoff(28, threshold), 255, 0).astype(np.uint8)
 
 
 def _candidate_masks(
     img: np.ndarray,
     mode: DetectionMode,
     background_color: Optional[str],
+    threshold: int = DEFAULT_THRESHOLD,
 ) -> list[tuple[str, np.ndarray]]:
     channels = img.shape[2] if img.ndim == 3 else 1
     if channels == 4 and is_transparent(img):
         alpha = img[:, :, 3]
-        return [("alpha", np.where(alpha > 10, 255, 0).astype(np.uint8))]
+        return [("alpha", np.where(alpha > _cutoff(10, threshold), 255, 0).astype(np.uint8))]
 
     bgr = img[:, :, :3] if channels >= 3 else cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
@@ -88,16 +97,18 @@ def _candidate_masks(
     candidates: list[tuple[str, np.ndarray]] = []
     if mode in ("auto", "dark"):
         # Bright/coloured pixels are foreground on a dark canvas.
-        _, mask = cv2.threshold(gray, 15, 255, cv2.THRESH_BINARY)
+        _, mask = cv2.threshold(gray, _cutoff(15, threshold), 255, cv2.THRESH_BINARY)
         candidates.append(("dark-background", mask))
     if mode in ("auto", "light"):
         # Dark pixels are foreground on a light canvas (the legacy behavior).
+        # Distance from white is the same idea as the dark case, so it scales too.
+        light_cutoff = 255 - _cutoff(255 - settings.BINARY_THRESH_VALUE, threshold)
         _, mask = cv2.threshold(
-            gray, settings.BINARY_THRESH_VALUE, 255, cv2.THRESH_BINARY_INV
+            gray, min(254.0, max(0.0, light_cutoff)), 255, cv2.THRESH_BINARY_INV
         )
         candidates.append(("light-background", mask))
     if mode in ("auto", "sampled"):
-        candidates.append(("sampled-background", _mask_from_border_distance(bgr, background)))
+        candidates.append(("sampled-background", _mask_from_border_distance(bgr, background, threshold)))
     if mode == "auto":
         adaptive = cv2.adaptiveThreshold(
             gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 7
@@ -156,10 +167,11 @@ def find_bounding_boxes(
     img: np.ndarray,
     mode: DetectionMode = "auto",
     background_color: Optional[str] = None,
+    threshold: int = DEFAULT_THRESHOLD,
 ) -> dict:
     """Detect assets through a scored ensemble of background-aware masks."""
     h, w = img.shape[:2]
-    candidates = _candidate_masks(img, mode, background_color)
+    candidates = _candidate_masks(img, mode, background_color, threshold)
     evaluated = [
         (name, mask, _boxes_from_mask(mask)) for name, mask in candidates
     ]

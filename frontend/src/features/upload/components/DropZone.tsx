@@ -21,9 +21,9 @@ function rejectionMessage(rejections: FileRejection[]): string {
   if (rejections.length > 1) return "Drop one image at a time.";
   const code = rejections[0]?.errors[0]?.code;
   if (code === "file-too-large") return "That image is larger than 20 MB. Choose a smaller file.";
-  if (code === "file-invalid-type") return "That file type is not supported. Choose a PNG, JPG or WebP image.";
+  if (code === "file-invalid-type") return "That file type is not supported. Choose a PNG, JPEG or WebP image.";
   if (code === "too-many-files") return "Drop one image at a time.";
-  return "That file cannot be uploaded. Choose a PNG, JPG or WebP image up to 20 MB.";
+  return "That file cannot be uploaded. Choose a PNG, JPEG or WebP image up to 20 MB.";
 }
 
 export const PHASE_TEXT: Record<Exclude<UploadStatus, "idle" | "error">, { verb: string; hint: string }> = {
@@ -84,6 +84,7 @@ export function DropZone({
   onFile,
   onCancel,
   onReject,
+  locked = false,
 }: {
   status: UploadStatus;
   progress: number;
@@ -91,6 +92,8 @@ export function DropZone({
   onFile: (file: File) => void;
   onCancel: () => void;
   onReject: (message: string) => void;
+  /** Nothing can be uploaded right now (for example the monthly allowance is used). */
+  locked?: boolean;
 }) {
   const busy = status === "uploading" || status === "processing" || status === "success";
 
@@ -102,7 +105,7 @@ export function DropZone({
     accept: ACCEPT,
     maxSize: MAX_BYTES,
     multiple: false,
-    disabled: busy,
+    disabled: busy || locked,
     // The visible "Choose file" button opens the picker; the area only takes drops.
     noClick: true,
     noKeyboard: true,
@@ -113,7 +116,11 @@ export function DropZone({
   }
 
   return (
-    <div {...getRootProps({ className: "oa-drop min-h-[280px]" })} data-over={isDragActive || undefined}>
+    <div
+      {...getRootProps({ className: cn("oa-drop min-h-[280px]", locked && "opacity-60") })}
+      data-over={isDragActive || undefined}
+      aria-disabled={locked || undefined}
+    >
       <input {...getInputProps()} aria-label="Choose an image to extract" />
       {isDragActive ? (
         <>
@@ -126,7 +133,7 @@ export function DropZone({
             <Upload aria-hidden className="size-6" />
           </span>
           <span className={cn("oa-section", isDragReject ? "text-danger" : "text-brand-text")}>
-            {isDragReject ? "Only PNG, JPG or WebP images" : "Release to upload"}
+            {isDragReject ? "Only PNG, JPEG or WebP images" : "Release to upload"}
           </span>
         </>
       ) : (
@@ -135,12 +142,12 @@ export function DropZone({
             <Upload aria-hidden className="size-6" />
           </span>
           <div className="flex flex-col gap-1">
-            <span className="oa-section">Drop an image here</span>
+            <span className="oa-section">{locked ? "No sheets left this month" : "Drop an image here"}</span>
             <span className="text-xs leading-[18px] text-ink-2">
-              PNG, JPG or WebP · up to 20 MB · one image at a time
+              PNG, JPEG or WebP · up to 20 MB · one sheet at a time
             </span>
           </div>
-          <Button variant="primary" size="lg" onClick={open}>
+          <Button variant="primary" size="lg" onClick={open} disabled={locked}>
             Choose file
           </Button>
         </>

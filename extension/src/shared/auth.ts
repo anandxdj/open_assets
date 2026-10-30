@@ -1,9 +1,7 @@
 import type { Account, AuthSnapshot } from './contracts';
 import { clearAuth, getAuth, saveAuth } from './storage';
 import { browser } from 'wxt/browser';
-
-const apiUrl = import.meta.env.WXT_PUBLIC_API_URL || 'https://openasset-backend.anands.dev';
-const frontendUrl = import.meta.env.WXT_PUBLIC_FRONTEND_URL || 'https://openassets.anands.dev';
+import { apiUrl, frontendUrl } from './config';
 
 type TokenPayload = { accessToken: string; deviceToken: string; user: Account };
 

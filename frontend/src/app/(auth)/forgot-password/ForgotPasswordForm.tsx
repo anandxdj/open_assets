@@ -35,7 +35,7 @@ export function ForgotPasswordForm() {
   return (
     <>
       <AuthIntro title="Reset your password">
-        Enter the email you signed up with and we’ll send you a reset link.
+        Enter the email you signed up with and we will send you a reset link.
       </AuthIntro>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

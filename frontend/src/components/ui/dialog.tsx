@@ -15,15 +15,36 @@ export function DialogContent({
   description,
   className,
   children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: Omit<React.ComponentProps<typeof DialogPrimitive.Content>, "title"> & {
   title: React.ReactNode;
   description?: React.ReactNode;
 }) {
+  // Radix only returns focus to a DialogTrigger. Dialogs opened from state (a
+  // button's onClick, a menu item) have none, so remember what had focus when
+  // the dialog opened and give it back on close, unless the caller says where.
+  const returnTo = React.useRef<HTMLElement | null>(null);
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="oa-scrim fixed inset-0 z-50" />
       <DialogPrimitive.Content
+        onOpenAutoFocus={(event) => {
+          const active = document.activeElement;
+          returnTo.current = active instanceof HTMLElement && active !== document.body ? active : null;
+          onOpenAutoFocus?.(event);
+        }}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+          if (event.defaultPrevented) return;
+          const el = returnTo.current;
+          returnTo.current = null;
+          if (el?.isConnected) {
+            event.preventDefault();
+            el.focus();
+          }
+        }}
         className={cn(
           "oa-dialog fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-32px)] w-[min(460px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col outline-none",
           className

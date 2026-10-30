@@ -73,7 +73,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
   return (
     <>
-      <AuthIntro title="Choose a new password">Pick a password you don’t use anywhere else.</AuthIntro>
+      <AuthIntro title="Choose a new password">Pick a password you do not use anywhere else.</AuthIntro>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (

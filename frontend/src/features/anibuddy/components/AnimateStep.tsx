@@ -134,12 +134,13 @@ export function AnimateStep({ prepared, rig, clips, activeClipId, fps, frameCoun
         <p role="status" aria-live="polite" className="sr-only">
           {busy ? "Generating motion…" : ""}
         </p>
-        <div className="flex min-h-[260px] flex-1 items-center justify-center overflow-auto p-4 md:p-8">
-          <div className="oa-checker relative max-w-full flex-none border border-line">
-            <canvas ref={canvasRef} width={width} height={height} className="block h-auto max-w-full" aria-label={active ? `Preview of ${active.name}, frame ${frame + 1}` : "Preview of the rigged character"} role="img" />
+        <div className="flex min-h-[260px] flex-1 overflow-auto p-4 md:p-8">
+          <div className="oa-checker relative m-auto max-w-full flex-none border border-line">
+            {/* Tall characters must fit the stage: the stacked layout gives it as little as 420px. */}
+            <canvas ref={canvasRef} width={width} height={height} className="block h-auto max-h-[max(220px,calc(100dvh-28rem))] max-w-full" aria-label={active ? `Preview of ${active.name}, frame ${frame + 1}` : "Preview of the rigged character"} role="img" />
             {busy && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-[color-mix(in_srgb,var(--oa-surface)_70%,transparent)]">
-                <LoaderCircle aria-hidden className="size-8 animate-spin text-brand" />
+                <LoaderCircle aria-hidden className="size-8 animate-spin text-ink" />
                 <span className="text-xs leading-[18px] text-ink-2">Generating motion…</span>
               </div>
             )}

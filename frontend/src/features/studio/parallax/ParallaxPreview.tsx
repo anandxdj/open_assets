@@ -17,7 +17,10 @@ export function ParallaxPreview({
   layers: ParallaxLayer[];
   previewHeight?: number;
 }) {
-  const [playing, setPlaying] = useState(true);
+  // Starts paused when the visitor asks for reduced motion; the play button is still there.
+  const [playing, setPlaying] = useState(
+    () => typeof window === "undefined" || !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
   /** px/sec of a 1.0× layer; others scroll at base × layer.scrollSpeed. */
   const [basePxPerSec, setBasePxPerSec] = useState(120);
   const [fullscreen, setFullscreen] = useState(false);

@@ -22,10 +22,10 @@ export function GallerySection() {
       <SectionHeader
         eyebrow="Community gallery"
         titleId="gallery-title"
-        title="Publish a pack. Browse what others made."
+        title="Publish a collection. Browse what others made."
         aside={
           <Button asChild variant="secondary" size="lg">
-            <Link href="/collections">Browse all packs</Link>
+            <Link href="/collections">Browse all collections</Link>
           </Button>
         }
       />
@@ -50,7 +50,7 @@ export function GallerySection() {
                   </span>
                   <span className="oa-value text-ink-3">4 sprites</span>
                 </span>
-                <span className="text-[11px] leading-4 text-ink-2">Example pack</span>
+                <span className="text-[11px] leading-4 text-ink-2">Example collection</span>
               </span>
             </Link>
           </li>

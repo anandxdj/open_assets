@@ -13,6 +13,11 @@ export type ModelOption = {
   maxAttempts: number
   /** Rough single-call expected duration, shown to the user as guidance. */
   approxSecondsPerCall: number
+  /**
+   * Free-tier credits one call costs. Advisory only: the backend price table
+   * (backend/src/modules/usage/usage.service.ts costPerUnit) is authoritative.
+   */
+  creditsPerCall: number
 }
 
 
@@ -23,6 +28,7 @@ export const MODELS: ModelOption[] = [
     hint: 'OpenAI · high fidelity · slower',
     maxAttempts: 1,
     approxSecondsPerCall: 240,
+    creditsPerCall: 10,
   },
   {
     value: 'google/gemini-3-pro-image-preview',
@@ -30,6 +36,7 @@ export const MODELS: ModelOption[] = [
     hint: 'Nano Banana Pro · highest fidelity',
     maxAttempts: 1,
     approxSecondsPerCall: 75,
+    creditsPerCall: 4,
   },
   {
     value: 'google/gemini-3.1-flash-image-preview',
@@ -37,6 +44,7 @@ export const MODELS: ModelOption[] = [
     hint: 'Nano Banana 2 · fast · default',
     maxAttempts: 3,
     approxSecondsPerCall: 18,
+    creditsPerCall: 1,
   },
   {
     value: 'google/gemini-2.5-flash-image',
@@ -44,6 +52,7 @@ export const MODELS: ModelOption[] = [
     hint: 'Nano Banana · stable',
     maxAttempts: 3,
     approxSecondsPerCall: 15,
+    creditsPerCall: 1,
   },
 ]
 

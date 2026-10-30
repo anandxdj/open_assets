@@ -1,0 +1,45 @@
+# Traefik routing for the VPS. Layered on top of docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d
+#
+# or set COMPOSE_FILE=docker-compose.yml:docker-compose.traefik.yml in .env and use
+# plain `docker compose` (deploy-vps.sh then needs no flags).
+#
+# Routers listen on TRAEFIK_ENTRYPOINT (default web, plain HTTP). For HTTPS set
+# TRAEFIK_ENTRYPOINT=websecure and TRAEFIK_TLS=true and let Traefik issue certificates:
+# configure the certificate resolver on that entrypoint in Traefik's static config
+# (entryPoints.websecure.http.tls.certResolver), or add a
+# traefik.http.routers.<name>.tls.certresolver label here.
+#
+# Traefik must already run on the host with a Docker network named "proxy" (create it
+# with `docker network create proxy` if it does not exist). Only the web app and the
+# API join it. MongoDB, Redis and the AI service stay on the stack's private network.
+
+services:
+  backend:
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.openasset-backend.rule=Host(`${TRAEFIK_BACKEND_HOST:?Set TRAEFIK_BACKEND_HOST in .env}`)"
+      - "traefik.http.routers.openasset-backend.entrypoints=${TRAEFIK_ENTRYPOINT:-web}"
+      - "traefik.http.routers.openasset-backend.tls=${TRAEFIK_TLS:-false}"
+      - "traefik.http.services.openasset-backend.loadbalancer.server.port=4000"
+
+  frontend:
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.openasset-frontend.rule=Host(`${TRAEFIK_FRONTEND_HOST:?Set TRAEFIK_FRONTEND_HOST in .env}`)"
+      - "traefik.http.routers.openasset-frontend.entrypoints=${TRAEFIK_ENTRYPOINT:-web}"
+      - "traefik.http.routers.openasset-frontend.tls=${TRAEFIK_TLS:-false}"
+      - "traefik.http.services.openasset-frontend.loadbalancer.server.port=3000"
+
+networks:
+  proxy:
+    external: true

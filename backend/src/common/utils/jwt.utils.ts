@@ -15,14 +15,37 @@ if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET) {
 const JWT_ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
-export const generateAccessToken = (payload: object) => {
-  return jwt.sign(payload, JWT_ACCESS_SECRET, {
+/**
+ * Signs an access token. Besides the standard `iat` (whole seconds) it carries
+ * `iatMs`, the issue time in milliseconds: `user.tokensValidAfter` is compared
+ * against it, so a token minted a moment after "sign out everywhere" or a
+ * password change stays valid while every earlier one is dead, even within the
+ * same second. Pass `issuedAt` only to stamp a token with the exact instant a
+ * revocation was recorded (the caller's own fresh session).
+ */
+export const generateAccessToken = (payload: object, issuedAt: Date = new Date()) => {
+  return jwt.sign({ ...payload, iatMs: issuedAt.getTime() }, JWT_ACCESS_SECRET, {
     expiresIn: JWT_ACCESS_EXPIRES_IN as any,
   });
 };
 
 export const verifyAccessToken = (token: string) => {
   return jwt.verify(token, JWT_ACCESS_SECRET) as any;
+};
+
+/**
+ * True when an access token was issued before the user's `tokensValidAfter`
+ * (set by "sign out everywhere" and by password changes and resets). Tokens
+ * minted before `iatMs` existed fall back to `iat`, which only has second
+ * precision and therefore rounds down: the safe direction.
+ */
+export const isAccessTokenRevoked = (
+  decoded: { iat?: number; iatMs?: number },
+  tokensValidAfter: Date | null | undefined,
+): boolean => {
+  if (!tokensValidAfter) return false;
+  const issuedAtMs = typeof decoded.iatMs === 'number' ? decoded.iatMs : (decoded.iat ?? 0) * 1000;
+  return issuedAtMs < tokensValidAfter.getTime();
 };
 
 export const generateRefreshToken = (payload: object) => {

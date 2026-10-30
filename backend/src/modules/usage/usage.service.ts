@@ -23,8 +23,14 @@ export function costPerUnit(op: UsageOp, model: string): number {
   return 1;
 }
 
-function startOfMonth(d = new Date()): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
+// The monthly grant resets at 00:00 UTC on the 1st, whatever timezone the
+// server runs in, so the date shown to users is the same everywhere.
+export function startOfMonth(d = new Date()): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+}
+
+export function startOfNextMonth(d = new Date()): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
 }
 
 /**
@@ -87,6 +93,35 @@ export async function refund(eventId: string) {
   return { refunded: true, cost: event.cost };
 }
 
+/** One page of a user's spend history, newest first. */
+export async function listEvents(userId: string, page = 1, limit = 20) {
+  const filter = { user: userId };
+  const [rows, total] = await Promise.all([
+    UsageEventModel.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    UsageEventModel.countDocuments(filter),
+  ]);
+
+  return {
+    items: rows.map((e) => ({
+      id: String(e._id),
+      op: e.op,
+      modelId: e.modelId,
+      units: e.units,
+      cost: e.cost,
+      status: e.status,
+      createdAt: e.createdAt.toISOString(),
+    })),
+    total,
+    page,
+    limit,
+    hasMore: page * limit < total,
+  };
+}
+
 /** Current balance + plan, applying the lazy monthly reset first. */
 export async function getUsage(userId: string) {
   await UserModel.updateOne(
@@ -97,13 +132,10 @@ export async function getUsage(userId: string) {
   const user = await UserModel.findById(userId).select('credits plan creditsGrantedAt');
   if (!user) throw ApiError.notFound('User not found');
 
-  const now = new Date();
-  const resetAt = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
   return {
     credits: user.credits,
     plan: user.plan,
     monthlyGrant: MONTHLY_GRANT,
-    resetAt: resetAt.toISOString(),
+    resetAt: startOfNextMonth().toISOString(),
   };
 }

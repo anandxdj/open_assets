@@ -51,7 +51,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {loading ? (
               <AuthStatus>Checking your session…</AuthStatus>
             ) : leaving ? (
-              <AuthStatus>You’re signed in. Redirecting…</AuthStatus>
+              <AuthStatus>You are signed in. Redirecting…</AuthStatus>
             ) : (
               children
             )}

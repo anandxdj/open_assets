@@ -61,6 +61,10 @@ function stepNote(project: AniBuddyProject, step: StepId): string {
   }
 }
 
+/**
+ * Beside the stage on wide screens (xl). Below that the sidebar and inspector
+ * leave too little room for a stage, so the steps become a row on top.
+ */
 interface StepRailProps {
   project: AniBuddyProject;
   activeStep: StepId;
@@ -71,9 +75,9 @@ export function StepRail({ project, activeStep, onSelect }: StepRailProps) {
   return (
     <nav
       aria-label="AniBuddy steps"
-      className="flex flex-none flex-col border-b-[1.5px] border-line bg-surface md:w-[212px] md:border-b-0 md:border-r-[1.5px]"
+      className="flex flex-none flex-col border-b-[1.5px] border-line bg-surface lg:col-span-2 xl:col-span-1 xl:w-[212px] xl:border-b-0 xl:border-r-[1.5px]"
     >
-      <ol className="flex gap-0.5 overflow-x-auto p-2 md:flex-col md:overflow-y-auto md:px-2 md:py-2.5">
+      <ol className="relative flex gap-0.5 overflow-x-auto p-2 [scrollbar-width:none] xl:flex-col xl:overflow-y-auto xl:px-2 xl:py-2.5 [&::-webkit-scrollbar]:hidden">
         {STEP_ORDER.map((step, index) => {
           const meta = STEP_META[step];
           const lockReason = stepLockReason(project, step);
@@ -83,11 +87,12 @@ export function StepRail({ project, activeStep, onSelect }: StepRailProps) {
           const note = locked ? lockReason : stepNote(project, step);
 
           return (
-            <li key={step} className="min-w-[180px] md:min-w-0">
+            <li key={step} className="min-w-[120px] flex-1 xl:min-w-0 xl:flex-none">
               <button
                 type="button"
                 disabled={locked}
                 aria-current={active ? "step" : undefined}
+                title={`${meta.label}: ${note}`}
                 onClick={() => onSelect(step)}
                 className={cn(
                   "oa-nav-item h-auto min-h-10 w-full items-start whitespace-normal py-1.5 text-left",
@@ -120,7 +125,7 @@ export function StepRail({ project, activeStep, onSelect }: StepRailProps) {
                   {/* Locked steps explain themselves rather than sitting silently dead. */}
                   <span
                     className={cn(
-                      "break-words text-[11px] font-normal normal-case leading-4 tracking-normal",
+                      "truncate text-[11px] font-normal normal-case leading-4 tracking-normal xl:overflow-visible xl:whitespace-normal xl:break-words",
                       active ? "text-inherit opacity-80" : "text-ink-3",
                     )}
                   >

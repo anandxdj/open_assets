@@ -49,10 +49,90 @@ bars, menus, dialogs, toasts, inline notices, asset tiles on a checkerboard,
 bounding boxes, and keyboard keys. One set replaces the earlier mix of shadcn
 defaults, unlumen-ui, smoothui and kokonutui.
 
+## Buttons
+
+Four variants: primary (orange), secondary (outlined), ghost (no outline) and
+danger (red outline, fills red on hover). Heights 28 (sm), 32, 40 (lg), 52 (xl).
+
+**One primary button per view.** A view is a page, or a dialog or drawer open on
+top of a page (the page behind it is inert and does not count).
+
+- Primary is the one forward action of the view: Run, Generate, Download,
+  Create, Save to a collection, Start trial. It never marks a routine save.
+- Pages made of several independent forms (Settings, Admin) have no primary
+  button for their inline saves. "Save name", "Change password", "Save pattern",
+  "Create team", "Send invite" and "Search" are secondary. The only orange
+  button in Settings is the free plan's "Start 14-day trial".
+- Upgrade actions (`UpgradeAction`, locked features) are secondary inside the
+  app. They are primary only on the pricing page's Pro plan.
+- A sticky run button at the foot of a generator form stays the primary. The
+  empty-state "Choose image" next to it is secondary. After a result exists,
+  Download becomes the primary and "Run again" turns secondary.
+- Product illustrations (the landing page's editor screenshot) are `aria-hidden`
+  depictions of the real UI and do not count.
+- Marketing pages: the header button is secondary. The hero (or the page's one
+  call to action) is primary, and two primaries never share a viewport.
+- Button order in a dialog footer, right-aligned: Cancel (ghost) then the
+  confirm. The confirm names the action ("Delete collection", never "OK").
+  Destructive confirms are danger, everything else is primary.
+
+## Dialogs
+
+Use `Dialog` for forms and `ConfirmDialog` (`components/ui/confirm-dialog.tsx`)
+for every "are you sure". Titles are questions, descriptions say what is lost and
+whether it can be undone, and the cancel button is always "Cancel". Focus moves
+into the dialog, is trapped there and returns to the control that opened it.
+Dialogs cannot be dismissed while their request is running.
+
+## Locked features (Pro)
+
+One pattern everywhere, `ProGate` (`features/plans/ProGate.tsx`): a Pro badge,
+a sentence "{Feature} is part of Pro.", a "See plans" link and an
+`UpgradeAction` ("Start 14-day trial", or "Contact us to upgrade" once the trial
+is used). Locked controls stay visible, disabled, with a lock icon and an
+accessible name that says "needs Pro". Settings sections use the block layout of
+the same component. A lapsed plan keeps the data and shows a warning notice with
+the same `UpgradeAction`.
+
+## States
+
+- Loading: `Loading` (spinner plus an uppercase label, announced with
+  `role="status"`). Route segments use `RouteLoading`.
+- Empty: `EmptyState` with an icon, a one-line title, one sentence on what to do
+  and at most one action.
+- Error: `Notice tone="danger"` with `role="alert"` and a "Try again" button for
+  recoverable failures, `RouteError` for a whole page.
+- Notices: `Notice` tones info, warning, danger and success. Info and warning
+  are `role="status"`; danger is `role="alert"`.
+- Toasts confirm that something was done ("Collection renamed") or report a
+  failed action ("Could not rename"). Never use one for a state the page can
+  show.
+
+## Copy
+
+Plain, direct, with the next step. Sentence case in markup (CSS uppercases
+labels). One word per thing:
+
+| Say | Not |
+|---|---|
+| sheet: the image you upload to extract from; extraction: the job it starts | scan, run, image (for this) |
+| asset: one piece cut from a sheet | sprite, crop (in UI text) |
+| image: a file in Enhance, Studio and AniBuddy | artwork |
+| collection (My collections, Community collections) | pack, library |
+| AI credits: the monthly allowance spent in Studio and AniBuddy | credits, tokens |
+| Pro, Free (never PRO, Hobby) | |
+| 14-day Pro trial; "Start 14-day trial" | free trial, trial period |
+
+Tool names: Extract, Enhance (Cleanup, AI enhance), Studio, AniBuddy.
+
 ## Layout
 
 - App pages: 232px sidebar (Extract, History, Library, Tools), 48px top bar,
-  content up to 1120px wide. Phones get a bottom bar instead of the sidebar.
+  content up to 1120px wide. Phones get a bottom bar instead of the sidebar:
+  Extract, History, Library and Tools (the last two open menus) and Account
+  (Settings, Admin, Docs, Pricing, theme, sign out). A page can claim a nav entry
+  its address does not match with `useActiveNav` (your own collection at
+  `/collections/<id>` keeps My collections active).
 - Workspaces (editor, export, AniBuddy): full-width top bar, docked left list
   and right inspector, floating tool bar at the bottom centre of the canvas.
 - Generators (Studio tools, Enhance): a 320–340px form with a sticky run button
@@ -70,4 +150,9 @@ decorative motion. Respect `prefers-reduced-motion`.
 
 WCAG 2.2 AA. Text pairs meet 4.5:1. Focus is a 2px ink (or paper) outline
 with a 2px offset; inputs add an orange offset shadow. Every control is a real
-button, link or input, and icon-only buttons carry an aria-label.
+button, link or input, and icon-only buttons carry an aria-label. Every page
+has one `main` and one `h1` (visually hidden in workspaces). Visually hidden
+text inside a scrolling box needs a `position: relative` box (`.oa-table-box`,
+`.oa-tabs`), or it widens the page on phones. Dialogs return focus to the
+control that opened them. Status changes are announced (`role="status"` for
+info and progress, `role="alert"` for failures).

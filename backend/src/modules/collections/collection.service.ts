@@ -6,7 +6,18 @@ import type { IImage } from './image.model';
 import { CollectionLikeModel } from './collectionLike.model';
 import { storage } from '../../lib/storage';
 import { ApiError } from '../../common/utils/ApiError';
-import { assertOwner } from '../../common/utils/authz';
+import { assertEntitled } from '../plans/entitlements';
+import { TEAM_ERROR, getTeamState } from '../teams/team.access';
+import { TeamModel } from '../teams/team.model';
+import {
+  accessSummary,
+  assertCanEdit,
+  assertCanManage,
+  assertCanView,
+  idOf,
+  resolveCollectionAccess,
+} from './collection.access';
+import type { CollectionAccess } from './collection.access';
 
 /* ------------------------------------------------------------------ *
  * Types
@@ -146,9 +157,26 @@ export async function replaceImageWithUpscaled(
  * Reads (P3)
  * ------------------------------------------------------------------ */
 
-/** Every collection owned by a user (drafts + published) for their manager view. */
+/**
+ * Every collection a user can work with: the ones they own (drafts + published)
+ * and the ones shared with their team. Each carries `access` so the UI knows
+ * what to offer without asking per collection.
+ */
 export async function listMyCollections(userId: string) {
-  return CollectionModel.find({ creator: userId }).sort({ updatedAt: -1 }).lean();
+  const state = await getTeamState(userId);
+  const filter = state ? { $or: [{ creator: userId }, { teamId: state.team._id }] } : { creator: userId };
+  const items = await CollectionModel.find(filter)
+    .sort({ updatedAt: -1 })
+    .populate('creator', 'name picture')
+    .lean();
+
+  return items.map((c) => {
+    const owned = idOf(c.creator) === userId;
+    const access: CollectionAccess = owned
+      ? { view: true, edit: true, manage: true, via: 'owner', teamReadOnly: false }
+      : { view: true, edit: Boolean(state?.writable), manage: false, via: 'team', teamReadOnly: !state?.writable };
+    return { ...c, access: accessSummary(access) };
+  });
 }
 
 export async function listPublicCollections(params: ListParams) {
@@ -176,17 +204,21 @@ export async function listPublicCollections(params: ListParams) {
 }
 
 /**
- * Full collection tree (folders + nested images). Draft/private collections are
- * only visible to their owner.
+ * Full collection tree (folders + nested images) with what the requester may do
+ * with it. Private collections are visible to their owner and, when shared, to
+ * the owner's team; published ones to everyone.
  */
 export async function getCollectionTree(id: string, requesterId?: string) {
   const collection = await CollectionModel.findById(id).populate('creator', 'name picture').lean();
   if (!collection) throw ApiError.notFound('Collection not found');
 
-  const isOwner = requesterId && collection.creator && idOf(collection.creator) === requesterId;
-  if (!collection.isPublic && !isOwner) {
-    throw ApiError.forbidden('This collection is private');
-  }
+  const access = await resolveCollectionAccess(collection, requesterId);
+  assertCanView(access);
+
+  const team =
+    collection.teamId && (access.via === 'owner' || access.via === 'team')
+      ? await TeamModel.findById(collection.teamId).select('name').lean()
+      : null;
 
   const [folders, images] = await Promise.all([
     FolderModel.find({ collectionId: id }).sort({ createdAt: 1 }).lean(),
@@ -201,8 +233,28 @@ export async function getCollectionTree(id: string, requesterId?: string) {
 
   return {
     ...collection,
+    access: accessSummary(access),
+    team: team ? { id: String(team._id), name: team.name } : null,
     folders: folders.map((f) => ({ ...f, images: imagesByFolder.get(idOf(f._id)) ?? [] })),
   };
+}
+
+/** Loads a collection and what the user may do with it, or 404. */
+async function loadWithAccess(id: string, userId: string | undefined, select?: string) {
+  const query = CollectionModel.findById(id);
+  const collection = await (select ? query.select(`creator teamId isPublic ${select}`) : query);
+  if (!collection) throw ApiError.notFound('Collection not found');
+  return { collection, access: await resolveCollectionAccess(collection, userId) };
+}
+
+/**
+ * Throws unless the user may edit folders and images in the collection. The
+ * upload route calls this before it stores anything, so a refused request never
+ * costs a storage write.
+ */
+export async function assertCollectionEditable(id: string, userId: string): Promise<void> {
+  const { access } = await loadWithAccess(id, userId);
+  assertCanEdit(access);
 }
 
 /* ------------------------------------------------------------------ *
@@ -231,9 +283,8 @@ export async function updateCollection(
   requesterId: string,
   input: { name?: string; description?: string; isPublic?: boolean; tags?: string[] },
 ): Promise<ICollection> {
-  const collection = await CollectionModel.findById(id);
-  if (!collection) throw ApiError.notFound('Collection not found');
-  assertOwner(idOf(collection.creator), requesterId, 'Not your collection');
+  const { collection, access } = await loadWithAccess(id, requesterId);
+  assertCanManage(access);
 
   if (input.name !== undefined) collection.name = input.name;
   if (input.description !== undefined) collection.description = input.description;
@@ -254,11 +305,8 @@ export async function deleteCollection(
   id: string,
   requester: { id: string; role: string },
 ): Promise<void> {
-  const collection = await CollectionModel.findById(id);
-  if (!collection) throw ApiError.notFound('Collection not found');
-  if (requester.role !== 'admin') {
-    assertOwner(idOf(collection.creator), requester.id, 'Not your collection');
-  }
+  const { collection, access } = await loadWithAccess(id, requester.id);
+  if (requester.role !== 'admin') assertCanManage(access);
 
   const images = await ImageModel.find({ collectionId: id }).select('cloudinaryPublicId').lean();
   await Promise.allSettled(
@@ -278,9 +326,8 @@ export async function createFolder(
   requesterId: string,
   input: { name: string; description?: string; tags?: string[] },
 ) {
-  const collection = await CollectionModel.findById(collectionId).select('creator');
-  if (!collection) throw ApiError.notFound('Collection not found');
-  assertOwner(idOf(collection.creator), requesterId, 'Not your collection');
+  const { access } = await loadWithAccess(collectionId, requesterId);
+  assertCanEdit(access);
 
   return FolderModel.create({
     collectionId,
@@ -290,16 +337,15 @@ export async function createFolder(
   });
 }
 
-/** Persist already-uploaded images into a folder (owner only). */
+/** Persist already-uploaded images into a folder (owner, or a team member while the team is editable). */
 export async function addImagesToFolder(
   collectionId: string,
   folderId: string,
   requesterId: string,
   images: ScaffoldImage[],
 ): Promise<IImage[]> {
-  const collection = await CollectionModel.findById(collectionId).select('creator coverImageUrls');
-  if (!collection) throw ApiError.notFound('Collection not found');
-  assertOwner(idOf(collection.creator), requesterId, 'Not your collection');
+  const { collection, access } = await loadWithAccess(collectionId, requesterId, 'coverImageUrls');
+  assertCanEdit(access);
 
   const folder = await FolderModel.findOne({ _id: folderId, collectionId }).select('_id');
   if (!folder) throw ApiError.notFound('Folder not found in this collection');
@@ -336,9 +382,8 @@ export async function deleteImage(
   imageId: string,
   requesterId: string,
 ): Promise<void> {
-  const collection = await CollectionModel.findById(collectionId).select('creator');
-  if (!collection) throw ApiError.notFound('Collection not found');
-  assertOwner(idOf(collection.creator), requesterId, 'Not your collection');
+  const { access } = await loadWithAccess(collectionId, requesterId);
+  assertCanEdit(access);
 
   const image = await ImageModel.findOne({ _id: imageId, folderId, collectionId });
   if (!image) throw ApiError.notFound('Image not found');
@@ -349,8 +394,9 @@ export async function deleteImage(
 
 /** Idempotent like: a duplicate (E11000) is swallowed and does not double-count. */
 export async function likeCollection(userId: string, collectionId: string): Promise<number> {
-  const collection = await CollectionModel.findById(collectionId).select('_id isPublic');
-  if (!collection) throw ApiError.notFound('Collection not found');
+  // Liking is a view-level action: it needs a collection the user can see.
+  const { access } = await loadWithAccess(collectionId, userId);
+  assertCanView(access);
 
   try {
     await CollectionLikeModel.create({ user: userId, collectionId });
@@ -369,6 +415,36 @@ export async function likeCollection(userId: string, collectionId: string): Prom
   return updated?.likesCount ?? 0;
 }
 
+/**
+ * Moves one of the caller's own collections into their team, or back out.
+ * Only the team owner shares, only their own collections, and only while their
+ * plan includes team sharing. Taking a collection back is always allowed.
+ */
+export async function setCollectionTeamShared(
+  id: string,
+  user: { id: string; plan?: 'free' | 'byok' | 'pro'; trialEndsAt?: Date },
+  shared: boolean,
+): Promise<ICollection> {
+  const { collection, access } = await loadWithAccess(id, user.id);
+  assertCanManage(access);
+
+  if (!shared) {
+    collection.teamId = undefined;
+    await collection.save();
+    return collection;
+  }
+
+  assertEntitled(user, 'teamSharing');
+  const state = await getTeamState(user.id);
+  if (!state) throw new ApiError(404, 'Create a team in Settings before sharing a collection.', TEAM_ERROR.NO_TEAM);
+  if (state.role !== 'owner') {
+    throw new ApiError(403, 'Only the team owner can share collections.', TEAM_ERROR.NOT_OWNER);
+  }
+  collection.teamId = state.team._id as ICollection['teamId'];
+  await collection.save();
+  return collection;
+}
+
 export async function incrementDownloadCount(collectionId: string): Promise<void> {
   await CollectionModel.updateOne({ _id: collectionId }, { $inc: { downloadCount: 1 } });
 }
@@ -383,11 +459,6 @@ function dedupe(arr: string[]): string[] {
 
 function hasGemini(img: ScaffoldImage): boolean {
   return Boolean(img.description || img.labels?.length || img.dominantColors?.length);
-}
-
-function idOf(v: unknown): string {
-  if (v && typeof v === 'object' && '_id' in v) return String((v as { _id: unknown })._id);
-  return String(v);
 }
 
 function isDuplicateKey(err: unknown): boolean {

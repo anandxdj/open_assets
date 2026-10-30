@@ -1,8 +1,6 @@
 import { requireAccount } from './auth';
 import { browser } from 'wxt/browser';
-
-const apiUrl = import.meta.env.WXT_PUBLIC_API_URL || 'https://openasset-backend.anands.dev';
-const frontendUrl = import.meta.env.WXT_PUBLIC_FRONTEND_URL || 'https://openassets.anands.dev';
+import { apiUrl, frontendUrl } from './config';
 
 export async function extractImage(imageUrl: string): Promise<void> {
   const auth = await requireAccount();

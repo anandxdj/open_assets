@@ -107,7 +107,7 @@ export function ExtenderScreen() {
           </div>
         ) : (
           <p className="text-xs leading-[18px] text-ink-2">
-            Upload a PNG, JPG or WEBP to start. Each extension adds {EXTENSION_PERCENT}% of the
+            Upload a PNG, JPEG or WebP to start. Each extension adds {EXTENSION_PERCENT}% of the
             current size on the edge you pick.
           </p>
         )}
@@ -177,7 +177,7 @@ export function ExtenderScreen() {
           <div className="m-auto w-full max-w-2xl">
             <UploadDropZone
               title="Drop an image to begin"
-              description="PNG, JPG or WEBP. Click to browse."
+              description="PNG, JPEG or WebP. Click to browse."
               onPickFile={pickFile}
               onDropFile={ext.handleFile}
               className="py-20"

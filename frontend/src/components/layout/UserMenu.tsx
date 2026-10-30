@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { ChevronsUpDown, Folder, LogOut, Moon, Sun } from "lucide-react";
+import { BookOpen, ChevronsUpDown, Folder, LogOut, Moon, Settings, ShieldCheck, Sun, Tag } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
@@ -58,7 +58,7 @@ export function UserMenu({ variant = "row" }: { variant?: "row" | "compact" }) {
           </button>
         ) : (
           <button type="button" className="oa-btn oa-btn-ghost oa-btn-sm px-1" aria-label={`Account menu, ${user.name}`}>
-            <Avatar name={user.name} picture={user.picture} className="size-6 text-[9px]" />
+            <Avatar name={user.name} picture={user.picture} className="size-6 text-[10px]" />
           </button>
         )}
       </MenuTrigger>
@@ -72,6 +72,33 @@ export function UserMenu({ variant = "row" }: { variant?: "row" | "compact" }) {
           <Link href="/dashboard/collections">
             <Folder aria-hidden />
             My collections
+          </Link>
+        </MenuItem>
+        <MenuItem asChild>
+          <Link href="/settings">
+            <Settings aria-hidden />
+            Settings
+          </Link>
+        </MenuItem>
+        {user.role === "admin" && (
+          <MenuItem asChild>
+            <Link href="/admin">
+              <ShieldCheck aria-hidden />
+              Admin
+            </Link>
+          </MenuItem>
+        )}
+        <MenuSeparator />
+        <MenuItem asChild>
+          <Link href="/docs">
+            <BookOpen aria-hidden />
+            Docs
+          </Link>
+        </MenuItem>
+        <MenuItem asChild>
+          <Link href="/pricing">
+            <Tag aria-hidden />
+            Pricing
           </Link>
         </MenuItem>
         <MenuItem onSelect={() => setTheme(isDark ? "light" : "dark")}>

@@ -55,9 +55,10 @@ export async function resolveKeyAndCredits(
   }
 
   // Local development should not depend on the Express usage service or
-  // consume a developer's free-tier balance. Provider configuration still
-  // applies when a real LLM call is made.
-  if (process.env.NODE_ENV === 'development') {
+  // consume a developer's free-tier balance. Mock mode is the exception: it
+  // exists to exercise auth and credits end to end without provider spend.
+  // Provider configuration still applies when a real LLM call is made.
+  if (process.env.NODE_ENV === 'development' && !isMockMode()) {
     return { ok: true, key: process.env.OPENROUTER_API_KEY ?? '', byok: false };
   }
 
@@ -67,7 +68,7 @@ export async function resolveKeyAndCredits(
       ok: false,
       status: 401,
       code: 'AUTH_REQUIRED',
-      error: 'Sign in to use free credits, or add your own OpenRouter key in Settings.',
+      error: 'Sign in to use your AI credits, or add your own OpenRouter key in Settings.',
     };
   }
 
@@ -79,7 +80,7 @@ export async function resolveKeyAndCredits(
       body: JSON.stringify({ op, model, units }),
     });
   } catch {
-    return { ok: false, status: 503, error: 'Credits service unavailable. Try again shortly.' };
+    return { ok: false, status: 503, error: 'AI credits are unavailable right now. Try again shortly.' };
   }
 
   if (consumeRes.status === 402) {
@@ -87,14 +88,17 @@ export async function resolveKeyAndCredits(
       ok: false,
       status: 402,
       code: 'INSUFFICIENT_CREDITS',
-      error: 'You are out of free credits. Add your own OpenRouter key in Settings to continue.',
+      error:
+        options.allowByok === false
+          ? 'You are out of AI credits for this month.'
+          : 'You are out of AI credits. Add your own OpenRouter key in Settings to continue.',
     };
   }
   if (consumeRes.status === 401) {
     return { ok: false, status: 401, code: 'AUTH_REQUIRED', error: 'Session expired. Sign in again.' };
   }
   if (!consumeRes.ok) {
-    return { ok: false, status: 502, error: 'Failed to reserve credits.' };
+    return { ok: false, status: 502, error: 'Could not reserve AI credits.' };
   }
 
   const serverKey = process.env.OPENROUTER_API_KEY;

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Loading } from "@/components/ui/feedback";
 import { STORAGE_MODE } from "@/features/studio/lib/app";
 
 const MODE_ROUTES: Record<string, string> = {
@@ -26,5 +27,9 @@ export default function StudioIndexPage() {
     router.replace(target);
   }, [router]);
 
-  return null;
+  return (
+    <div className="flex flex-1 items-center justify-center">
+      <Loading label="Opening your last tool" />
+    </div>
+  );
 }

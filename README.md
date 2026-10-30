@@ -71,7 +71,7 @@ Four deployable surfaces around two data stores and one object-storage provider.
 | **frontend** | 3000 | Next.js 16, React 19, Tailwind 4, TypeScript | Web UI: upload, SVG canvas editor, export, public galleries |
 | **backend** | 4000 | Express 4, TypeScript (run via `tsx`), BullMQ | API, auth, job orchestration, ZIP building, persistence |
 | **py_backend** | 8000 | FastAPI, Python 3.11, OpenCV, Open Quota/Gemini | Stateless image compute: detection, naming, cropping |
-| **extension** | — | Manifest V3, vanilla JS | Extract assets from any image on any webpage |
+| **extension** | — | Manifest V3, WXT, React, TypeScript | Extract assets from any image on any webpage; queue ChatGPT generations |
 | MongoDB | 27017 | `mongo:7` | Users, auth tokens, collections (the only durable relational data) |
 | Redis | 6379 | `redis:7` | Job state (24h TTL hashes) + BullMQ work queues |
 | Object storage | — | Cloudinary *or* ImageKit | Originals, crops, exports, CDN delivery, AI transforms |
@@ -83,8 +83,10 @@ Four deployable surfaces around two data stores and one object-storage provider.
 - **py_backend is stateless.** It owns no database; it downloads an image, computes,
   uploads results, and returns JSON. The Express backend owns all persistence.
 - **Storage is pluggable.** Everything goes through a `StorageAdapter` interface
-  (`backend/src/lib/storage/`). Set `STORAGE_PROVIDER=cloudinary` (default) or
-  `imagekit` — the rest of the code never knows which is active.
+  (`backend/src/lib/storage/`). Set `STORAGE_PROVIDER=cloudinary` (default),
+  `imagekit`, or `local` (files on disk, for development and self-hosting without
+  cloud keys; see [Local storage](#local-storage-no-cloud-keys)) — the rest of the code
+  never knows which is active.
 - **LLMs are pluggable too, and chained.** Same adapter shape, in two places:
   `frontend/src/app/api/studio/_lib/llm/` (studio text/vision) and
   `py_backend/app/services/llm/` (asset naming). Both put **Open Quota** first and
@@ -95,8 +97,8 @@ Four deployable surfaces around two data stores and one object-storage provider.
   edited list is sent once at crop time, not synced incrementally.
 - **Filename *is* the asset name.** The LLM's chosen name becomes the storage
   `public_id`, so a crop downloads as `fire_sword.png` with no extra mapping.
-- **One worker per stage.** Three BullMQ workers (detection → crop → finalize) run
-  inside the backend process and advance jobs asynchronously.
+- **One worker per stage.** BullMQ workers (detection → crop → finalize, plus `enhance` for
+  AI enhance) run inside the backend process and advance jobs asynchronously.
 
 ---
 
@@ -154,20 +156,21 @@ open_assets/
 │       └── lib/             api-client (fetch + Bearer), token store, utils
 │
 ├── backend/                 Express API + BullMQ workers
-│   ├── index.ts             entry: connect Mongo + Redis, start 3 workers, listen
+│   ├── index.ts             entry: validate env, connect Mongo + Redis, start the 4 workers, listen, shut down gracefully
 │   └── src/
-│       ├── app.ts           Express factory: helmet, CORS, rate-limit, routes
-│       ├── common/          config (db, redis, email, bullmq), middlewares, utils
+│       ├── app.ts           Express factory: helmet, CORS, /health, rate-limit, routes
+│       ├── common/          config (env check, cors, cookies, db, redis, email, bullmq), health,
+│       │                    lifecycle (graceful shutdown), middlewares, utils
 │       ├── modules/
 │       │   ├── auth/        register/login/OAuth/verify/reset — JWT (complete)
 │       │   ├── upload/      POST /api/upload
-│       │   ├── jobs/        GET /api/jobs/:id  ·  Redis job store + types
+│       │   ├── jobs/        GET /api/jobs, /api/jobs/:id  ·  Redis job store + per-user index + types
 │       │   ├── crop/        POST /api/crop
 │       │   ├── finalize/    POST /api/finalize
 │       │   ├── collections/ public galleries: folders, images, likes, downloads
 │       │   └── workers/     detection · crop · finalize BullMQ processors
 │       └── lib/
-│           ├── storage/     StorageAdapter interface + cloudinary / imagekit
+│           ├── storage/     StorageAdapter interface + cloudinary / imagekit / local (disk)
 │           ├── py.client.ts typed HTTP client for py_backend
 │           └── zip.builder.ts
 │
@@ -178,15 +181,17 @@ open_assets/
 │       ├── services/        detection · gemini · image_io · cloudinary_client
 │       └── core/config.py   env-driven settings (detection tuning, thresholds)
 │
-├── extension/               Chrome extension (Manifest V3)
-│   ├── manifest.json        permissions, context menus, Alt+Shift+E command
-│   ├── background.js        service worker — runs the full extract pipeline
-│   ├── content.js           in-page overlay + hovered-image tracking
-│   ├── popup.* / options.*  UI, settings, JWT sync
-│   └── config.js            shared defaults + auth-header helpers
+├── extension/               Chrome extension (Manifest V3, WXT + React) — see its README
+│   ├── entrypoints/         background service worker, ChatGPT content script, popup, side panel
+│   └── src/shared/          account sign-in, extract pipeline, storage, URL/permission config
 │
 ├── docs/llm_wiki/           per-service deep-dive docs (architecture, pipelines, …)
-├── docker-compose.yml       production compose (Traefik-labelled)
+├── docker-compose.yml       the whole stack: web, API + workers, AI service, MongoDB, Redis
+├── docker-compose.traefik.yml  Traefik routing layer for the VPS
+├── docker-compose.dev.yml   MongoDB + Redis only, on localhost, for running from source
+├── .env.example             configuration for docker-compose.yml
+├── build-push.sh            build + push the three images (run on your workstation)
+├── deploy-vps.sh            pull + start the stack (run on the VPS)
 └── README.md                you are here
 ```
 
@@ -195,7 +200,8 @@ open_assets/
 ## API surface
 
 All `/api/*` routes (except auth + public collection reads) require
-`Authorization: Bearer <accessToken>`.
+`Authorization: Bearer <accessToken>`. `GET /health` (outside `/api`, no auth, not rate
+limited) reports MongoDB and Redis for Docker and load balancers.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -203,10 +209,17 @@ All `/api/*` routes (except auth + public collection reads) require
 | GET | `/api/auth/google` · `/google/callback` | Google OAuth |
 | GET/POST/PUT | `/api/auth/me`, `verify-email/:t`, `forgot-password`, `reset-password/:t` | Account lifecycle |
 | POST | `/api/upload` | Multipart image → starts detection pipeline |
+| GET | `/api/jobs?limit=&cursor=` | The signed-in user's jobs (history), newest first, `{ jobs, nextCursor }`; `limit` 1–100, default 50 |
+| DELETE | `/api/jobs/:jobId/history` | Remove one job from the user's history (the job itself stays until it expires) |
+| DELETE | `/api/jobs/history` | Clear the user's history |
 | GET | `/api/jobs/:jobId` | Full job state (status, boxes, assets, downloadUrl) |
 | GET | `/api/jobs/:jobId/download` | 302 → ZIP URL (when `ready`) |
 | POST | `/api/crop` | `{ jobId, boxes }` → name + crop pipeline |
-| POST | `/api/finalize` | `{ jobId, selectedIds, skipUpscale }` → ZIP pipeline |
+| POST | `/api/finalize` | `{ jobId, selectedIds, skipUpscale, scale }` → ZIP pipeline (`scale` 4 needs Pro) |
+| GET/POST/DELETE | `/api/api-keys` · `/api/api-keys/:id` | API keys (Pro, signed-in session only): list, create (the full key is returned once), revoke |
+| any | `/api/v1/…` | Public API (Pro), `Authorization: Bearer oa_live_…` only: `GET /me`, `POST`/`GET /jobs`, `GET /jobs/:id`, `POST /jobs/:id/crop`, `POST /jobs/:id/export`, `GET /jobs/:id/download`. Per-key rate limits, coded errors. Docs at `/docs/api` |
+| GET/POST | `/api/plans/me` · `/api/plans/trial` | Plan, limits, usage; start the 14-day trial ([plans](docs/plans-and-entitlements.md)) |
+| GET/PUT | `/api/admin/users` · `/api/admin/users/:id/plan` | Admin only: find users, set their plan |
 | GET/POST/PUT/DELETE | `/api/collections…` | Public galleries: CRUD, folders, images, `/like`, `/download` |
 
 **Internal (py_backend, not public):** `POST /detect`, `POST /name-assets`,
@@ -228,153 +241,282 @@ indexes for recency/popularity sorting and full-text search over name/descriptio
 
 ## Auth
 
-- **Access token** — JWT, 15 min, sent as `Authorization: Bearer`.
+- **Access token** — JWT, 15 min, sent as `Authorization: Bearer`. "Sign out everywhere" and
+  password changes and resets set `tokensValidAfter` on the user, and `authenticate()` rejects any
+  access token issued before it, so they take effect at once instead of at expiry.
+- **API key** — `oa_live_…`, Pro only, for `/api/v1` only (it is not a session and cookies and JWTs are
+  not accepted there). Only a SHA-256 hash is stored; revoke it in Settings.
 - **Refresh token** — 7 days, `httpOnly` cookie; `POST /api/auth/refresh-token`
-  mints a new access token.
+  mints a new access token. `Secure`, `SameSite` and `Domain` come from `COOKIE_SECURE`,
+  `COOKIE_SAMESITE` and `COOKIE_DOMAIN` (defaults: `Secure` + `SameSite=None` in
+  production, `Lax` in development).
 - **Google OAuth** — `/api/auth/google` → callback → tokens handed to the frontend
   via a fragment (`#token=…`) bridge route so they never hit server access logs.
 - **Email** — verification + password reset via Resend (logs to console in dev when
   no API key is set).
 
-The Chrome extension reuses the same JWT: the frontend syncs the token into
-extension storage, and the extension sends it on every API call.
+The Chrome extension signs in through the web app (`/extension/connect`, PKCE through
+`chrome.identity`) and gets its own device token plus a short-lived access token, which it
+sends on every API call. In production the backend must list the extension's origin in
+`EXTENSION_ORIGINS`.
 
 ---
 
-## Local development
+## Run locally
 
-### Prerequisites
-- Node 20+ and `pnpm`
-- Python 3.11+
-- Docker (for MongoDB + Redis) — or your own local instances
-- A Cloudinary **or** ImageKit account, and at least one LLM key
-  (`OPENQUOTA_API_KEY` and/or `GEMINI_API_KEY` — with neither, naming degrades to
-  `asset_001…N`)
+Every service has a `.env.example` that lists each variable it reads, with a comment
+for each one. The root [`.env.example`](.env.example) does the same for Docker Compose.
 
-### 1. Data stores
+You need a **Cloudinary** (or ImageKit) account for storage, because uploads fail
+without one. LLM keys are optional: with neither `OPENQUOTA_API_KEY` nor
+`GEMINI_API_KEY`, naming degrades to `asset_001…N`.
+
+### With Docker (the whole stack)
+
+Needs Docker with the Compose plugin. It builds and starts the web app, the API with
+its workers, the AI service, MongoDB and Redis, each with a healthcheck.
+
 ```bash
-docker compose up -d        # MongoDB :27017, Redis :6379
+cp .env.example .env
 ```
-*(The committed `docker-compose.yml` is the production/Traefik setup; for local dev
-just run Mongo + Redis containers, or point the env vars at instances you already
-have.)*
 
-### 2. AI service
+Then edit `.env`:
+
+1. Set `APP_ENV=development`. In `production` (the default) the backend refuses to start
+   with placeholder secrets and sets `Secure` cookies, which need HTTPS.
+2. Fill `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_API_TOKEN` and
+   `INTERNAL_SERVICE_TOKEN` with four different values from `openssl rand -hex 32`.
+3. Add your `CLOUDINARY_*` keys (and an LLM key if you want AI naming).
+
+```bash
+docker compose up -d --build --wait    # first build takes a few minutes
+docker compose ps                      # every service should say "healthy"
+```
+
+Open http://localhost:3000 (web app) and http://localhost:4000/health (API). The ports
+come from `FRONTEND_PORT` and `BACKEND_PORT`; if you change them, also change
+`FRONTEND_URL`, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SITE_URL` to match and rebuild
+(`NEXT_PUBLIC_*` values are baked into the frontend image).
+
+MongoDB and Redis publish no ports, so they cannot clash with databases already on your
+machine. Useful commands:
+
+```bash
+docker compose logs -f backend         # follow one service
+docker compose down                    # stop, keep the data volumes
+docker compose down -v                 # stop and delete all data
+```
+
+### From source (databases in Docker, apps on your machine)
+
+Prerequisites: Node 20+ with pnpm 10 (`corepack enable`) and Python 3.11+.
+
+**1. Data stores.** Start MongoDB and Redis on localhost, or point `MONGO_URI` and
+`REDIS_URL` at instances you already run:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d    # MongoDB :27017, Redis :6379
+```
+
+**2. AI service** (http://localhost:8000):
+
 ```bash
 cd py_backend
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env        # fill in CLOUDINARY_* and an LLM key
+cp .env.example .env                                # fill in CLOUDINARY_* and an LLM key
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. Backend
+**3. Backend** (http://localhost:4000):
+
 ```bash
 cd backend
 pnpm install
-cp .env.example .env        # fill in the values below
-pnpm dev                    # tsx watch — starts API + 3 workers on :4000
+cp .env.example .env     # set MONGO_URI; fill CLOUDINARY_*; defaults cover the rest
+pnpm dev                 # tsx watch: the API and the 4 workers in one process
 ```
 
-### 4. Frontend
+On start it checks its environment and prints what is missing or wrong. In development
+a missing Cloudinary key is only a warning, so you can sign up and browse without it.
+`curl localhost:4000/health` reports MongoDB and Redis.
+
+**4. Web app** (http://localhost:3000):
+
 ```bash
 cd frontend
 pnpm install
-echo "NEXT_PUBLIC_API_URL=http://localhost:4000" > .env.local
-pnpm dev                    # http://localhost:3000
+cp .env.example .env.local
+pnpm dev
 ```
 
-### 5. Extension (optional)
-`chrome://extensions` → enable Developer mode → **Load unpacked** → select
-`extension/`. Set the API/frontend URLs in the extension's Options page (defaults
-point at the production hosts).
+**5. Browser extension (optional).** See [`extension/README.md`](extension/README.md):
+`pnpm install && pnpm build` in `extension/`, then **Load unpacked** on
+`chrome://extensions`. For local work set `WXT_PUBLIC_API_URL=http://localhost:4000` and
+`WXT_PUBLIC_FRONTEND_URL=http://localhost:3000` in `extension/.env` before building.
 
-### Environment variables
+### Local storage (no cloud keys)
 
-**`backend/.env`**
+`STORAGE_PROVIDER=local` keeps every image on this machine's disk, so the whole pipeline runs
+without Cloudinary or ImageKit. It is meant for development and self-hosting. In `backend/.env`:
+
 ```bash
-PORT=4000
-NODE_ENV=development
-MONGO_URI=mongodb://localhost:27017/open_assets
-REDIS_URL=redis://127.0.0.1:6379
-
-# Object storage — pick one provider
-STORAGE_PROVIDER=cloudinary            # or: imagekit
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-# IMAGEKIT_PRIVATE_KEY=                # required when STORAGE_PROVIDER=imagekit
-# IMAGEKIT_URL_ENDPOINT=
-
-# Auth
-JWT_ACCESS_SECRET=change-me-access
-JWT_REFRESH_SECRET=change-me-refresh
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=http://localhost:4000/api/auth/google/callback
-
-# Email (Resend) + downstream services
-RESEND_API_KEY=
-RESEND_FROM_EMAIL=noreply@yourdomain.com
-PY_BACKEND_URL=http://localhost:8000
-FRONTEND_URL=http://localhost:3000
-GEMINI_API_KEY=
+STORAGE_PROVIDER=local
+LOCAL_STORAGE_DIR=./.local-storage          # where files go (git-ignored)
+LOCAL_STORAGE_BASE_URL=http://localhost:4000 # public URL of this API; files are served at /storage/<key>
 ```
 
-**`py_backend/.env`**
+and in `py_backend/.env`, because the AI service fetches the images over plain http from the
+backend and hands the crops back instead of uploading them to Cloudinary:
+
 ```bash
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-# Asset naming: Open Quota → Gemini → identity names. Both keys optional.
-OPENQUOTA_API_KEY=                     # empty → Gemini only
-OPENQUOTA_BASE_URL=https://openquota.anands.dev/llm   # the /llm root, not /llm/v1
-OPENQUOTA_MODEL=auto                   # must not contain ':' on this surface
-GEMINI_API_KEY=                        # empty → falls back to identity names
-GEMINI_MODEL=gemini-2.5-flash
-INTERNAL_API_TOKEN=                    # shared secret the Node backend must send
-ALLOWED_IMAGE_HOSTS=res.cloudinary.com,cloudinary.com
-# OpenCV detection tuning (optional): MIN_BOX_WIDTH / MIN_BOX_HEIGHT / MIN_BOX_AREA / BINARY_THRESH_VALUE
+ALLOW_PRIVATE_IMAGE_HOSTS=true
+ALLOWED_IMAGE_HOSTS=localhost,127.0.0.1     # the host of LOCAL_STORAGE_BASE_URL
 ```
 
-**`frontend/.env.local`**
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:4000
+What works the same: upload, detection, naming, crop, export (ZIP, 2x, naming patterns),
+collections, the public API, and Cleanup. What is different, because the cloud providers' AI
+add-ons are not available on your machine:
 
-# Studio (server-only). Full list with comments in frontend/.env.example.
-EXPRESS_INTERNAL_URL=http://localhost:4000
-INTERNAL_SERVICE_TOKEN=change-me-service-token
-# Text/vision chain: Open Quota → OpenRouter. Empty key → OpenRouter only.
-OPENQUOTA_API_KEY=
-OPENQUOTA_BASE_URL=https://openquota.anands.dev/llm/v1
-OPENQUOTA_MODEL=auto
-# Fallback for text/vision, and the only provider for the image routes.
-OPENROUTER_API_KEY=
-OPENROUTER_MOCK=0
-```
+| Step | Cloudinary / ImageKit | Local storage |
+|---|---|---|
+| Background removal (extract) | AI | Only a **flat, single-colour** background (white, black, a solid colour) is keyed out, from the image border inwards. A sheet that is already transparent is used as it is. Any other background fails the job with a message saying so |
+| Export upscale (2x / 4x) | AI upscale | A plain Lanczos **resize** to the same size. Sharp edges, no invented detail |
+| AI enhance | AI upscale / background removal | **Not available**: the page and `GET /api/enhance/capabilities` report `STORAGE_UNSUPPORTED` |
 
----
+Detection itself does not depend on any of this: py_backend's light, dark and sampled
+background modes find assets on opaque sheets.
 
-## Commands
+Files are served by the API without a login (like Cloudinary URLs, the paths contain a random
+job id), with their real content type, no directory listing, and nothing outside
+`LOCAL_STORAGE_DIR` reachable. **Production refuses `local`** unless you set
+`ALLOW_LOCAL_STORAGE=1` (and `LOCAL_STORAGE_BASE_URL` to the API's public URL): files then live on
+that one server only, so run a single API instance and back up the directory.
+
+### Checks
 
 | Where | Command | Does |
 |---|---|---|
-| backend | `pnpm dev` | API + workers, hot-reload (`tsx watch`) |
-| backend | `pnpm typecheck` | `tsc --noEmit` |
-| backend | `pnpm test` | Node test runner over `src/__tests__` |
-| frontend | `pnpm dev` / `pnpm build` | Next.js dev / production build |
-| frontend | `pnpm lint` | ESLint |
-| py_backend | `uvicorn app.main:app --reload` | FastAPI dev server |
+| backend | `pnpm typecheck` · `pnpm test` | `tsc --noEmit` · Node test runner over `src/__tests__` |
+| backend | `pnpm plan:set <email> <free\|pro> [--days N]` · `pnpm admin:grant <email>` | Grant or end Pro by hand · make a user an admin ([plans](docs/plans-and-entitlements.md)) |
+| frontend | `pnpm lint` · `pnpm build` | ESLint · production build |
+| extension | `pnpm typecheck` · `pnpm test` · `pnpm build` | types · Vitest · Chrome MV3 build |
+| py_backend | `pytest` | `tests/` |
+| root | `docker compose config -q` | validates the compose file against your `.env` |
 
 ---
 
-## Deployment
+## Deploy
 
-`docker-compose.yml` builds `py_backend` and `backend` images behind a **Traefik**
-reverse proxy (external `traefik` network, Let's Encrypt TLS, host-based routing).
-Mongo and Redis are expected as separate managed/containerized services on the same
-network. In production, set `INTERNAL_API_TOKEN` so only the Node backend can reach
-the AI service, and keep py_backend's port off the public internet.
+The production setup is the same Compose stack, run on a VPS from images you build once
+and push to a registry. Two scripts drive it:
+
+| Script | Runs on | Does |
+|---|---|---|
+| [`build-push.sh`](build-push.sh) | your workstation or CI | builds the `backend`, `py_backend` and `frontend` images (linux/amd64) and pushes them as `<OA_REGISTRY>/openasset-{backend,py-backend,frontend}:<OA_VERSION>` |
+| [`deploy-vps.sh`](deploy-vps.sh) | the VPS | `docker compose pull`, `up -d --remove-orphans --wait`, then `ps`. It exits non-zero if a service does not become healthy |
+
+Both read `OA_REGISTRY` and `OA_VERSION` from `.env`, which is why a single `.env` format
+serves local runs and the VPS.
+
+**What the stack contains.** `frontend` and `backend` (Express API plus the four BullMQ
+workers, one process) publish ports on `127.0.0.1` only. `py_backend`, `mongo` and `redis`
+publish nothing and are reachable only inside the stack. MongoDB and Redis keep their data
+in the named volumes `mongo-data` and `redis-data`. Every service restarts
+`unless-stopped`, rotates its logs (3 × 10 MB) and has a healthcheck.
+
+### One-time setup on the VPS
+
+1. Install Docker with the Compose plugin and point two DNS names at the server, for
+   example `openassets.example.com` (web app) and `api.openassets.example.com` (API).
+2. Run a reverse proxy that terminates TLS. The repo includes a Traefik layer
+   ([`docker-compose.traefik.yml`](docker-compose.traefik.yml)) that joins the web app and
+   the API to an existing Docker network named `proxy` and sets the routing labels. With
+   something else (nginx, Caddy), proxy the two hosts to `127.0.0.1:3000` and
+   `127.0.0.1:4000`.
+3. Clone the repo (or copy `docker-compose*.yml`, `deploy-vps.sh` and `.env`) and create
+   the VPS `.env`:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Set at least:
+
+   | Variable | Value |
+   |---|---|
+   | `APP_ENV` | `production` |
+   | `OA_REGISTRY`, `OA_VERSION` | where the images live and which tag to run |
+   | `FRONTEND_URL`, `NEXT_PUBLIC_SITE_URL` | `https://openassets.example.com` |
+   | `NEXT_PUBLIC_API_URL` | `https://api.openassets.example.com` |
+   | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_API_TOKEN`, `INTERNAL_SERVICE_TOKEN` | four different values of `openssl rand -hex 32` |
+   | `CLOUDINARY_*` (or `STORAGE_PROVIDER=imagekit` and `IMAGEKIT_*`) | storage credentials. Without them the stack starts, but uploads fail and AI enhance reports "not configured" |
+   | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | email, or verification links are only logged |
+   | `GOOGLE_*` | optional Google sign-in; the callback URL is `<API URL>/api/auth/google/callback` |
+   | `EXTENSION_ORIGINS` | `chrome-extension://<id>` once the extension has an ID |
+   | `COOKIE_SAMESITE` | `lax` when the web app and API share a registrable domain, otherwise leave empty (`none`) |
+
+   For Traefik also uncomment `COMPOSE_FILE=docker-compose.yml:docker-compose.traefik.yml`
+   and set `TRAEFIK_FRONTEND_HOST` and `TRAEFIK_BACKEND_HOST` (and, for HTTPS,
+   `TRAEFIK_ENTRYPOINT=websecure`, `TRAEFIK_TLS=true`).
+
+In production the backend validates its environment on start and exits with the full list
+of problems: missing secrets, placeholder or short JWT secrets, `SameSite=None` without
+`Secure`, bad CORS origins. It only logs warnings for degraded features such as missing
+storage credentials or `RESEND_API_KEY`.
+
+### Release
+
+On your workstation, with a `.env` that holds the **production** values (the script refuses
+`localhost` URLs, because `NEXT_PUBLIC_*` are baked into the frontend image):
+
+```bash
+docker login
+bash build-push.sh
+```
+
+Then on the VPS, with the same `OA_VERSION` in its `.env`:
+
+```bash
+bash deploy-vps.sh
+curl -fsS https://api.openassets.example.com/health
+```
+
+To ship a new version, bump `OA_VERSION` in both `.env` files and repeat. To roll back, set
+the old `OA_VERSION` on the VPS and run `bash deploy-vps.sh`.
+
+### Operating it
+
+- **Health.** `GET /health` on the API returns `200 {"status":"ok"}` only while MongoDB and
+  Redis both answer, `503` with `degraded` otherwise and `503 shutting_down` while it drains.
+  Docker uses it for the backend healthcheck.
+- **Shutdown.** `docker compose stop` sends SIGTERM. The backend stops accepting requests,
+  lets running jobs finish, closes the queues, Redis and MongoDB, and exits (up to
+  `SHUTDOWN_TIMEOUT_MS`, 25 s; Compose waits 35 s before killing it).
+- **Logs.** `docker compose logs -f backend`.
+- **Backups.** MongoDB holds the only durable data (users, collections, credits):
+
+  ```bash
+  docker compose exec -T mongo mongodump --archive --gzip > openassets-$(date +%F).gz
+  docker compose exec -T mongo mongorestore --archive --gzip --drop < openassets-2026-01-31.gz
+  ```
+
+  Redis only holds job state that expires after 24 hours and queued work.
+- **Security.** Keep `mongo`, `redis` and `py_backend` off the public internet (they publish no
+  ports; do not add any). `INTERNAL_API_TOKEN` is the only authentication on the AI service.
+
+### Coming from the old compose file
+
+The previous `docker-compose.yml` ran only `backend` and `py_backend`, read
+`backend/.env` and `py_backend/.env`, pointed Redis at a shared `openpoll-redis` container and
+took MongoDB from `MONGO_URI` in `backend/.env`. Now there is one root `.env`, and the stack
+carries its own MongoDB and Redis. If your users and collections already live in a MongoDB
+outside the stack, set `MONGO_URI` (and `MONGO_DB_NAME`) in `.env` to it and nothing needs
+migrating. Otherwise `mongodump` the old database and `mongorestore` it into the new `mongo`
+service. Job state in Redis expires after 24 hours, so it does not need moving. The web app was
+not part of the stack before; it now builds from `frontend/`. Copy the values you used in
+`backend/.env`, `py_backend/.env` and `frontend/.env.local` into the root `.env` (see the table
+above for names).
 
 ---
 
@@ -387,6 +529,8 @@ See `frontend/src/features/studio/LICENSE-image-extender.txt`.
 ---
 
 ## Further reading
+
+Plans, limits and granting Pro: [`docs/plans-and-entitlements.md`](docs/plans-and-entitlements.md).
 
 Per-service deep dives live in [`docs/llm_wiki/`](docs/llm_wiki/):
 [`architecture.md`](docs/llm_wiki/architecture.md) ·

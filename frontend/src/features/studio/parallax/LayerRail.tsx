@@ -3,6 +3,7 @@
 // Layer list for the parallax form panel: one row per layer (thumbnail,
 // status, clear) with its scroll speed, plus front-to-back guidance.
 
+import { cn } from "@/lib/utils";
 import { useId } from "react";
 import { Check, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -85,7 +86,7 @@ export function LayerRail({
                         </>
                       )}
                     </span>
-                    <span className="truncate text-[11px] leading-4 text-ink-3">{meta}</span>
+                    <span className={cn("truncate text-[11px] leading-4", isActive ? "text-ink-2" : "text-ink-3")}>{meta}</span>
                   </span>
                   {isRecommended && <Badge className="flex-none">Next</Badge>}
                 </button>

@@ -122,7 +122,7 @@ export function ExcaliburWorkspace() {
       const blob = await apiClient.postFormBlob("/api/enhance/excalibur", form);
       replaceResult(URL.createObjectURL(blob));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Couldn't enhance the image. Try again.");
+      setError(submitError instanceof Error ? submitError.message : "Could not enhance the image. Try again.");
     } finally {
       setBusy(false);
     }
@@ -204,7 +204,7 @@ export function ExcaliburWorkspace() {
                       {[formatSize(sourceSize), formatBytes(source.file.size)].filter(Boolean).join(" · ")}
                     </span>
                   </span>
-                  <Button variant="ghost" size="sm" aria-label="Replace artwork" onClick={openPicker}>
+                  <Button variant="ghost" size="sm" aria-label="Replace image" onClick={openPicker}>
                     Replace
                   </Button>
                 </div>
@@ -212,7 +212,7 @@ export function ExcaliburWorkspace() {
                 <>
                   <Button variant="secondary" block onClick={openPicker}>
                     <ImageUp aria-hidden />
-                    Choose artwork
+                    Choose image
                   </Button>
                   <span className="text-[11px] leading-4 text-ink-3">SVG, PNG, JPEG or WebP · up to 20 MB</span>
                 </>
@@ -307,7 +307,7 @@ export function ExcaliburWorkspace() {
                 {error}
               </Notice>
             )}
-            <Button variant="primary" size="lg" block disabled={!source || busy} onClick={() => void submit()}>
+            <Button variant={resultUrl && !busy ? "secondary" : "primary"} size="lg" block disabled={!source || busy} onClick={() => void submit()}>
               {busy && <LoaderCircle aria-hidden className="animate-spin" />}
               {busy ? "Enhancing…" : resultUrl ? "Enhance again" : "Enhance image"}
             </Button>
@@ -352,7 +352,7 @@ export function ExcaliburWorkspace() {
                 <div className="oa-checker relative mx-4 mb-4 flex min-h-[300px] flex-1 items-center justify-center overflow-hidden border border-line">
                   {busy ? (
                     <div className="flex flex-col items-center gap-2.5">
-                      <LoaderCircle aria-hidden className="size-8 animate-spin text-brand" />
+                      <LoaderCircle aria-hidden className="size-8 animate-spin text-ink" />
                       <span className="text-xs leading-[18px] text-ink-2">Cleaning lines…</span>
                     </div>
                   ) : resultUrl ? (
@@ -397,12 +397,12 @@ export function ExcaliburWorkspace() {
                 <div className="flex flex-col gap-1">
                   <h2 className="oa-section">Polish the lines, keep the intent</h2>
                   <p className="text-xs leading-[18px] text-ink-2">
-                    Drop artwork here, or choose a file. SVG, PNG, JPEG or WebP up to 20 MB.
+                    Drop an image here, or choose a file. SVG, PNG, JPEG or WebP up to 20 MB.
                   </p>
                 </div>
-                <Button variant="primary" size="lg" onClick={openPicker}>
+                <Button size="lg" onClick={openPicker}>
                   <ImageUp aria-hidden />
-                  Choose artwork
+                  Choose image
                 </Button>
               </div>
             </div>

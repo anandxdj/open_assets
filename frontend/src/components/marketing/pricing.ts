@@ -3,9 +3,10 @@
  * the /pricing page. Change prices and features here only.
  */
 
-import { SALES_EMAIL, SOCIAL } from "./site";
+import { AI_CREDITS_PER_MONTH, ENTITLEMENT_TABLE, FREE_SHEETS_PER_MONTH, TRIAL_DAYS, TRIAL_REGISTER_HREF } from "@/lib/plans";
+import { SALES_EMAIL, SOCIAL, SUPPORT_EMAIL } from "./site";
 
-export type PlanId = "hobby" | "pro" | "enterprise";
+export type PlanId = "free" | "pro" | "enterprise";
 
 export type Plan = {
   id: PlanId;
@@ -20,19 +21,22 @@ export type Plan = {
   features: string[];
 };
 
-export const FREE_SHEETS_PER_MONTH = 5;
-
 /*
- * Pro price is pending owner confirmation. The old landing page said $19 a
- * month and the old /pricing page said $150 a month; $19 is used until the
- * owner confirms.
+ * Limits (sheets, upscale factor, API keys, trial length) are not written here:
+ * they come from the entitlement table in @/lib/plans, which the backend
+ * enforces, so the page cannot promise something the server does not do.
  */
+const FREE = ENTITLEMENT_TABLE.free;
+const PRO = ENTITLEMENT_TABLE.pro;
+
+export { FREE_SHEETS_PER_MONTH };
+
 export const PRO_PRICE = "$19";
 
 export const PLANS: Plan[] = [
   {
-    id: "hobby",
-    name: "Hobby",
+    id: "free",
+    name: "Free",
     tagline: "Try it on your own sheets.",
     price: "$0",
     period: "Forever",
@@ -40,8 +44,8 @@ export const PLANS: Plan[] = [
     features: [
       `${FREE_SHEETS_PER_MONTH} sheets a month`,
       "Detection and AI naming",
-      "2× upscale on export",
-      "Community support",
+      `${FREE.maxUpscale}× upscale on export`,
+      `${AI_CREDITS_PER_MONTH} AI credits a month`,
     ],
   },
   {
@@ -51,27 +55,30 @@ export const PLANS: Plan[] = [
     price: PRO_PRICE,
     period: "Per month",
     featured: true,
-    cta: { label: "Start 14-day trial", href: "/register" },
+    // The tier renders a live button for this (see PricingTiers); the href is
+    // the signed-out path: register, then back to /pricing?trial=1.
+    cta: { label: `Start ${TRIAL_DAYS}-day trial`, href: TRIAL_REGISTER_HREF },
     features: [
-      "Unlimited sheets",
+      PRO.sheetsPerMonth === null ? "Unlimited sheets" : `${PRO.sheetsPerMonth} sheets a month`,
       "Padding and threshold controls",
-      "4× upscale on export",
+      `${PRO.maxUpscale}× upscale on export`,
       "Custom naming patterns",
-      "5 API keys",
-      "Team sharing",
+      `${PRO.apiKeys} API keys`,
+      `Team sharing, up to ${PRO.teamSeats} people`,
+      `${AI_CREDITS_PER_MONTH} AI credits a month`,
     ],
   },
   {
     id: "enterprise",
     name: "Enterprise",
-    tagline: "For studios with security and volume needs.",
+    tagline: "For studios with volume or security needs.",
     price: "Custom",
     cta: { label: "Contact sales", href: `mailto:${SALES_EMAIL}` },
     features: [
-      "Dedicated GPU queues",
-      "Private storage bucket",
-      "SAML SSO and roles",
-      "99.9% uptime SLA",
+      "Everything in Pro",
+      "Sheet, API and AI credit limits set with you",
+      `Teams larger than ${PRO.teamSeats} people`,
+      "Security and storage questions answered up front",
     ],
   },
 ];
@@ -88,33 +95,36 @@ export const COMPARISON: ComparisonGroup[] = [
   {
     label: "Extraction",
     rows: [
-      { feature: "Sheets per month", values: { hobby: String(FREE_SHEETS_PER_MONTH), pro: "Unlimited", enterprise: "Unlimited" } },
-      { feature: "Detection and AI naming", values: { hobby: true, pro: true, enterprise: true } },
-      { feature: "Padding and threshold controls", values: { hobby: false, pro: true, enterprise: true } },
-      { feature: "Custom naming patterns", values: { hobby: false, pro: true, enterprise: true } },
+      {
+        feature: "Sheets per month",
+        values: {
+          free: String(FREE_SHEETS_PER_MONTH),
+          pro: PRO.sheetsPerMonth === null ? "Unlimited" : String(PRO.sheetsPerMonth),
+          enterprise: "Custom",
+        },
+      },
+      { feature: "Detection and AI naming", values: { free: true, pro: true, enterprise: true } },
+      { feature: "Padding and threshold controls", values: { free: FREE.paddingThresholdControls, pro: PRO.paddingThresholdControls, enterprise: true } },
+      { feature: "Custom naming patterns", values: { free: FREE.customNamingPatterns, pro: PRO.customNamingPatterns, enterprise: true } },
     ],
   },
   {
     label: "Export",
     rows: [
-      { feature: "Upscale on export", values: { hobby: "2×", pro: "4×", enterprise: "4×" } },
+      { feature: "Upscale on export", values: { free: `Up to ${FREE.maxUpscale}×`, pro: `Up to ${PRO.maxUpscale}×`, enterprise: `Up to ${PRO.maxUpscale}×` } },
     ],
   },
   {
     label: "Teams and API",
     rows: [
-      { feature: "API keys", values: { hobby: false, pro: "5", enterprise: "Custom" } },
-      { feature: "Team sharing", values: { hobby: false, pro: true, enterprise: true } },
-      { feature: "SAML SSO and roles", values: { hobby: false, pro: false, enterprise: true } },
+      { feature: "API keys", values: { free: FREE.apiKeys > 0 ? String(FREE.apiKeys) : false, pro: String(PRO.apiKeys), enterprise: "Custom" } },
+      { feature: "Team sharing", values: { free: FREE.teamSharing, pro: PRO.teamSharing ? `Up to ${PRO.teamSeats} people` : false, enterprise: "Custom" } },
     ],
   },
   {
-    label: "Infrastructure and support",
+    label: "AI tools",
     rows: [
-      { feature: "Dedicated GPU queues", values: { hobby: false, pro: false, enterprise: true } },
-      { feature: "Private storage bucket", values: { hobby: false, pro: false, enterprise: true } },
-      { feature: "Uptime SLA", values: { hobby: false, pro: false, enterprise: "99.9%" } },
-      { feature: "Community support", values: { hobby: true, pro: true, enterprise: true } },
+      { feature: "AI credits a month (Studio and AniBuddy)", values: { free: String(AI_CREDITS_PER_MONTH), pro: String(AI_CREDITS_PER_MONTH), enterprise: "Custom" } },
     ],
   },
 ];
@@ -124,7 +134,6 @@ export const STARTUP_PROGRAM = {
     "For registered startups founded in the last two years with under $2M in funding, early-stage studios and game-jam teams.",
   benefits: [
     "50% off Pro for the first 12 months",
-    "$1,000 in AI naming and upscale credits",
     "One-on-one onboarding and integration help",
   ],
   apply: { label: "Apply by DM on X", href: SOCIAL.x },
@@ -135,11 +144,15 @@ export type FaqItem = { question: string; answer: string };
 export const PRICING_FAQ: FaqItem[] = [
   {
     question: "What counts as a sheet?",
-    answer: "One uploaded image run through detection, however many assets it holds.",
+    answer: "One image you upload and run through detection, however many assets it holds. Free accounts get 5 a month; the count resets on the 1st (UTC).",
   },
   {
-    question: "Can I change or cancel my plan?",
-    answer: "Yes. Upgrade, downgrade or cancel at any time.",
+    question: "How do I pay for Pro?",
+    answer: `Billing is not switched on yet. Start the ${TRIAL_DAYS}-day trial, and when it ends email ${SUPPORT_EMAIL} to keep Pro. We switch plans by hand, and you can go back to Free at any time.`,
+  },
+  {
+    question: "What are AI credits?",
+    answer: `${AI_CREDITS_PER_MONTH} a month on every plan. Studio and AniBuddy spend them, and they come back on the 1st (UTC). Extraction and Enhance do not use them.`,
   },
   {
     question: "Who qualifies for the startup program?",
@@ -151,6 +164,6 @@ export const PRICING_FAQ: FaqItem[] = [
   },
   {
     question: "Who can see my assets?",
-    answer: "Only you. Collections stay private drafts until you publish them.",
+    answer: "Only you, and your team if you share a collection with it. Collections stay private drafts until you publish them.",
   },
 ];

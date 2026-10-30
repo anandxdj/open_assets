@@ -1,3 +1,4 @@
+import { apiErrorFrom } from "@/lib/api-error";
 import { tokenStore } from "@/lib/token-store";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -67,8 +68,7 @@ async function requestWithRetry<T>(
   }
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { message?: string }).message ?? `HTTP ${res.status}`);
+    throw apiErrorFrom(res.status, await res.json().catch(() => ({})));
   }
 
   return res.json() as Promise<T>;
@@ -87,13 +87,30 @@ async function postFormBlobWithRetry(path: string, form: FormData): Promise<Blob
     if (token) res = await send();
   }
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { message?: string }).message ?? `HTTP ${res.status}`);
+    throw apiErrorFrom(res.status, await res.json().catch(() => ({})));
+  }
+  return res.blob();
+}
+
+/** GET that returns the body as a file (authenticated ZIP downloads). */
+async function getBlobWithRetry(path: string): Promise<Blob> {
+  const send = () => fetch(`${BASE_URL}${path}`, { credentials: "include", headers: buildHeaders(true) });
+  let res = await send();
+  if (res.status === 401) {
+    const token = await refreshAccessToken();
+    if (token) res = await send();
+  }
+  if (!res.ok) {
+    throw apiErrorFrom(res.status, await res.json().catch(() => ({})));
   }
   return res.blob();
 }
 
 export const apiClient = {
+  getBlob(path: string): Promise<Blob> {
+    return getBlobWithRetry(path);
+  },
+
   get<T>(path: string): Promise<T> {
     return requestWithRetry<T>(path, { method: "GET" });
   },
@@ -120,7 +137,10 @@ export const apiClient = {
     });
   },
 
-  del<T>(path: string): Promise<T> {
-    return requestWithRetry<T>(path, { method: "DELETE" });
+  del<T>(path: string, body?: unknown): Promise<T> {
+    return requestWithRetry<T>(path, {
+      method: "DELETE",
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
   },
 };

@@ -1,7 +1,8 @@
 "use client";
 // Generator workspace shared by every Studio tool: a 340px form panel with a
 // sticky run footer on the left, results on the page background to the right.
-// On phones the form stacks above the results and the whole column scrolls.
+// Below lg (phones and tablets, where the app sidebar leaves no room for both)
+// the form stacks above the results and the whole column scrolls.
 
 import * as React from "react";
 import { LoaderCircle, Square } from "lucide-react";
@@ -28,20 +29,20 @@ export function GeneratorLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-14 md:flex-row md:overflow-hidden md:pb-0">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-14 md:pb-0 lg:flex-row lg:overflow-hidden">
       <aside
         aria-label={formLabel}
-        className="flex flex-none flex-col border-b-[1.5px] border-line bg-surface md:min-h-0 md:w-[340px] md:border-b-0 md:border-r-[1.5px]"
+        className="flex flex-none flex-col border-b-[1.5px] border-line bg-surface lg:min-h-0 lg:w-[340px] lg:border-b-0 lg:border-r-[1.5px]"
       >
-        <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">{form}</div>
-        <div className="sticky bottom-14 z-10 flex flex-none flex-col gap-2 border-t-[1.5px] border-line bg-surface px-3.5 py-3 md:static">
+        <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">{form}</div>
+        <div className="sticky bottom-14 z-10 flex flex-none flex-col gap-2 border-t-[1.5px] border-line bg-surface px-3.5 py-3 md:bottom-0 lg:static">
           {footer}
         </div>
       </aside>
       <main
         aria-label={resultsLabel}
         className={cn(
-          "flex min-w-0 flex-1 flex-col bg-page p-4 md:overflow-y-auto md:p-6",
+          "flex min-w-0 flex-1 flex-col bg-page p-4 md:p-6 lg:overflow-y-auto",
           resultsClassName
         )}
       >

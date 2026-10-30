@@ -83,6 +83,23 @@ async function recordChatGptEvent(event: ChatGptEvent): Promise<void> {
   await startNext();
 }
 
+const ACTION_TITLE = 'OpenAssets';
+
+// Context-menu and keyboard extractions have no UI open to show a failure in.
+// A badge and tooltip on the toolbar button need no extra permission (unlike
+// notifications) and clear themselves after a minute.
+async function flagError(message: string): Promise<void> {
+  await browser.action.setBadgeBackgroundColor({ color: '#C8102E' });
+  await browser.action.setBadgeText({ text: '!' });
+  await browser.action.setTitle({ title: `${ACTION_TITLE}: ${message}` });
+  await browser.alarms.create('openassets-clear-error', { delayInMinutes: 1 });
+}
+
+async function clearError(): Promise<void> {
+  await browser.action.setBadgeText({ text: '' });
+  await browser.action.setTitle({ title: ACTION_TITLE });
+}
+
 async function handle(request: WorkerRequest): Promise<WorkerResponse> {
   try {
     if (request.type === 'APP_SNAPSHOT') return { ok: true, snapshot: await snapshot() };
@@ -136,10 +153,17 @@ export default defineBackground(() => {
   browser.contextMenus.onClicked.addListener(async (info) => {
     if (info.menuItemId !== 'openassets-extract' || !info.srcUrl) return;
     const result = await handle({ type: 'EXTRACT_IMAGE_URL', imageUrl: info.srcUrl });
-    if (!result.ok) await browser.notifications?.create?.({ type: 'basic', iconUrl: '/icon/48.png', title: 'OpenAssets', message: result.error });
+    if (!result.ok) await flagError(result.error);
   });
-  browser.commands.onCommand.addListener(async (command) => { if (command === 'extract-image') await handle({ type: 'EXTRACT_CURRENT_IMAGE' }); });
+  browser.commands.onCommand.addListener(async (command) => {
+    if (command !== 'extract-image') return;
+    const result = await handle({ type: 'EXTRACT_CURRENT_IMAGE' });
+    if (!result.ok) await flagError(result.error);
+  });
   browser.runtime.onMessage.addListener((request: WorkerRequest) => handle(request));
   browser.alarms.create('openassets-resume', { periodInMinutes: 1 });
-  browser.alarms.onAlarm.addListener((alarm) => { if (alarm.name === 'openassets-resume') void startNext(); });
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'openassets-resume') void startNext();
+    if (alarm.name === 'openassets-clear-error') void clearError();
+  });
 });

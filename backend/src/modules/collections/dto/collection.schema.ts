@@ -22,6 +22,9 @@ export const createFolderSchema = z.object({
   tags: z.array(tag).max(30).optional(),
 });
 
+/** Move one of the owner's collections into their team (`true`) or back out (`false`). */
+export const shareCollectionSchema = z.object({ shared: z.boolean() });
+
 export type CreateCollectionInput = z.infer<typeof createCollectionSchema>;
 export type UpdateCollectionInput = z.infer<typeof updateCollectionSchema>;
 export type CreateFolderInput = z.infer<typeof createFolderSchema>;

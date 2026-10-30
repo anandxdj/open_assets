@@ -42,6 +42,8 @@ export interface AssetResult {
   name: string;
   cropped_url: string;
   public_id: string;
+  /** The crop as base64 PNG. Only set for `inline` crops, which py_backend does not upload anywhere. */
+  data_base64?: string | null;
 }
 
 export interface CropResult {
@@ -88,6 +90,8 @@ export async function checkTransparency(imageUrl: string): Promise<TransparencyR
 export interface DetectionOptions {
   mode?: 'auto' | 'light' | 'dark' | 'sampled';
   backgroundColor?: string;
+  /** 1 to 100, 50 = the built-in cut-off. Higher ignores fainter pixels. */
+  threshold?: number;
 }
 
 export async function detectAssets(
@@ -98,6 +102,7 @@ export async function detectAssets(
     image_url: imageUrl,
     mode: options.mode ?? 'auto',
     background_color: options.backgroundColor,
+    threshold: options.threshold,
   });
   return res.data;
 }
@@ -117,11 +122,13 @@ export async function cropAssets(
   imageUrl: string,
   boxes: BoundingBox[],
   jobId: string,
+  options: { inline?: boolean } = {},
 ): Promise<CropResult> {
   const res = await pyClient.post<CropResult>('/crop', {
     image_url: imageUrl,
     boxes: toBoxInput(boxes),
     job_id: jobId,
+    inline: options.inline ?? false,
   });
   return res.data;
 }

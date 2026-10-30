@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { FILE_EXTENSION, dedupeStems, sanitizeNamePart } from "@/lib/naming/pattern";
 import type { BoundingBox } from "@/types";
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -20,9 +21,12 @@ function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-/** File-name stem used inside the ZIPs (before the .png and any _2 suffix). */
+/**
+ * File-name stem used inside the ZIPs (before the .png and any _2 suffix). The
+ * same function the server's default naming pattern uses, so the two cannot drift.
+ */
 export function sanitize(name: string): string {
-  return name.trim().replace(/[^a-zA-Z0-9-_]+/g, "_").slice(0, 80) || "asset";
+  return sanitizeNamePart(name);
 }
 
 function triggerDownload(blob: Blob, fileName: string): void {
@@ -65,34 +69,40 @@ async function fetchBlob(url: string, name: string): Promise<Blob> {
   }
 }
 
+export interface ZipItem {
+  name: string;
+  url: string;
+  /**
+   * The finished file name (with .png), chosen by the server from the naming
+   * pattern. When every item has one they are used as they are; otherwise the
+   * names come from `name` the way exports always named them (cleaned, _2 for
+   * duplicates).
+   */
+  fileName?: string;
+}
+
 /**
  * AI download: fetch the already-cut transparent crops (Cloudinary PNGs) and zip
  * them entirely in the browser — no finalize worker, no server-side zip. Repeatable.
  */
-export async function zipImageUrls(
-  items: { name: string; url: string }[],
-  zipName = "assets.zip",
-): Promise<number> {
+export async function zipImageUrls(items: ZipItem[], zipName = "assets.zip"): Promise<number> {
   if (items.length === 0) throw new Error("No assets to export");
 
   // Browsers cap concurrent connections per host (~6), so a flat Promise.all is fine.
   const fetched = await Promise.all(
     items.map(async (item) => {
       const blob = await fetchBlob(item.url, item.name);
-      return { name: item.name, blob };
+      return { blob };
     }),
   );
 
+  const serverNames = items.every((item) => item.fileName);
+  const fileNames = serverNames
+    ? items.map((item) => item.fileName as string)
+    : dedupeStems(items.map((item) => sanitize(item.name))).map((stem) => `${stem}${FILE_EXTENSION}`);
+
   const zip = new JSZip();
-  const usedNames = new Set<string>();
-  for (const { name, blob } of fetched) {
-    const base = sanitize(name);
-    let fileName = `${base}.png`;
-    let i = 2;
-    while (usedNames.has(fileName)) fileName = `${base}_${i++}.png`;
-    usedNames.add(fileName);
-    zip.file(fileName, blob);
-  }
+  fetched.forEach(({ blob }, i) => zip.file(fileNames[i] as string, blob));
 
   const zipBlob = await zip.generateAsync({ type: "blob" });
   triggerDownload(zipBlob, zipName);

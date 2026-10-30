@@ -2,11 +2,15 @@ import { Resend } from 'resend';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-const sendEmail = async (to: string, subject: string, html: string) => {
+/**
+ * `mockDetail` is printed only by the no-Resend fallback, and never in
+ * production, so a developer can follow a link that is normally only in the inbox.
+ */
+const sendEmail = async (to: string, subject: string, html: string, mockDetail?: string) => {
   try {
     if (resend) {
       const { data, error } = await resend.emails.send({
-        from: `"${process.env.RESEND_FROM_NAME || process.env.SMTP_FROM_NAME}" <${process.env.RESEND_FROM_EMAIL || process.env.SMTP_FROM_EMAIL}>`,
+        from: `"${process.env.RESEND_FROM_NAME || process.env.SMTP_FROM_NAME || 'OpenAssets'}" <${process.env.RESEND_FROM_EMAIL || process.env.SMTP_FROM_EMAIL}>`,
         to: [to],
         subject,
         html,
@@ -19,6 +23,7 @@ const sendEmail = async (to: string, subject: string, html: string) => {
     } else {
       // Fallback to mock log if no API key is provided
       console.log(`[Email Mock] To: ${to}, Subject: ${subject}`);
+      if (mockDetail && process.env.NODE_ENV !== 'production') console.log(`[Email Mock] ${mockDetail}`);
     }
   } catch (error: any) {
     console.error(`[Email Error] Failed to send email to ${to}:`, error.message);
@@ -56,7 +61,8 @@ export const sendVerificationEmail = async (email: string, token: string) => {
         </div>
       </div>
     </div>
-    `
+    `,
+    `Verification link for ${email}: ${url}`,
   );
 };
 
@@ -93,6 +99,51 @@ export const sendResetPasswordEmail = async (email: string, token: string) => {
         </div>
       </div>
     </div>
+    `,
+    `Password reset link for ${email}: ${url}`,
+  );
+};
+
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+
+/**
+ * Invitation to join a team. The team and inviter names are typed by users, so
+ * they are escaped. Plain words, ink on paper with the orange action, like the
+ * product (DESIGN.md).
+ */
+export const sendTeamInviteEmail = async (mail: {
+  to: string;
+  teamName: string;
+  inviterName: string;
+  token: string;
+  expiresAt: Date;
+}) => {
+  const url = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/team/invite/${mail.token}`;
+  const team = escapeHtml(mail.teamName);
+  const inviter = escapeHtml(mail.inviterName);
+  const expires = mail.expiresAt.toUTCString().replace(/ GMT$/, ' UTC');
+  await sendEmail(
+    mail.to,
+    `${mail.inviterName} invited you to the team ${mail.teamName} on OpenAssets`.replace(/[\r\n]+/g, ' '),
     `
+    <div style="background-color: #F4F3EE; padding: 40px 15px; font-family: 'Courier New', Courier, monospace; color: #0A0A0A;">
+      <div style="background-color: #ffffff; border: 2px solid #0A0A0A; padding: 28px; max-width: 480px; margin: auto;">
+        <p style="margin: 0 0 18px; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;">OpenAssets</p>
+        <p style="margin: 0 0 12px; font-size: 16px; font-weight: bold; line-height: 1.4;">${inviter} invited you to join ${team}.</p>
+        <p style="margin: 0 0 22px; font-size: 13px; line-height: 1.6;">
+          Team members can view, edit and download the collections the owner shares with the team.
+          Sign in or create an account with this email address to accept.
+        </p>
+        <p style="margin: 0 0 22px;">
+          <a href="${url}" style="display: inline-block; background-color: #FF7C00; color: #0A0A0A; padding: 13px 24px; text-decoration: none; border: 2px solid #0A0A0A; font-weight: bold; font-size: 13px; letter-spacing: 1px; text-transform: uppercase;">Accept invite</a>
+        </p>
+        <p style="margin: 0 0 6px; font-size: 12px; line-height: 1.5;">This invite expires on ${expires}. If the button does not work, copy this link into your browser:</p>
+        <p style="margin: 0 0 18px; font-size: 12px; word-break: break-all;">${url}</p>
+        <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #555555;">Did not expect this? Ignore this email and nothing happens.</p>
+      </div>
+    </div>
+    `,
+    `Team invite for ${mail.to} (${mail.teamName}), expires ${mail.expiresAt.toISOString()}: ${url}`,
   );
 };

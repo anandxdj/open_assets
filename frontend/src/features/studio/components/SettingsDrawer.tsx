@@ -12,6 +12,8 @@ import { Switch } from "@/components/ui/controls";
 import { MODELS, maskKey } from "@/features/studio/lib/models";
 import { EXTENSION_PERCENT } from "@/features/studio/lib/app";
 import { useStudioSettings } from "@/features/studio/hooks/useStudioSettings";
+import { useCredits } from "@/features/usage/CreditsProvider";
+import { creditsLabel, formatResetDate } from "@/features/usage/credits";
 import { formatSeconds } from "@/features/studio/components/GeneratorLayout";
 
 function ExternalA({ href, children }: { href: string; children: React.ReactNode }) {
@@ -33,8 +35,9 @@ export function SettingsDrawer({
   onClose: () => void;
   onEditApiKey: () => void;
 }) {
-  const { apiKey, setApiKey, selectedModel, setSelectedModel, debugMode, setDebugMode, credits } =
+  const { apiKey, setApiKey, selectedModel, setSelectedModel, debugMode, setDebugMode } =
     useStudioSettings();
+  const { credits } = useCredits();
   const debugLabelId = useId();
   const debugHelpId = useId();
 
@@ -67,7 +70,7 @@ export function SettingsDrawer({
                       <KeyRound aria-hidden />
                       Your own key
                     </Badge>
-                    <p>Requests use your OpenRouter key with no credit limit and go to OpenRouter only.</p>
+                    <p>Requests use your OpenRouter key with no AI credit limit and go to OpenRouter only.</p>
                   </>
                 ) : credits ? (
                   <>
@@ -77,13 +80,13 @@ export function SettingsDrawer({
                     </Badge>
                     <p>
                       <span className="text-ink">
-                        {credits.credits} of {credits.monthlyGrant} credits left
+                        {creditsLabel(credits.credits)} left of {credits.monthlyGrant}
                       </span>
-                      , resets {new Date(credits.resetAt).toLocaleDateString()}.
+                      . They reset on {formatResetDate(credits.resetAt)}.
                     </p>
                   </>
                 ) : (
-                  <p>Sign in for free monthly credits, or add your own OpenRouter key below.</p>
+                  <p>Your AI credit balance is unavailable right now. Your own OpenRouter key still works.</p>
                 )}
                 {!apiKey && (
                   <p>
@@ -115,6 +118,9 @@ export function SettingsDrawer({
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="text-[13px] font-semibold leading-5">{m.label}</span>
                       {m.hint && <span className="text-xs leading-[18px] text-ink-2">{m.hint}</span>}
+                      {!apiKey && (
+                        <span className="text-xs leading-[18px] text-ink-3">{creditsLabel(m.creditsPerCall)} a call</span>
+                      )}
                     </span>
                     <span className="oa-value whitespace-nowrap text-ink-3">
                       ~{formatSeconds(m.approxSecondsPerCall)} a call

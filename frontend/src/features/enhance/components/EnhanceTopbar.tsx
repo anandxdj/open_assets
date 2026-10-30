@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Crumbs, Topbar } from "@/components/layout/AppShell";
-import { Badge } from "@/components/ui/badge";
 import { TabLink, Tabs } from "@/components/ui/tabs";
 
 export type EnhanceTab = "cleanup" | "ai";
@@ -24,7 +23,6 @@ export function EnhanceTopbar({ active }: { active?: EnhanceTab }) {
         </TabLink>
         <TabLink href="/enhance/ai" active={active === "ai"} className="h-full">
           AI enhance
-          <Badge className="text-inherit">Soon</Badge>
         </TabLink>
       </Tabs>
     </Topbar>

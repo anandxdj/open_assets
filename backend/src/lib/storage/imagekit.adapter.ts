@@ -1,13 +1,17 @@
 import { ImageKit } from '@imagekit/nodejs';
+import type { Transformation } from '@imagekit/nodejs/resources/shared';
 import axios from 'axios';
 import { toFile } from '@imagekit/nodejs';
-import type { StorageAdapter, UploadOptions, UploadResult } from './interface';
+import { pollUntilReady } from '../cloudinary.transform';
+import type { StorageAdapter, UploadOptions, UploadResult, EnhanceTransform } from './interface';
+import type { UpscaleScale } from '../../modules/plans/upscale';
 
 const FOLDER: Record<string, string> = {
   originals: '/open_assets/originals',
   collections: '/open_assets/collections',
   exports: '/open_assets/exports',
   enhance: '/open_assets/enhance',
+  crops: '/open_assets/crops',
 };
 
 // publicId encoding: "fileId::filePath"
@@ -68,15 +72,45 @@ export class ImageKitAdapter implements StorageAdapter {
     return url;
   }
 
-  async applyUpscale(publicId: string): Promise<string> {
+  async applyUpscale(publicId: string, scale: UpscaleScale = 2, sourceWidth?: number): Promise<string> {
     const { filePath } = decode(publicId);
     // Upscale first, then remove background (upscale flattens alpha channel).
+    // aiUpscale is a fixed 4x: with the source width known, resize to exactly scale x it.
+    const transformation: Transformation[] = [{ aiUpscale: true }];
+    if (sourceWidth) transformation.push({ width: sourceWidth * scale });
+    transformation.push({ aiRemoveBackground: true });
     const url = this.ik.helper.buildSrc({
       src: filePath,
       urlEndpoint: this.urlEndpoint,
-      transformation: [{ aiUpscale: true }, { aiRemoveBackground: true }],
+      transformation,
     });
     await warmup(url);
+    return url;
+  }
+
+  async applyEnhance(publicId: string, transform: EnhanceTransform): Promise<string> {
+    const { upscale, removeBackground } = transform;
+    if (!upscale && !removeBackground) {
+      throw new Error('applyEnhance needs an upscale, a background removal, or both.');
+    }
+    const { filePath } = decode(publicId);
+    // Chained with ":" so each AI step runs in order: upscale first (it flattens
+    // alpha), an explicit resize so the output is exactly scale x the source,
+    // then background removal, then PNG so the transparency survives.
+    const transformation: Transformation[] = [];
+    if (upscale) {
+      transformation.push({ aiUpscale: true }, { width: upscale.sourceWidth * upscale.scale });
+    }
+    if (removeBackground) transformation.push({ aiRemoveBackground: true });
+    transformation.push({ format: 'png' });
+
+    const url = this.ik.helper.buildSrc({
+      src: filePath,
+      urlEndpoint: this.urlEndpoint,
+      transformation,
+    });
+    // Unlike warmup(), this verifies the transform actually succeeded.
+    await pollUntilReady(url, undefined, 'ImageKit');
     return url;
   }
 }

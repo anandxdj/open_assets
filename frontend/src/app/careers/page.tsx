@@ -10,6 +10,7 @@ import { SOCIAL, WRAP } from "@/components/marketing/site";
 export const metadata: Metadata = {
   title: "Careers · OpenAssets",
   description: "Build major open-source projects with me. Full-stack builders and engineers welcome.",
+  alternates: { canonical: "/careers" },
 };
 
 type Status = { label: string; tone: NonNullable<BadgeProps["tone"]>; icon: LucideIcon };
@@ -180,7 +181,7 @@ export default function CareersPage() {
                       </div>
 
                       <div className="flex flex-col gap-1">
-                        <h4 className="oa-label text-ink-3">What you’ll bring</h4>
+                        <h4 className="oa-label text-ink-3">What you will bring</h4>
                         <ul className="flex flex-col text-xs leading-[18px]">
                           {project.requirements.map((req) => (
                             <li key={req} className="flex gap-2.5 border-t border-rule py-[9px] first:border-t-0">
@@ -222,7 +223,7 @@ export default function CareersPage() {
               </h2>
               <p className="text-xs leading-[18px] opacity-75">
                 Send me a direct message on X. Tell me which project fits you and link your GitHub or portfolio, and
-                we’ll plan what to build together.
+                we will plan what to build together.
               </p>
             </div>
             <Button

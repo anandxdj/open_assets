@@ -37,7 +37,7 @@ export function ApiKeyModal({
     >
       <DialogContent
         title="OpenRouter key"
-        description="Bring your own key to skip free credits and send requests to OpenRouter only."
+        description="Bring your own key to skip AI credits and send requests to OpenRouter only."
       >
         <DialogBody>
           <div className="oa-field">

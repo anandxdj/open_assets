@@ -1,7 +1,9 @@
 import { Worker } from 'bullmq';
 import { redis } from '../../common/config/redis';
 import { getJob, updateJob, parseBoxes } from '../jobs/job.store';
-import { nameAssets, cropAssets } from '../../lib/py.client';
+import { nameAssets } from '../../lib/py.client';
+import type { AssetResult } from '../../lib/py.client';
+import { cropIntoStorage } from '../../lib/cropStore';
 import type { NameAssetsResult } from '../../lib/py.client';
 import { storage } from '../../lib/storage';
 import { extractError } from '../../common/utils/extractError';
@@ -57,7 +59,8 @@ async function scaffoldCollection(
   }
 }
 
-export function startCropWorker(): void {
+/** Starts the worker and returns it so the caller can close it on shutdown. */
+export function startCropWorker(): Worker<CropJobData> {
   const worker = new Worker<CropJobData>(
     'crop',
     async (job) => {
@@ -71,14 +74,14 @@ export function startCropWorker(): void {
 
       let workingUrl = jobData.cloudinaryUrl;
       let nameMap: Record<string, string> = {};
-      let assets: Awaited<ReturnType<typeof cropAssets>>['assets'] = [];
+      let assets: AssetResult[] = [];
 
       if (isRaw) {
         // Legacy server-side raw path (the frontend now crops raw locally).
         // Cut the original sheet as-is — no background removal, no naming.
         await updateJob(jobId, { status: 'cropping', workingUrl });
         try {
-          assets = (await cropAssets(workingUrl, boxes, jobId)).assets;
+          assets = await cropIntoStorage(workingUrl, boxes, jobId);
         } catch (err) {
           throw new Error(`Cropping failed: ${extractError(err)}`);
         }
@@ -101,7 +104,7 @@ export function startCropWorker(): void {
 
         // 2. Cut each box out of the transparent image (systematic names for now).
         try {
-          assets = (await cropAssets(workingUrl, boxes, jobId)).assets;
+          assets = await cropIntoStorage(workingUrl, boxes, jobId);
         } catch (err) {
           throw new Error(`Cropping failed: ${extractError(err)}`);
         }
@@ -151,4 +154,5 @@ export function startCropWorker(): void {
 
   worker.on('error', (err) => console.error('[crop.worker] Worker error:', extractError(err)));
   console.log('[crop.worker] Started');
+  return worker;
 }

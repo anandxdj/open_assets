@@ -7,6 +7,8 @@ export interface IExtensionSession extends Document {
   lastUsedAt: Date;
   expiresAt: Date;
   revokedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const ExtensionSessionSchema = new Schema<IExtensionSession>({

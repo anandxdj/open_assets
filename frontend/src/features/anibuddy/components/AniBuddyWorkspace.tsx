@@ -5,7 +5,7 @@ import { RotateCcw } from "lucide-react";
 import { Crumbs, Topbar } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { useAniBuddyProject, stepLockReason } from "@/features/anibuddy/hooks/useAniBuddyProject";
-import { type StepId } from "@/features/anibuddy/types";
+import { STEP_ORDER, type StepId } from "@/features/anibuddy/types";
 import { StepRail } from "@/features/anibuddy/components/StepRail";
 import { ConceptStep } from "@/features/anibuddy/components/ConceptStep";
 import { SourceStep } from "@/features/anibuddy/components/SourceStep";
@@ -13,6 +13,7 @@ import { PrepareStep } from "@/features/anibuddy/components/PrepareStep";
 import { RigStep } from "@/features/anibuddy/components/RigStep";
 import { AnimateStep } from "@/features/anibuddy/components/AnimateStep";
 import { ExportStep } from "@/features/anibuddy/components/ExportStep";
+import { CreditsBadge, CreditsNotice } from "@/features/usage/CreditsBadge";
 
 export function AniBuddyWorkspace() {
   const project = useAniBuddyProject();
@@ -22,7 +23,12 @@ export function AniBuddyWorkspace() {
   const [lastDerived, setLastDerived] = useState(derivedStep);
   if (lastDerived !== derivedStep) {
     setLastDerived(derivedStep);
-    setSelected(null);
+    // Finishing a step opens the next one by default, but its result (the
+    // cut-out, the joints, the motion) still needs a look, and "Place joints
+    // myself" only seeds a starter rig. Stay on the finished step until the
+    // user continues. Bigger jumps (importing a project) go straight there.
+    const advanced = STEP_ORDER[STEP_ORDER.indexOf(lastDerived) + 1] === derivedStep;
+    setSelected((current) => (advanced ? (current ?? lastDerived) : null));
   }
   const activeStep = selected && stepLockReason(state, selected) === null ? selected : derivedStep;
 
@@ -31,14 +37,18 @@ export function AniBuddyWorkspace() {
       <Topbar>
         <Crumbs items={[{ label: "AniBuddy", href: "/anibuddy" }, { label: state.source?.name ?? "New character" }]} />
         <span className="flex-1" />
-        <Button variant="ghost" size="sm" onClick={project.reset}>
+        <CreditsBadge />
+        <Button variant="ghost" size="sm" onClick={project.reset} title="Start a new project">
           <RotateCcw aria-hidden />
-          Start a new project
+          <span className="max-sm:sr-only">Start a new project</span>
         </Button>
       </Topbar>
       <h1 className="sr-only">AniBuddy</h1>
+      <CreditsNotice>
+        <span className="text-xs leading-[18px] text-ink-2">AniBuddy cannot use your own key.</span>
+      </CreditsNotice>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sunken pb-14 md:flex-row md:overflow-hidden md:pb-0">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sunken pb-14 md:pb-0 lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden xl:flex xl:flex-row">
         <StepRail project={state} activeStep={activeStep} onSelect={setSelected} />
         {activeStep === "concept" && (
           <ConceptStep

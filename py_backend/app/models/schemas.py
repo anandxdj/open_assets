@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 from typing import Literal, Optional
 
 
@@ -6,6 +6,9 @@ class DetectRequest(BaseModel):
     image_url: HttpUrl
     mode: Literal["auto", "light", "dark", "sampled"] = "auto"
     background_color: Optional[str] = None
+    # 1-100, 50 = the built-in cut-off. Higher ignores fainter pixels, lower
+    # picks up more. Gated to Pro by the Node API; defaults keep old behaviour.
+    threshold: int = Field(default=50, ge=1, le=100)
 
 
 class DetectedBox(BaseModel):
@@ -76,13 +79,18 @@ class CropRequest(BaseModel):
     image_url: HttpUrl
     boxes: list[BoxInput]   # names already resolved to final asset names
     job_id: str
+    # False (default): upload each crop to Cloudinary and return its URL.
+    # True: touch no storage and return each crop as base64 PNG in `data_base64`;
+    # the caller stores them (the local storage provider).
+    inline: bool = False
 
 
 class AssetResult(BaseModel):
     id: str
     name: str
-    cropped_url: str
-    public_id: str
+    cropped_url: str = ""
+    public_id: str = ""
+    data_base64: Optional[str] = None   # only for `inline` crops
 
 
 class CropResponse(BaseModel):

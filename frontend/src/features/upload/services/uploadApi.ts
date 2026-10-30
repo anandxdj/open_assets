@@ -1,4 +1,5 @@
 import { apiClient, refreshAccessToken } from "@/lib/api-client";
+import { apiErrorFrom, ApiRequestError } from "@/lib/api-error";
 import { tokenStore } from "@/lib/token-store";
 import type { JobResponse, UploadResponse } from "@/types";
 
@@ -8,13 +9,6 @@ interface ApiEnvelope<T> {
   success: boolean;
   message: string;
   data: T;
-}
-
-export async function uploadImage(file: File): Promise<UploadResponse> {
-  const form = new FormData();
-  form.append("image", file);
-  const envelope = await apiClient.postForm<ApiEnvelope<UploadResponse>>("/api/upload", form);
-  return envelope.data;
 }
 
 export class UploadAbortedError extends Error {
@@ -84,9 +78,10 @@ export async function uploadImageWithProgress(
     const message = (res.body as { message?: string } | null)?.message;
     // 5xx bodies carry generic text ("Internal Server Error"); say what to do instead.
     if (res.status >= 500 || !message) {
-      throw new Error("We couldn't store your image. Try again in a moment.");
+      throw new ApiRequestError("We could not store your image. Try again in a moment.", res.status);
     }
-    throw new Error(message);
+    // Keeps the machine code and details (for example SHEET_LIMIT and resetAt).
+    throw apiErrorFrom(res.status, res.body);
   }
 
   const envelope = res.body as ApiEnvelope<UploadResponse> | null;
@@ -110,7 +105,14 @@ export interface RedetectResponse {
 
 export async function redetectJob(
   jobId: string,
-  options: { mode: DetectionMode; backgroundColor?: string },
+  options: {
+    mode: DetectionMode;
+    backgroundColor?: string;
+    /** Pro: 1 to 100, 50 = default. The server answers 403 PLAN_REQUIRED for free accounts. */
+    threshold?: number;
+    /** Pro: 0 to 64 px added around every box. */
+    padding?: number;
+  },
 ): Promise<RedetectResponse> {
   const envelope = await apiClient.post<ApiEnvelope<RedetectResponse>>(
     `/api/jobs/${jobId}/redetect`,

@@ -11,7 +11,10 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/controls";
 import { EmptyState } from "@/components/ui/feedback";
+import { useEntitlement, usePlan } from "@/features/plans/PlanContext";
 import { redetectJob, type DetectionMode } from "@/features/upload/services/uploadApi";
+import { ApiRequestError } from "@/lib/api-error";
+import { DETECTION_LIMITS, isPlanErrorCode } from "@/lib/plans";
 import { useJobPolling } from "../hooks/useJobPolling";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { startExport } from "../services/exportApi";
@@ -57,6 +60,11 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   const [detectMode, setDetectMode] = useState<DetectionMode>("auto");
   // Starting value for the colour picker; the user picks the real sheet background.
   const [customBackground, setCustomBackground] = useState("#000000");
+  // Pro controls. Free accounts always detect with the defaults.
+  const [threshold, setThreshold] = useState<number>(DETECTION_LIMITS.threshold.default);
+  const [padding, setPadding] = useState<number>(DETECTION_LIMITS.padding.default);
+  const { allowed: tuningAllowed, ready: planReady } = useEntitlement("paddingThresholdControls");
+  const { refresh: refreshPlan } = usePlan();
   // Result of the last re-detect in this session; null until the user re-detects.
   const [redetected, setRedetected] = useState<{ warning?: string } | null>(null);
   const [reviewDismissed, setReviewDismissed] = useState(false);
@@ -113,6 +121,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       const result = await redetectJob(jobId, {
         mode: detectMode,
         backgroundColor: detectMode === "sampled" ? customBackground : undefined,
+        ...(tuningAllowed ? { threshold, padding } : {}),
       });
       initBoxes(result.boxes);
       clearSelection();
@@ -123,6 +132,10 @@ export function EditorScreen({ jobId }: { jobId: string }) {
         description: `Detected with the ${result.detectionMode} background setting, ${confidence}% confidence.`,
       });
     } catch (err) {
+      if (err instanceof ApiRequestError && isPlanErrorCode(err.code)) {
+        // The plan changed under us (for example the trial ended): re-read it so the controls lock.
+        void refreshPlan();
+      }
       toast.error("Detection failed", { description: errorMessage(err, "Try another background setting.") });
     } finally {
       setRedetecting(false);
@@ -138,7 +151,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       const count = await exportBoxesAsZip(job.cloudinaryUrl, boxes, zipName);
       toast.success(`Downloaded ${count} asset${count === 1 ? "" : "s"}`, { description: zipName });
     } catch (err) {
-      toast.error("Couldn't build the ZIP", { description: errorMessage(err, "Try again in a moment.") });
+      toast.error("Could not build the ZIP", { description: errorMessage(err, "Try again in a moment.") });
     } finally {
       setExporting(null);
     }
@@ -152,7 +165,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       await startExport(jobId, boxes, false);
       router.push(`/editor/${jobId}/export`);
     } catch (err) {
-      toast.error("Couldn't start the export", { description: errorMessage(err, "Try again in a moment.") });
+      toast.error("Could not start the export", { description: errorMessage(err, "Try again in a moment.") });
       setExporting(null);
     }
   }
@@ -226,7 +239,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   const failed = Boolean(error) || status === "failed";
   const detected = status === "detected";
   const exportRunning = Boolean(status && EXPORT_RUNNING.includes(status));
-  const fileName = fileNameFromUrl(job?.cloudinaryUrl) ?? "Sheet";
+  const fileName = job?.fileName?.trim() || fileNameFromUrl(job?.cloudinaryUrl) || "Sheet";
 
   const wholeSheet =
     detected &&
@@ -243,6 +256,14 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     onColourChange: setCustomBackground,
     redetecting,
     onRedetect: () => void handleRedetect(),
+    tuning: {
+      allowed: tuningAllowed,
+      ready: planReady,
+      threshold,
+      onThresholdChange: setThreshold,
+      padding,
+      onPaddingChange: setPadding,
+    },
   };
 
   let badge: React.ReactNode;
@@ -343,6 +364,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
           Removes the background, names each asset with AI, then opens the export page.
         </span>
       </Topbar>
+      <h1 className="sr-only">Editing {fileName}</h1>
 
       {failed ? (
         <main className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-sunken p-4 md:p-6">
@@ -350,7 +372,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
             tone="danger"
             icon={<CircleAlert aria-hidden />}
             title="Detection failed"
-            description={error ?? job?.error ?? "We couldn't find assets on this sheet."}
+            description={error ?? job?.error ?? "We could not find assets on this sheet."}
             actions={
               <Button asChild variant="primary">
                 <Link href="/upload">Try again</Link>
@@ -375,7 +397,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
             onDrawBox={() => setActiveTool("draw")}
           />
 
-          <section
+          <main
             ref={stageRef}
             aria-label="Canvas"
             className="oa-stage order-1 h-[min(560px,65dvh)] min-h-[360px] flex-none lg:order-none lg:h-auto lg:min-h-0 lg:flex-1"
@@ -469,7 +491,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                 )}
               </>
             )}
-          </section>
+          </main>
 
           <PropertiesPanel
             className="order-3 w-full flex-none border-t-[1.5px] border-line lg:order-none lg:w-[280px] lg:border-l-[1.5px] lg:border-t-0"

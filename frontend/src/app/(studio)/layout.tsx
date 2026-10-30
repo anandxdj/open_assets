@@ -1,19 +1,25 @@
+import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
-import { ComingSoonPage } from "@/components/layout/ComingSoonPage";
+import { AuthGate } from "@/components/layout/AuthGate";
+import { StudioShell } from "@/features/studio/components/StudioShell";
+import { StudioSettingsProvider } from "@/features/studio/hooks/useStudioSettings";
+import { CreditsProvider } from "@/features/usage/CreditsProvider";
 
-// Studio works signed-out too (BYOK), so unlike (dashboard) this layout does
-// not gate on auth. It stays behind ComingSoonPage until release. To ungate,
-// render children wrapped as:
-//   <AppShell><StudioSettingsProvider><StudioShell>{children}</StudioShell></StudioSettingsProvider></AppShell>
-// (useStudioSettings throws without the provider).
+export const metadata: Metadata = { title: "Studio · OpenAssets" };
+
+// Studio spends credits, so it needs a signed-in user. Bringing your own
+// OpenRouter key (StudioSettingsProvider) skips the credit charge, not the
+// sign-in. useStudioSettings and useCredits throw without their providers.
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
-  void children;
   return (
     <AppShell>
-      <ComingSoonPage
-        name="Studio"
-        description="Generate animated sprites, tile sets, prop atlases and parallax backgrounds that drop straight into your library."
-      />
+      <AuthGate label="Opening Studio">
+        <CreditsProvider>
+          <StudioSettingsProvider>
+            <StudioShell>{children}</StudioShell>
+          </StudioSettingsProvider>
+        </CreditsProvider>
+      </AuthGate>
     </AppShell>
   );
 }

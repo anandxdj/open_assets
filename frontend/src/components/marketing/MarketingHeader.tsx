@@ -42,7 +42,7 @@ export function MarketingHeader() {
         <ul className="hidden items-center gap-1 lg:flex">
           {NAV_LINKS.map((link) => (
             <li key={link.label}>
-              <NavAnchor link={link} current={!link.external && pathname === link.href} />
+              <NavAnchor link={link} current={!link.external && (pathname === link.href || pathname.startsWith(`${link.href}/`))} />
             </li>
           ))}
         </ul>
@@ -88,7 +88,7 @@ export function MarketingHeader() {
             <span aria-hidden className="block h-8 w-[112px]" />
           ) : user ? (
             <>
-              <Button asChild variant="primary">
+              <Button asChild>
                 <Link href="/upload">Open app</Link>
               </Button>
               <UserMenu variant="compact" />
@@ -98,7 +98,7 @@ export function MarketingHeader() {
               <Button asChild variant="ghost" className="hidden md:inline-flex">
                 <Link href="/login">Sign in</Link>
               </Button>
-              <Button asChild variant="primary">
+              <Button asChild>
                 <Link href="/register">Get started</Link>
               </Button>
             </>

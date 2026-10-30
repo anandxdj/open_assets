@@ -25,7 +25,7 @@ import {
   removeFrameBorder,
   sliceImageGrid,
 } from "@/features/studio/lib/imageProcessor";
-import { StudioApiError, studioPost } from "@/features/studio/api/studioClient";
+import { reportStudioError, studioPost } from "@/features/studio/api/studioClient";
 import { useStudioSettings } from "@/features/studio/hooks/useStudioSettings";
 import { useSceneBrief } from "@/features/studio/hooks/useSceneBrief";
 
@@ -38,7 +38,7 @@ const PROP_CHROMA_KEY_OPTS = {
 };
 
 export function usePropStudio() {
-  const { apiKey, selectedModel, debugMode, refreshCredits } = useStudioSettings();
+  const { selectedModel, debugMode } = useStudioSettings();
   const { sceneBrief, setSceneBrief, sceneBriefLoading } = useSceneBrief();
 
   const [propItems, setPropItems] = useState<PropItem[]>([]);
@@ -47,18 +47,6 @@ export function usePropStudio() {
   const [generating, setGenerating] = useState(false);
   const [progressMsg, setProgressMsg] = useState<string | null>(null);
   const stopRef = useRef(false);
-
-  const reportError = useCallback((err: unknown) => {
-    if (err instanceof StudioApiError && err.code) {
-      toast.error(
-        err.code === "AUTH_REQUIRED"
-          ? "Sign in for free credits, or add your OpenRouter key in Studio settings (gear icon)."
-          : "Out of free credits. Add your own OpenRouter key in Studio settings to keep going.",
-      );
-      return;
-    }
-    toast.error(err instanceof Error ? err.message : "An error occurred");
-  }, []);
 
   /** Magenta → alpha for one sliced prop cell, then trim cell-edge bleed. */
   const postProcessProp = useCallback(async (rawCellUrl: string): Promise<string> => {
@@ -271,17 +259,16 @@ export function usePropStudio() {
       );
     } catch (err) {
       dropBatch();
-      reportError(err);
+      reportStudioError(err);
     } finally {
       clearInterval(tickHandle);
       setGenerating(false);
       setProgressMsg(null);
-      if (!apiKey) void refreshCredits();
       if (debugMode) {
         console.log(`🌿 Prop batch generated in ${Math.floor((Date.now() - startedAt) / 1000)}s`);
       }
     }
-  }, [generating, propPrompt, propItems, artStyle, selectedModel, sceneBrief, debugMode, buildPropStyleRefDataUrl, fetchPropIdeas, postProcessProp, reportError, apiKey, refreshCredits]);
+  }, [generating, propPrompt, propItems, artStyle, selectedModel, sceneBrief, debugMode, buildPropStyleRefDataUrl, fetchPropIdeas, postProcessProp]);
 
   const handleStopPropSet = useCallback(() => {
     stopRef.current = true;
@@ -325,13 +312,12 @@ export function usePropStudio() {
         );
       } catch (err) {
         setPropItems((prev) => prev.map((p) => (p.id === id ? { ...p, generating: false } : p)));
-        reportError(err);
+        reportStudioError(err);
       } finally {
         setProgressMsg(null);
-        if (!apiKey) void refreshCredits();
       }
     },
-    [generating, propPrompt, propItems, artStyle, selectedModel, sceneBrief, buildPropStyleRefDataUrl, fetchPropIdeas, postProcessProp, reportError, apiKey, refreshCredits],
+    [generating, propPrompt, propItems, artStyle, selectedModel, sceneBrief, buildPropStyleRefDataUrl, fetchPropIdeas, postProcessProp],
   );
 
   const handleDeleteProp = useCallback((id: string) => {
@@ -428,9 +414,9 @@ export function usePropStudio() {
       document.body.removeChild(linkJson);
       URL.revokeObjectURL(jsonUrl);
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     }
-  }, [buildPropAtlasDataUrl, buildPropManifest, propPrompt, reportError]);
+  }, [buildPropAtlasDataUrl, buildPropManifest, propPrompt]);
 
   const handleDownloadPropZip = useCallback(async () => {
     try {
@@ -463,9 +449,9 @@ export function usePropStudio() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     }
-  }, [propItems, buildPropAtlasDataUrl, buildPropManifest, propPrompt, reportError]);
+  }, [propItems, buildPropAtlasDataUrl, buildPropManifest, propPrompt]);
 
   return {
     propItems,

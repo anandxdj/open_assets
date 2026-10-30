@@ -177,7 +177,15 @@ export function ParallaxScreen() {
       message={runningMessage}
       onStop={px.autoExtending ? px.handleStopAutoExtend : undefined}
       stopLabel="Stop auto-extend"
-      hint={isResult ? undefined : isEmpty ? runHint : `${runHint} a step`}
+      hint={
+        isResult
+          ? undefined
+          : isEmpty
+            ? runHint
+            : px.targetWidth
+              ? `${runHint} a step`
+              : "Set a target width above to auto-extend."
+      }
       announce={isResult ? "Extension ready. Review it on the stage." : undefined}
     >
       {isResult ? (
@@ -239,7 +247,7 @@ export function ParallaxScreen() {
           title={`Drop a ${activeSpec.short.toLowerCase()} layer`}
           description={
             activeSpec.isOpaque
-              ? "PNG, JPG or WEBP: an opaque image at your game height. Click to browse."
+              ? "PNG, JPEG or WebP: an opaque image at your game height. Click to browse."
               : "PNG with transparency works best. Click to browse."
           }
           onPickFile={() => fileInputRef.current?.click()}
@@ -437,7 +445,7 @@ export function ParallaxScreen() {
               ? (() => {
                   const prereq = getWorkflowPrerequisite(px.layers, activeLayer.role);
                   if (!prereq) return null;
-                  return `${LAYER_ROLES[prereq.role].label} isn't built yet. Layers match best when generated front to back (Near, Mid, Far, then Sky) so palette and art direction stay consistent. You can still generate now if you're bringing your own matching assets.`;
+                  return `${LAYER_ROLES[prereq.role].label} is not built yet. Layers match best when generated front to back (Near, Mid, Far, then Sky) so palette and art direction stay consistent. You can still generate now if you're bringing your own matching assets.`;
                 })()
               : null
           }

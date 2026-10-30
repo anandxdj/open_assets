@@ -5,6 +5,9 @@ import { LoaderCircle, Trash2 } from "lucide-react";
 import type { BoundingBox } from "@/types";
 import type { DetectionMode } from "@/features/upload/services/uploadApi";
 import { Button } from "@/components/ui/button";
+import { Range } from "@/components/ui/controls";
+import { ProGate } from "@/features/plans/ProGate";
+import { DETECTION_LIMITS } from "@/lib/plans";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
@@ -19,6 +22,16 @@ export interface DetectionControls {
   onColourChange: (colour: string) => void;
   redetecting: boolean;
   onRedetect: () => void;
+  /** Threshold and padding: Pro controls. Free accounts see them locked. */
+  tuning: {
+    allowed: boolean;
+    /** False until the plan has loaded: show the controls, but not an upsell. */
+    ready: boolean;
+    threshold: number;
+    onThresholdChange: (value: number) => void;
+    padding: number;
+    onPaddingChange: (value: number) => void;
+  };
 }
 
 interface Props {
@@ -105,6 +118,60 @@ function Prop({ label, children }: { label: string; children: React.ReactNode })
       <dt className="text-[10.5px] font-bold uppercase tracking-[0.06em]">{label}</dt>
       <dd className="min-w-0 text-ink">{children}</dd>
     </div>
+  );
+}
+
+/** Detection threshold and box padding. Pro only; locked with the way up for free accounts. */
+function TuningControls({ detection }: { detection: DetectionControls }) {
+  const id = useId();
+  const { tuning } = detection;
+  const locked = !tuning.allowed;
+  const disabled = locked || detection.redetecting;
+  const { threshold, padding } = DETECTION_LIMITS;
+  return (
+    <>
+      <div className="oa-field">
+        <span className="oa-field-label">
+          <label htmlFor={`${id}-threshold`}>Threshold</label>
+          <span className="oa-value tabular-nums">{tuning.threshold}</span>
+        </span>
+        <Range
+          id={`${id}-threshold`}
+          min={threshold.min}
+          max={threshold.max}
+          step={1}
+          value={tuning.threshold}
+          disabled={disabled}
+          className="disabled:cursor-not-allowed disabled:opacity-40"
+          aria-describedby={`${id}-threshold-note`}
+          onChange={(e) => tuning.onThresholdChange(Number(e.target.value))}
+        />
+        <span id={`${id}-threshold-note`} className="oa-field-help">
+          Higher ignores faint pixels. Lower picks up more. Default {threshold.default}.
+        </span>
+      </div>
+      <div className="oa-field">
+        <span className="oa-field-label">
+          <label htmlFor={`${id}-padding`}>Padding</label>
+          <span className="oa-value tabular-nums">{tuning.padding} px</span>
+        </span>
+        <Range
+          id={`${id}-padding`}
+          min={padding.min}
+          max={padding.max}
+          step={1}
+          value={tuning.padding}
+          disabled={disabled}
+          className="disabled:cursor-not-allowed disabled:opacity-40"
+          aria-describedby={`${id}-padding-note`}
+          onChange={(e) => tuning.onPaddingChange(Number(e.target.value))}
+        />
+        <span id={`${id}-padding-note`} className="oa-field-help">
+          Adds space around every box when you detect again.
+        </span>
+      </div>
+      {locked && tuning.ready && <ProGate feature="Threshold and padding" plural />}
+    </>
   );
 }
 
@@ -266,6 +333,7 @@ export function PropertiesPanel({
                 onColourChange={detection.onColourChange}
                 disabled={detection.redetecting}
               />
+              <TuningControls detection={detection} />
               <Button
                 variant="secondary"
                 size="sm"

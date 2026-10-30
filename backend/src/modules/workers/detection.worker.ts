@@ -11,7 +11,8 @@ interface DetectionJobData {
   publicId: string;
 }
 
-export function startDetectionWorker(): void {
+/** Starts the worker and returns it so the caller can close it on shutdown. */
+export function startDetectionWorker(): Worker<DetectionJobData> {
   const worker = new Worker<DetectionJobData>(
     'detection',
     async (job) => {
@@ -75,4 +76,5 @@ export function startDetectionWorker(): void {
 
   worker.on('error', (err) => console.error('[detection.worker] Worker error:', extractError(err)));
   console.log('[detection.worker] Started');
+  return worker;
 }

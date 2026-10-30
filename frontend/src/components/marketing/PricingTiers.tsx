@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { FreeCta } from "@/features/plans/FreeCta";
+import { ProTrialCta } from "@/features/plans/ProTrialCta";
 import { PLANS, type Plan } from "./pricing";
 
 function PlanCta({ plan }: { plan: Plan }) {
+  // The Pro plan's button is live: it starts the trial or shows its state.
+  if (plan.id === "pro") return <ProTrialCta />;
+  // The free plan's button says "Open app" once signed in.
+  if (plan.id === "free") return <FreeCta label={plan.cta.label} href={plan.cta.href} />;
   const variant = plan.featured ? "primary" : "secondary";
   const isMail = plan.cta.href.startsWith("mailto:");
   return (

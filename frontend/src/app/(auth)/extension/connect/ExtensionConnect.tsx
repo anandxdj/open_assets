@@ -81,7 +81,7 @@ export function ExtensionConnect() {
   if (!complete) {
     return (
       <>
-        <AuthIntro title="Can’t connect the extension">
+        <AuthIntro title="Cannot connect the extension">
           This extension connection request is incomplete. Open the OpenAssets extension and choose Sign in again.
         </AuthIntro>
         <Button asChild variant="secondary" size="lg" block>

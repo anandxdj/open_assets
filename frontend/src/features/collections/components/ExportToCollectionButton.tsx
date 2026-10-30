@@ -21,6 +21,8 @@ interface Props {
   jobId: string;
   selectedIds: string[];
   disabled?: boolean;
+  /** Naming pattern for the saved names. Omit to keep the default names (the server decides). */
+  namingPattern?: string;
 }
 
 const NEW = "__new__";
@@ -30,7 +32,7 @@ function assetsLabel(n: number) {
 }
 
 /** "Save to collection" button and dialog for the export screen. */
-export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props) {
+export function ExportToCollectionButton({ jobId, selectedIds, disabled, namingPattern }: Props) {
   const ids = useId();
   const [open, setOpen] = useState(false);
   const [collections, setCollections] = useState<CollectionSummary[]>([]);
@@ -60,7 +62,8 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props
     setNameError(null);
     setLoadingCollections(true);
     listMyCollections()
-      .then((res) => setCollections(res.data))
+      // Own collections and the team's, minus any the caller may not edit (a read-only team).
+      .then((res) => setCollections(res.data.filter((c) => c.access?.canEdit !== false)))
       .catch(() => setCollections([]))
       .finally(() => setLoadingCollections(false));
   }
@@ -116,7 +119,7 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props
       }
 
       // 3. Push the selected crops.
-      await exportJobToFolder(targetCollection, targetFolder, jobId, selectedIds);
+      await exportJobToFolder(targetCollection, targetFolder, jobId, selectedIds, namingPattern);
       toast.success(`Saved ${assetsLabel(count)} to the collection`);
       setOpen(false);
     } catch (err) {
@@ -144,7 +147,7 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props
       </DialogTrigger>
       <DialogContent
         title={`Save ${assetsLabel(count)} to a collection`}
-        description="Only you can see it until you publish."
+        description="Only you can see it until you publish. Team collections are visible to your team."
       >
         <form onSubmit={handleSave} noValidate className="contents">
           <DialogBody>
@@ -160,7 +163,7 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props
                 {collections.map((c) => (
                   <option key={c._id} value={c._id}>
                     {c.name}
-                    {c.isPublic ? "" : " (draft)"}
+                    {c.teamId ? " (team)" : c.isPublic ? "" : " (draft)"}
                   </option>
                 ))}
               </Select>
@@ -171,7 +174,7 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props
                 <Input
                   id={nameField}
                   value={newCollectionName}
-                  placeholder="e.g. RPG pack v1"
+                  placeholder="e.g. RPG assets v1"
                   invalid={Boolean(nameError)}
                   aria-describedby={nameError ? `${nameField}-note` : undefined}
                   disabled={saving}

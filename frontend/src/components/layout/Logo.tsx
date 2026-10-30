@@ -6,7 +6,7 @@ export function LogoMark({ className }: { className?: string }) {
   const maskId = useId();
   return (
     <svg viewBox="90 380 1370 780" className={cn("h-[17px] w-[30px] flex-none", className)} aria-hidden>
-      <mask id={maskId}>
+      <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="1600" height="1600">
         <rect x="0" y="0" width="1600" height="1600" fill="#fff" />
         <polygon points="593,1200 926,600 1100,600 1100,1200" fill="#000" />
       </mask>

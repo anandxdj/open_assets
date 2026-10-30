@@ -6,7 +6,7 @@ import { WRAP } from "@/components/marketing/site";
 import { ProductShot } from "./ProductShot";
 
 const SPECS = [
-  { label: "Input", value: "PNG, JPG, WebP · up to 20 MB" },
+  { label: "Input", value: "PNG, JPEG or WebP · up to 20 MB" },
   { label: "Detect", value: "OpenCV contour tracing" },
   { label: "Name", value: "Vision model reads the sheet" },
   { label: "Output", value: "ZIP of transparent PNGs", accent: true },
@@ -38,7 +38,7 @@ export function HeroSection() {
               </Link>
             </Button>
             <Button asChild variant="secondary" size="xl" className="max-sm:w-full">
-              <Link href="/collections">Browse packs</Link>
+              <Link href="/collections">Browse collections</Link>
             </Button>
           </div>
           <p className="text-[11px] leading-4 text-ink-2">Free plan: {FREE_SHEETS_PER_MONTH} sheets a month.</p>

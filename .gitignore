@@ -34,6 +34,9 @@ Thumbs.db
 .idea/
 *.swp
 
+# Local storage provider files (STORAGE_PROVIDER=local)
+.local-storage/
+
 # Scratch
 scratch/
 
