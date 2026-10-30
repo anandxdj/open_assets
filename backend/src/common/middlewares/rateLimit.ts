@@ -33,6 +33,19 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * AI enhance runs paid provider transforms (upscale, background removal), so
+ * submissions are capped well below the generic upload limiter. Only the
+ * submit route uses it; polling the job is covered by `apiLimiter`.
+ */
+export const enhanceAiLimiter = rateLimit({
+  windowMs: FIFTEEN_MIN,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'AI enhance limit reached, please try again in a few minutes.' },
+});
+
+/**
  * Cap upload-driven cost abuse (each upload fans out to Cloudinary + Gemini).
  */
 export const uploadLimiter = rateLimit({
