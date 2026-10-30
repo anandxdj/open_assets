@@ -36,7 +36,7 @@ export function UploadDropZone({
         const file = e.dataTransfer.files?.[0];
         if (!file) return;
         if (file.type.startsWith("image/")) onDropFile(file);
-        else toast.error("That file is not an image. Use a PNG, JPG or WEBP.");
+        else toast.error("That file is not an image. Use a PNG, JPEG or WebP.");
       }}
       data-over={over}
       className={cn("oa-drop w-full cursor-pointer", !over && "hover:bg-hover", className)}

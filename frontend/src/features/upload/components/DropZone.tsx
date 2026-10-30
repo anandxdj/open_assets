@@ -21,9 +21,9 @@ function rejectionMessage(rejections: FileRejection[]): string {
   if (rejections.length > 1) return "Drop one image at a time.";
   const code = rejections[0]?.errors[0]?.code;
   if (code === "file-too-large") return "That image is larger than 20 MB. Choose a smaller file.";
-  if (code === "file-invalid-type") return "That file type is not supported. Choose a PNG, JPG or WebP image.";
+  if (code === "file-invalid-type") return "That file type is not supported. Choose a PNG, JPEG or WebP image.";
   if (code === "too-many-files") return "Drop one image at a time.";
-  return "That file cannot be uploaded. Choose a PNG, JPG or WebP image up to 20 MB.";
+  return "That file cannot be uploaded. Choose a PNG, JPEG or WebP image up to 20 MB.";
 }
 
 export const PHASE_TEXT: Record<Exclude<UploadStatus, "idle" | "error">, { verb: string; hint: string }> = {
@@ -133,7 +133,7 @@ export function DropZone({
             <Upload aria-hidden className="size-6" />
           </span>
           <span className={cn("oa-section", isDragReject ? "text-danger" : "text-brand-text")}>
-            {isDragReject ? "Only PNG, JPG or WebP images" : "Release to upload"}
+            {isDragReject ? "Only PNG, JPEG or WebP images" : "Release to upload"}
           </span>
         </>
       ) : (
@@ -144,7 +144,7 @@ export function DropZone({
           <div className="flex flex-col gap-1">
             <span className="oa-section">{locked ? "No sheets left this month" : "Drop an image here"}</span>
             <span className="text-xs leading-[18px] text-ink-2">
-              PNG, JPG or WebP · up to 20 MB · one image at a time
+              PNG, JPEG or WebP · up to 20 MB · one sheet at a time
             </span>
           </div>
           <Button variant="primary" size="lg" onClick={open} disabled={locked}>

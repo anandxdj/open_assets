@@ -690,10 +690,11 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
 
             {!autoRaw && (
               <div className="oa-panel-sec">
+                <h3 className="oa-panel-title">Upscale</h3>
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span id="upscale-label" className="text-xs font-medium">
-                      Upscale {upscaleDone ? (job.upscaleScale ?? upscaleScale) : upscaleScale}× with AI
+                    <span className="text-xs font-medium">
+                      {upscaleDone ? (job.upscaleScale ?? upscaleScale) : upscaleScale}× with AI
                     </span>
                     <span id="upscale-help" className="text-[11px] leading-4 text-ink-2">
                       {upscaleHelp}
@@ -703,7 +704,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                     checked={upscaleChecked}
                     onCheckedChange={setUpscaleOn}
                     disabled={!canUpscale}
-                    aria-labelledby="upscale-label"
+                    aria-label={`Upscale ${upscaleDone ? (job.upscaleScale ?? upscaleScale) : upscaleScale}× with AI`}
                     aria-describedby="upscale-help"
                   />
                 </div>

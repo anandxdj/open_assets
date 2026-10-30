@@ -20,6 +20,7 @@ import { ProBadge, UpgradeAction } from "./UpgradeAction";
  */
 export function ProGate({
   feature,
+  plural = false,
   description,
   layout = "inline",
   onStarted,
@@ -27,6 +28,8 @@ export function ProGate({
 }: {
   /** What is locked, as a noun phrase: "4× upscale", "Custom naming patterns". */
   feature: string;
+  /** The feature name is plural ("Threshold and padding"), so the sentence says "are". */
+  plural?: boolean;
   /** Block layout only: what the feature gives, one or two sentences. */
   description?: React.ReactNode;
   layout?: "inline" | "block";
@@ -59,7 +62,7 @@ export function ProGate({
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-4 text-ink-2">
         <ProBadge />
         <span>
-          {feature} is part of Pro.{" "}
+          {feature} {plural ? "are" : "is"} part of Pro.{" "}
           <Link href="/pricing" className="oa-link">
             See plans
           </Link>

@@ -63,7 +63,7 @@ export const SOCIAL_IMAGE_SIZE = { width: 1200, height: 630 } as const;
 export const SOCIAL_IMAGE_ALT = "OpenAssets: drop one sheet, get every asset as a transparent PNG";
 
 const SPECS = [
-  { label: "Input", value: "PNG, JPG, WebP" },
+  { label: "Input", value: "PNG, JPEG or WebP" },
   { label: "Detect", value: "OpenCV contours" },
   { label: "Name", value: "Vision model" },
   { label: "Output", value: "Transparent PNGs", accent: true },

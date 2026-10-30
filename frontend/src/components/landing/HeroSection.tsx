@@ -6,7 +6,7 @@ import { WRAP } from "@/components/marketing/site";
 import { ProductShot } from "./ProductShot";
 
 const SPECS = [
-  { label: "Input", value: "PNG, JPG, WebP · up to 20 MB" },
+  { label: "Input", value: "PNG, JPEG or WebP · up to 20 MB" },
   { label: "Detect", value: "OpenCV contour tracing" },
   { label: "Name", value: "Vision model reads the sheet" },
   { label: "Output", value: "ZIP of transparent PNGs", accent: true },

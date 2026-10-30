@@ -170,7 +170,7 @@ function TuningControls({ detection }: { detection: DetectionControls }) {
           Adds space around every box when you detect again.
         </span>
       </div>
-      {locked && tuning.ready && <ProGate feature="Threshold and padding" />}
+      {locked && tuning.ready && <ProGate feature="Threshold and padding" plural />}
     </>
   );
 }

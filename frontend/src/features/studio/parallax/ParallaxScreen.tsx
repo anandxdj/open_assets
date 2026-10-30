@@ -247,7 +247,7 @@ export function ParallaxScreen() {
           title={`Drop a ${activeSpec.short.toLowerCase()} layer`}
           description={
             activeSpec.isOpaque
-              ? "PNG, JPG or WEBP: an opaque image at your game height. Click to browse."
+              ? "PNG, JPEG or WebP: an opaque image at your game height. Click to browse."
               : "PNG with transparency works best. Click to browse."
           }
           onPickFile={() => fileInputRef.current?.click()}

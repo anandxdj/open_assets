@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ProGate } from "@/features/plans/ProGate";
-import { ProBadge } from "@/features/plans/UpgradeAction";
 import {
   DEFAULT_PATTERN,
   MAX_PATTERN_LENGTH,
@@ -85,7 +84,6 @@ export function NamingControl({ value, onChange, items, context, mode, frozenNot
       <Field
         label="Pattern"
         htmlFor={inputId}
-        aside={locked ? <ProBadge /> : undefined}
         help={
           issue ? (
             <span className="oa-field-error">
@@ -115,7 +113,7 @@ export function NamingControl({ value, onChange, items, context, mode, frozenNot
       </Field>
 
       {locked ? (
-        <ProGate feature="Custom naming patterns" />
+        <ProGate feature="Custom naming patterns" plural />
       ) : (
         <div role="group" aria-label="Insert a token" className="flex flex-wrap gap-1.5">
           {TOKENS.map((t) => (
