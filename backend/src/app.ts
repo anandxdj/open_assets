@@ -13,6 +13,7 @@ import { usageRouter } from './modules/usage/usage.routes';
 import { enhanceRouter } from './modules/enhance/enhance.routes';
 import { planRouter, adminRouter } from './modules/plans/plans.routes';
 import { teamRouter } from './modules/teams/team.routes';
+import { namingRouter } from './modules/naming/naming.routes';
 import mongoose from 'mongoose';
 import { errorHandler } from './common/middlewares/errorHandler';
 import { apiLimiter } from './common/middlewares/rateLimit';
@@ -89,6 +90,7 @@ export function createApp(options: AppOptions = {}) {
   app.use('/api', planRouter);
   app.use('/api', adminRouter);
   app.use('/api/team', teamRouter);
+  app.use('/api', namingRouter);
 
   app.use(errorHandler);
 

@@ -11,9 +11,21 @@ import { Button } from "@/components/ui/button";
 import { Checkbox, Progress, Segmented, Switch } from "@/components/ui/controls";
 import { EmptyState, Notice } from "@/components/ui/feedback";
 import { ExportToCollectionButton } from "@/features/collections/components/ExportToCollectionButton";
+import { resolveExportNames, saveExportPattern } from "@/features/naming/api";
+import { NamingControl } from "@/features/naming/components/NamingControl";
+import { useExportPreference } from "@/features/naming/useExportPreference";
 import { usePlan, useEntitlement } from "@/features/plans/PlanContext";
 import { UpgradeAction } from "@/features/plans/UpgradeAction";
 import { ApiRequestError } from "@/lib/api-error";
+import {
+  DEFAULT_PATTERN,
+  applyNamingPattern,
+  cropSize,
+  isDefaultPattern,
+  normalizePattern,
+  parsePattern,
+  type NamingItem,
+} from "@/lib/naming/pattern";
 import { isPlanErrorCode } from "@/lib/plans";
 import { useJobPolling } from "../hooks/useJobPolling";
 import { startFinalize } from "../services/exportApi";
@@ -94,6 +106,7 @@ function DoneState({
 
 function AssetTile({
   asset,
+  fileName,
   selected,
   upscaled,
   scale,
@@ -102,6 +115,8 @@ function AssetTile({
   onMeasure,
 }: {
   asset: Asset;
+  /** The file name this asset gets in the ZIP. */
+  fileName: string;
   selected: boolean;
   upscaled: boolean;
   scale: number;
@@ -140,7 +155,9 @@ function AssetTile({
           )}
         </span>
         <span className="flex min-w-0 flex-col gap-0.5 px-0.5">
-          <span className="oa-value truncate text-[12.5px]">{sanitize(String(asset.name))}.png</span>
+          <span className="oa-value truncate text-[12.5px]" title={fileName}>
+            {fileName}
+          </span>
           <span className="text-[11px] leading-4 tabular-nums text-ink-3">
             {dims ? `${dims.w} × ${dims.h} px` : " "}
             {upscaled && <span className="sr-only">, upscaled</span>}
@@ -168,6 +185,11 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   const [localDownloading, setLocalDownloading] = useState(false);
   const [lastDownload, setLastDownload] = useState<{ count: number; fileName: string } | null>(null);
   const [autoError, setAutoError] = useState<string | null>(null);
+  // Naming: the pattern for this export. Plans with custom patterns start from their saved default
+  // (null = not edited here); the server applies and enforces it, this screen only previews.
+  const pref = useExportPreference();
+  const [patternDraft, setPatternDraft] = useState<string | null>(null);
+  const [savingPattern, setSavingPattern] = useState(false);
 
   // One-click raw export: fire finalize + download exactly once each.
   const autoFinalizedRef = useRef(false);
@@ -180,6 +202,12 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   const allIds = useMemo(() => assets.map((a) => a.id), [assets]);
   const selectedIds = useMemo(() => selection ?? new Set(allIds), [selection, allIds]);
   const selectedCount = assets.filter((a) => selectedIds.has(a.id)).length;
+
+  const pattern = pref.allowed ? (patternDraft ?? pref.saved) : DEFAULT_PATTERN;
+  const patternOk = parsePattern(pattern).ok;
+  const customPattern = pref.allowed && !isDefaultPattern(pattern);
+  // Nothing is safe to send while the saved default is still loading or the pattern is invalid.
+  const namingBlocked = pref.allowed && (pref.loading || !patternOk);
 
   const zipName = `assets_${jobId}.zip`;
   const upscaledZipName = `assets_upscaled_${jobId}.zip`;
@@ -214,9 +242,10 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
 
   // Zip the upscaled crops locally (the backend produced the upscaled URLs).
   async function zipUpscaledLocally() {
+    // `file_name` is what the server's naming pattern gave each asset when the upscale started.
     const items = assets
       .filter((a) => a.upscaled_url)
-      .map((a) => ({ name: String(a.name), url: String(a.upscaled_url) }));
+      .map((a) => ({ name: String(a.name), url: String(a.upscaled_url), fileName: a.file_name }));
     if (items.length === 0) return;
     await zipImageUrls(items, upscaledZipName);
   }
@@ -258,17 +287,28 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
 
   // Local download: zip the selected transparent crops in the browser. Repeatable.
   async function handleLocalDownload() {
-    if (selectedCount === 0 || localDownloading) return;
-    const items = assets
-      .filter((a) => selectedIds.has(a.id))
-      .map((a) => ({ name: String(a.name), url: String(a.cropped_url) }));
-    if (items.length === 0) return;
+    if (selectedCount === 0 || localDownloading || namingBlocked) return;
+    const selected = assets.filter((a) => selectedIds.has(a.id));
+    if (selected.length === 0) return;
     setLocalDownloading(true);
     try {
+      // The default pattern keeps the names exports always had. A custom one is applied by the
+      // server (which checks the plan), so the ZIP carries exactly the names it returns.
+      let fileNames: Map<string, string> | null = null;
+      if (customPattern) {
+        const named = await resolveExportNames(jobId, selected.map((a) => a.id), pattern);
+        fileNames = new Map(named.files.map((f) => [f.id, f.fileName]));
+      }
+      const items = selected.map((a) => ({
+        name: String(a.name),
+        url: String(a.cropped_url),
+        fileName: fileNames?.get(a.id),
+      }));
       const count = await zipImageUrls(items, zipName);
       setLastDownload({ count, fileName: zipName });
     } catch (err) {
       console.error("Local download failed:", err);
+      if (handlePlanError(err)) return;
       toast.error("Couldn't build the ZIP", { description: errorMessage(err, "Try again in a moment.") });
     } finally {
       setLocalDownloading(false);
@@ -278,20 +318,63 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   // Upscale and export: server-side AI upscale (2× or 4×), streamed per asset. One time per job
   // (the backend rejects a second finalize once the job has left "cropped").
   async function handleUpscale() {
-    if (selectedCount === 0 || isFinalizing) return;
+    if (selectedCount === 0 || isFinalizing || namingBlocked) return;
     setIsFinalizing(true);
     setUpscaleTotal(selectedCount);
     try {
-      await startFinalize(jobId, Array.from(selectedIds), undefined, false, upscaleScale);
+      // The pattern goes along for plans that have custom ones, so the server names the files
+      // as shown here even when it differs from the saved default.
+      await startFinalize(
+        jobId,
+        Array.from(selectedIds),
+        undefined,
+        false,
+        upscaleScale,
+        pref.allowed ? normalizePattern(pattern) : undefined,
+      );
     } catch (err) {
       console.error("Finalize failed:", err);
       if (err instanceof ApiRequestError && isPlanErrorCode(err.code)) {
-        // The plan changed under us (for example the trial ended): fall back to 2× and re-read it.
+        // The plan changed under us (for example the trial ended): fall back to 2× and the
+        // default names, and re-read the plan.
         setUpscaleScale(2);
+        setPatternDraft(null);
         void refreshPlan();
       }
       toast.error("Couldn't start upscaling", { description: errorMessage(err, "Try again in a moment.") });
       setIsFinalizing(false);
+    }
+  }
+
+  // The plan changed under us while naming (for example the trial ended): go back to the default
+  // names, re-read the plan so the control locks, and say so. Returns true when it was that.
+  function handlePlanError(err: unknown): boolean {
+    if (!(err instanceof ApiRequestError) || err.code !== "PLAN_REQUIRED") return false;
+    setPatternDraft(null);
+    void refreshPlan();
+    toast.error("Custom naming patterns need Pro", { description: err.message });
+    return true;
+  }
+
+  // Keeps the pattern in the field as the default for this account and for future exports.
+  async function handleSaveDefault() {
+    if (!pref.allowed || !patternOk || savingPattern) return;
+    setSavingPattern(true);
+    try {
+      const next = await saveExportPattern(isDefaultPattern(pattern) ? null : normalizePattern(pattern));
+      if (pref.loaded) {
+        pref.adopt(next);
+        setPatternDraft(null);
+      } else {
+        pref.reload();
+      }
+      toast.success("Saved as your default pattern");
+    } catch (err) {
+      console.error("Saving the naming pattern failed:", err);
+      if (handlePlanError(err)) return;
+      toast.error("Couldn't save the pattern", { description: errorMessage(err, "Try again in a moment.") });
+    } finally {
+      setSavingPattern(false);
     }
   }
 
@@ -339,6 +422,33 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   const upscaleChecked = upscaleDone || upscaling || (canUpscale && upscaleOn);
   const upscaleTarget = upscaleTotal ?? (selectedCount || assets.length);
   const upscalePct = upscaleTarget ? Math.min(100, Math.round((upscaledCount / upscaleTarget) * 100)) : 0;
+
+  // Naming preview, from the same pattern module the server runs. It names the selected assets
+  // (all of them when none are selected). Sizes come from the boxes times the upscale factor, as
+  // on the server. Once the upscale has started the server's names are fixed: those are shown.
+  const namesFixed = upscaling || upscaleDone;
+  const previewScale = upscaleDone ? (job?.upscaleScale ?? upscaleScale) : upscaleChecked ? upscaleScale : 1;
+  const boxById = new Map((job?.boxes ?? []).map((b) => [b.id, b]));
+  const toNamingItem = (a: Asset): NamingItem => {
+    const box = boxById.get(a.id);
+    const size = box ? cropSize(box, job?.imageWidth ?? 0, job?.imageHeight ?? 0) : null;
+    return {
+      name: String(a.name),
+      ...(size ? { width: size.width * previewScale, height: size.height * previewScale } : {}),
+    };
+  };
+  const selectedAssets = assets.filter((a) => selectedIds.has(a.id));
+  const namingContext = { sheet: job?.fileName, scale: previewScale };
+  const previewItems = (selectedAssets.length > 0 ? selectedAssets : assets).map(toNamingItem);
+  const setNames = namesFixed ? assets.map((a) => a.file_name).filter((n): n is string => Boolean(n)) : [];
+  // Until the worker has set them (the first moments of an upscale) the pattern's preview stands in.
+  const fixedNames = setNames.length > 0 ? setNames : undefined;
+  const tileNames = new Map<string, string>();
+  if (customPattern && patternOk && !namesFixed && selectedAssets.length > 0) {
+    const named = applyNamingPattern(pattern, selectedAssets.map(toNamingItem), namingContext);
+    if (named.ok) selectedAssets.forEach((a, i) => tileNames.set(a.id, named.fileNames[i] ?? ""));
+  }
+  const tileFileName = (a: Asset) => a.file_name || tileNames.get(a.id) || `${sanitize(String(a.name))}.png`;
 
   // Raw one-click states.
   const rawReady = status === "ready" && Boolean(job?.downloadUrl);
@@ -504,6 +614,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                   <AssetTile
                     key={asset.id}
                     asset={asset}
+                    fileName={tileFileName(asset)}
                     selected={selectedIds.has(asset.id)}
                     upscaled={upscaledIds.has(asset.id)}
                     scale={job.upscaleScale ?? upscaleScale}
@@ -536,7 +647,15 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                   <>
                     <Prop label="Format">PNG, transparent</Prop>
                     <Prop label="Names">
-                      AI names, duplicates get <span className="oa-value">_2</span>
+                      {(namesFixed ? job.namingPattern && !isDefaultPattern(job.namingPattern) : customPattern) ? (
+                        <>
+                          Your pattern, <span className="oa-value break-all">{namesFixed ? job.namingPattern : pattern}</span>
+                        </>
+                      ) : (
+                        <>
+                          AI names, duplicates get <span className="oa-value">_2</span>
+                        </>
+                      )}
                     </Prop>
                     <Prop label="File">
                       <span className="oa-value block truncate">{upscaleChecked ? upscaledZipName : zipName}</span>
@@ -545,6 +664,31 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                 )}
               </dl>
             </div>
+
+            {!autoRaw && (
+              <div className="oa-panel-sec">
+                <h3 className="oa-panel-title">Naming</h3>
+                <NamingControl
+                  value={namesFixed ? (job.namingPattern ?? DEFAULT_PATTERN) : pattern}
+                  onChange={setPatternDraft}
+                  items={previewItems}
+                  context={namingContext}
+                  mode={pref.mode}
+                  frozenNote={namesFixed ? "Names were set when the upscale started." : undefined}
+                  fixedNames={fixedNames}
+                >
+                  <Button
+                    size="sm"
+                    disabled={!patternOk || normalizePattern(pattern) === pref.saved || savingPattern || namesFixed}
+                    aria-busy={savingPattern || undefined}
+                    onClick={() => void handleSaveDefault()}
+                  >
+                    {savingPattern && <LoaderCircle aria-hidden className="animate-spin" />}
+                    Save as default
+                  </Button>
+                </NamingControl>
+              </div>
+            )}
 
             {!autoRaw && (
               <div className="oa-panel-sec">
@@ -601,12 +745,16 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
 
             <div className="oa-panel-sec border-b-0">
               <h3 className="oa-panel-title">Also save to a collection</h3>
-              <p className="text-[11px] leading-4 text-ink-2">Adds the selected assets to one of your collections.</p>
+              <p className="text-[11px] leading-4 text-ink-2">
+                Adds the selected assets to one of your collections.
+                {customPattern && !autoRaw ? " Their names follow your naming pattern." : ""}
+              </p>
               <div className="self-start">
                 <ExportToCollectionButton
                   jobId={jobId}
                   selectedIds={Array.from(selectedIds)}
-                  disabled={!cropDone || selectedCount === 0}
+                  disabled={!cropDone || selectedCount === 0 || namingBlocked}
+                  namingPattern={pref.allowed && !autoRaw ? normalizePattern(pattern) : undefined}
                 />
               </div>
             </div>
@@ -679,7 +827,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                 variant="primary"
                 size="lg"
                 block
-                disabled={!cropDone || selectedCount === 0 || localDownloading}
+                disabled={!cropDone || selectedCount === 0 || localDownloading || namingBlocked}
                 onClick={() => void (upscaleChecked ? handleUpscale() : handleLocalDownload())}
               >
                 {localDownloading ? (

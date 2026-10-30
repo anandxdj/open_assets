@@ -231,6 +231,57 @@ test('POST images (upload): a member adds to a shared folder; a refused caller n
   assert.equal(await h.models.Image.countDocuments({ collectionId: s.solo.id }), 1);
 });
 
+test('saving an editor export (with a naming pattern) obeys the same access rules', { skip }, async () => {
+  const s = await scene();
+  const path = `/api/collections/${s.shared.id}/folders/${s.shared.folderIds[0]}/images`;
+  const names = async () => (await h.models.Image.find({ collectionId: s.shared.id }).lean()).map((i) => i.name);
+  const before = (await names()).length;
+
+  // A teammate saves their own job into the shared collection; the default pattern keeps the names.
+  const memberJob = await h.seedJob(s.member.id);
+  const saved = await h.call('POST', path, s.member.token, { jobId: memberJob.jobId, namingPattern: '{name}' });
+  assert.equal(saved.status, 201, JSON.stringify(saved.json));
+  assert.deepEqual(saved.json.data.map((i: { name: string }) => i.name).sort(), ['shield', 'sword']);
+
+  // A custom pattern is the CALLER's plan to use: the owner being Pro does not lend it to a free member.
+  const custom = await h.call('POST', path, s.member.token, { jobId: memberJob.jobId, namingPattern: '{index:03}_{name}' });
+  assert.equal(custom.status, 403);
+  assert.equal(custom.json.code, 'PLAN_REQUIRED');
+
+  // A Pro teammate may, and the pattern names the saved images.
+  const pro = await h.makePro();
+  await h.call('POST', '/api/team/invites', s.owner.token, { email: pro.email });
+  await h.call('POST', `/api/team/invite/${h.tokenSentTo(pro.email)}/accept`, pro.token);
+  const proJob = await h.seedJob(pro.id);
+  const patterned = await h.call('POST', path, pro.token, { jobId: proJob.jobId, namingPattern: '{index:03}_{name}' });
+  assert.equal(patterned.status, 201, JSON.stringify(patterned.json));
+  assert.deepEqual(patterned.json.data.map((i: { name: string }) => i.name).sort(), ['001_sword', '002_shield']);
+
+  // Someone outside the team, or signed out, is refused before the job or the pattern is even looked at.
+  const stranger = await h.makePro();
+  const strangerJob = await h.seedJob(stranger.id);
+  const afterAllowed = (await names()).length;
+  assert.equal(afterAllowed, before + 4);
+  for (const body of [
+    { jobId: strangerJob.jobId, namingPattern: '{name}' },
+    { jobId: strangerJob.jobId, namingPattern: '{index:03}_{name}' },
+    { jobId: strangerJob.jobId },
+  ]) {
+    assert.equal(status(await h.call('POST', path, stranger.token, body)), 403, JSON.stringify(body));
+  }
+  assert.equal(status(await h.call('POST', path, null, { jobId: strangerJob.jobId })), 401);
+  // A teammate cannot save someone else's job either.
+  assert.equal(status(await h.call('POST', path, s.member.token, { jobId: strangerJob.jobId })), 403);
+  assert.equal((await names()).length, afterAllowed);
+
+  // The owner's plan lapses: even the default pattern is refused with TEAM_READ_ONLY for members.
+  await h.models.User.updateOne({ _id: s.owner.id }, { $set: { plan: 'free' } });
+  const late = await h.call('POST', path, s.member.token, { jobId: memberJob.jobId, namingPattern: '{name}' });
+  assert.equal(late.status, 403);
+  assert.equal(late.json.code, 'TEAM_READ_ONLY');
+  assert.equal((await names()).length, afterAllowed);
+});
+
 test('a folder from another collection cannot be used to reach into this one', { skip }, async () => {
   const s = await scene();
   // The member may edit the shared collection but names the solo collection's folder.

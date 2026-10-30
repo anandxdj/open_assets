@@ -73,7 +73,7 @@ export function hasEntitlement(subject: PlanSubject, key: EntitlementKey, now: D
 export function planRequiredError(key: EntitlementKey, subject: PlanSubject, now: Date = new Date()): ApiError {
   return new ApiError(
     403,
-    `${ENTITLEMENT_LABEL[key]} ${key === 'apiKeys' ? 'need' : 'needs'} the Pro plan.`,
+    `${ENTITLEMENT_LABEL[key]} ${key === 'apiKeys' || key === 'customNamingPatterns' ? 'need' : 'needs'} the Pro plan.`,
     PLAN_ERROR.PLAN_REQUIRED,
     { entitlement: key, requiredPlan: 'pro', plan: getEffectivePlan(subject, now) },
   );

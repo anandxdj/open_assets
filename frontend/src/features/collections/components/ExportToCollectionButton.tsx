@@ -21,6 +21,8 @@ interface Props {
   jobId: string;
   selectedIds: string[];
   disabled?: boolean;
+  /** Naming pattern for the saved names. Omit to keep the default names (the server decides). */
+  namingPattern?: string;
 }
 
 const NEW = "__new__";
@@ -30,7 +32,7 @@ function assetsLabel(n: number) {
 }
 
 /** "Save to collection" button and dialog for the export screen. */
-export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props) {
+export function ExportToCollectionButton({ jobId, selectedIds, disabled, namingPattern }: Props) {
   const ids = useId();
   const [open, setOpen] = useState(false);
   const [collections, setCollections] = useState<CollectionSummary[]>([]);
@@ -117,7 +119,7 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled }: Props
       }
 
       // 3. Push the selected crops.
-      await exportJobToFolder(targetCollection, targetFolder, jobId, selectedIds);
+      await exportJobToFolder(targetCollection, targetFolder, jobId, selectedIds, namingPattern);
       toast.success(`Saved ${assetsLabel(count)} to the collection`);
       setOpen(false);
     } catch (err) {

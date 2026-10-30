@@ -10,6 +10,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import type { TeamInviteMail } from '../../modules/teams/team.mail';
+import { jobKey } from '../../modules/jobs/job.keys';
 
 export const DAY = 24 * 60 * 60 * 1000;
 
@@ -167,6 +168,30 @@ export async function startHarness() {
     return { id: String(collection._id), folderIds, imageIds, publicIds };
   }
 
+  /** A cropped extraction job in Redis with two assets, owned by `userId`, for "save to collection" tests. */
+  const jobKeys: string[] = [];
+  async function seedJob(userId: string): Promise<{ jobId: string; assetIds: string[] }> {
+    const jobId = `team-test-${randomUUID()}`;
+    jobKeys.push(jobKey(jobId));
+    await redis.hset(jobKey(jobId), {
+      userId,
+      publicId: `orig-${randomUUID()}`,
+      fileName: 'sprites.png',
+      status: 'cropped',
+      imageWidth: '800',
+      imageHeight: '600',
+      boxes: JSON.stringify([
+        { id: 'a1', x: 0, y: 0, width: 32, height: 32 },
+        { id: 'a2', x: 40, y: 0, width: 32, height: 32 },
+      ]),
+      assets: JSON.stringify([
+        { id: 'a1', name: 'sword', cropped_url: `${imageBase}/a1.png`, public_id: `crop-${randomUUID()}` },
+        { id: 'a2', name: 'shield', cropped_url: `${imageBase}/a2.png`, public_id: `crop-${randomUUID()}` },
+      ]),
+    });
+    return { jobId, assetIds: ['a1', 'a2'] };
+  }
+
   /** The raw invite token the last email to `to` carried. */
   function tokenSentTo(to: string): string {
     const mail = [...mails].reverse().find((m) => m.to === to);
@@ -175,6 +200,7 @@ export async function startHarness() {
   }
 
   async function stop() {
+    if (jobKeys.length) await redis.del(...jobKeys);
     const ids = users;
     const owned = await CollectionModel.find({ creator: { $in: ids } }).select('_id').lean();
     const collectionIds = owned.map((c) => c._id);
@@ -208,6 +234,7 @@ export async function startHarness() {
     makeUser,
     makePro,
     seedCollection,
+    seedJob,
     tokenSentTo,
     freshIp,
     mails,
