@@ -364,6 +364,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
           Removes the background, names each asset with AI, then opens the export page.
         </span>
       </Topbar>
+      <h1 className="sr-only">Editing {fileName}</h1>
 
       {failed ? (
         <main className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-sunken p-4 md:p-6">
@@ -396,7 +397,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
             onDrawBox={() => setActiveTool("draw")}
           />
 
-          <section
+          <main
             ref={stageRef}
             aria-label="Canvas"
             className="oa-stage order-1 h-[min(560px,65dvh)] min-h-[360px] flex-none lg:order-none lg:h-auto lg:min-h-0 lg:flex-1"
@@ -490,7 +491,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                 )}
               </>
             )}
-          </section>
+          </main>
 
           <PropertiesPanel
             className="order-3 w-full flex-none border-t-[1.5px] border-line lg:order-none lg:w-[280px] lg:border-l-[1.5px] lg:border-t-0"

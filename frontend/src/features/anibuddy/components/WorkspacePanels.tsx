@@ -15,12 +15,12 @@ export function StageArea({
   children: React.ReactNode;
 }) {
   return (
-    <section
+    <main
       aria-label={label}
       className={cn("oa-stage flex min-h-[420px] shrink-0 flex-col lg:min-h-0 lg:min-w-0 lg:flex-1 lg:shrink", className)}
     >
       {children}
-    </section>
+    </main>
   );
 }
 

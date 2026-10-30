@@ -43,6 +43,7 @@ export function RouteError({
         <div role="alert" className="flex w-full max-w-lg flex-col gap-3">
           <EmptyState
             tone="danger"
+            headingLevel={1}
             icon={<TriangleAlert aria-hidden className="size-5" />}
             title="This page failed to load"
             description="Something went wrong while opening it. Try again, or go back and pick up from there."

@@ -58,6 +58,7 @@ export function EmptyState({
   description,
   actions,
   tone = "neutral",
+  headingLevel = 2,
   className,
 }: {
   icon?: React.ReactNode;
@@ -65,8 +66,11 @@ export function EmptyState({
   description?: React.ReactNode;
   actions?: React.ReactNode;
   tone?: "neutral" | "danger";
+  /** Use 1 when the state replaces the whole page, so the page still has its h1. */
+  headingLevel?: 1 | 2;
   className?: string;
 }) {
+  const Heading = headingLevel === 1 ? "h1" : "h2";
   return (
     <div
       className={cn(
@@ -78,7 +82,7 @@ export function EmptyState({
       {icon && (
         <span className={cn("oa-icon-box", tone === "danger" && "border-danger text-danger")}>{icon}</span>
       )}
-      <h2 className="oa-h3">{title}</h2>
+      <Heading className="oa-h3">{title}</Heading>
       {description && <p className="max-w-sm text-xs leading-[18px] text-ink-2">{description}</p>}
       {actions && <div className="mt-1 flex flex-wrap justify-center gap-2.5">{actions}</div>}
     </div>

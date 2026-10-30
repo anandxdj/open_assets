@@ -315,6 +315,7 @@ export function PackDetailScreen({ id }: { id: string }) {
     body = (
       <EmptyState
         tone="danger"
+        headingLevel={1}
         title="Could not open this collection"
         description={current.message}
         actions={
@@ -335,7 +336,7 @@ export function PackDetailScreen({ id }: { id: string }) {
           <div className="flex flex-col gap-2">
             <h1 className="oa-h3 break-words">{c.name}</h1>
             <span className="flex items-center gap-2 text-xs leading-[18px] text-ink-2">
-              <Avatar name={author} picture={creatorPicture(c)} className="size-5 text-[9px]" />
+              <Avatar name={author} picture={creatorPicture(c)} className="size-5 text-[10px]" />
               by {author}
             </span>
             {c.team && (

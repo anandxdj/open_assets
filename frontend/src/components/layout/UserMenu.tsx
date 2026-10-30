@@ -58,7 +58,7 @@ export function UserMenu({ variant = "row" }: { variant?: "row" | "compact" }) {
           </button>
         ) : (
           <button type="button" className="oa-btn oa-btn-ghost oa-btn-sm px-1" aria-label={`Account menu, ${user.name}`}>
-            <Avatar name={user.name} picture={user.picture} className="size-6 text-[9px]" />
+            <Avatar name={user.name} picture={user.picture} className="size-6 text-[10px]" />
           </button>
         )}
       </MenuTrigger>

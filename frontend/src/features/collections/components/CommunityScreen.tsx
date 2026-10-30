@@ -37,7 +37,7 @@ function PackCard({ collection: c }: { collection: CollectionSummary }) {
           {c.name}
         </Link>
         <span className="flex items-center gap-2 text-[11px] leading-4 text-ink-2">
-          <Avatar name={author} picture={creatorPicture(c)} className="size-5 text-[9px]" />
+          <Avatar name={author} picture={creatorPicture(c)} className="size-5 text-[10px]" />
           <span className="min-w-0 flex-1 truncate">{author}</span>
           <span className="flex items-center gap-1">
             <Heart aria-hidden className="size-3.5" />

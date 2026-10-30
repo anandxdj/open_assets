@@ -262,6 +262,7 @@ export function AdminScreen() {
         </Topbar>
         <PageBody>
           <EmptyState
+            headingLevel={1}
             icon={<ShieldOff aria-hidden className="size-5" />}
             title="Admins only"
             description="This page is for OpenAssets admins. Your account does not have access."

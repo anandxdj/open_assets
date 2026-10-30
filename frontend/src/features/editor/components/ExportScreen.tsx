@@ -548,6 +548,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   return (
     <>
       {topbar}
+      <h1 className="sr-only">Export {fileName}</h1>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
         <main className="min-w-0 flex-none bg-page px-4 pb-10 pt-5 md:px-6 lg:flex-1 lg:overflow-y-auto">
           {assets.length === 0 ? (
