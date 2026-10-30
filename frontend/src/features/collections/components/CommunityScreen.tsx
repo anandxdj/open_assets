@@ -90,24 +90,24 @@ export function CommunityScreen() {
   const items = result?.items ?? [];
 
   const announcement = loading
-    ? "Loading packs"
+    ? "Loading collections"
     : result?.error
-      ? "Could not load packs"
-      : `${items.length} ${items.length === 1 ? "pack" : "packs"}${debounced ? ` for “${debounced}”` : ""}`;
+      ? "Could not load collections"
+      : `${items.length} ${items.length === 1 ? "collection" : "collections"}${debounced ? ` for “${debounced}”` : ""}`;
 
   let body: React.ReactNode;
   if (!result) {
     body = (
       <div className="oa-label flex items-center justify-center gap-2.5 py-16">
         <LoaderCircle aria-hidden className="size-4 animate-spin" />
-        Loading packs
+        Loading collections
       </div>
     );
   } else if (result.error) {
     body = (
       <EmptyState
         tone="danger"
-        title="Could not load community packs"
+        title="Could not load community collections"
         description={result.error}
         actions={<Button onClick={() => setAttempt((n) => n + 1)}>Try again</Button>}
       />
@@ -116,7 +116,7 @@ export function CommunityScreen() {
     body = debounced ? (
       <EmptyState
         icon={<Search aria-hidden className="size-5" />}
-        title="No packs found"
+        title="No collections found"
         description={`Nothing matches “${debounced}”. Try another word or tag.`}
         actions={
           <Button variant="ghost" onClick={() => setQuery("")}>
@@ -127,7 +127,7 @@ export function CommunityScreen() {
     ) : (
       <EmptyState
         icon={<Compass aria-hidden className="size-5" />}
-        title="No community packs yet"
+        title="No community collections yet"
         description="Publish one of your collections to start the shelf."
         actions={
           <Button asChild>
@@ -158,19 +158,19 @@ export function CommunityScreen() {
         <Crumbs items={[{ label: "Community" }]} />
       </Topbar>
       <PageBody className="flex flex-col gap-5">
-        <PageTitle title="Community packs" description="Asset packs other creators extracted, named and published." />
+        <PageTitle title="Community collections" description="Collections other creators extracted, named and published." />
         <div role="search" className="flex flex-wrap gap-2">
           <InputGroup className="min-w-0 flex-[1_1_320px]" icon={<Search aria-hidden className="size-4 flex-none" />}>
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search packs, tags…"
-              aria-label="Search packs"
+              placeholder="Search collections, tags…"
+              aria-label="Search collections"
             />
           </InputGroup>
           <Select
-            aria-label="Sort packs"
+            aria-label="Sort collections"
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             className="w-full sm:w-[190px]"

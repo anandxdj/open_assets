@@ -1,8 +1,7 @@
 import * as React from "react";
-import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Loading } from "@/components/ui/feedback";
 import { rememberNextPath } from "@/features/auth/lib/next-path";
-import { cn } from "@/lib/utils";
 
 /** Page title and one line of context at the top of the auth column. */
 export function AuthIntro({ title, children }: { title: React.ReactNode; children?: React.ReactNode }) {
@@ -28,10 +27,7 @@ export function OrDivider({ children = "or with email" }: { children?: React.Rea
 /** Announced, in-progress line used while a session check or redirect runs. */
 export function AuthStatus({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <p role="status" className={cn("oa-label flex items-center gap-2.5", className)}>
-      <LoaderCircle aria-hidden className="size-4 flex-none animate-spin" />
-      {children}
-    </p>
+    <Loading label={children} className={className} />
   );
 }
 

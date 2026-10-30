@@ -1,5 +1,5 @@
 import { RouteLoading } from "@/components/layout/RouteLoading";
 
 export default function Loading() {
-  return <RouteLoading label="Loading packs" />;
+  return <RouteLoading label="Loading collections" />;
 }

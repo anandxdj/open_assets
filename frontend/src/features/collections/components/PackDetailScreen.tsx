@@ -26,7 +26,7 @@ import {
 } from "@/features/collections/api";
 import { AssetPreviewDialog } from "@/features/collections/components/AssetPreviewDialog";
 import { NameDialog } from "@/features/collections/components/CollectionDialogs";
-import { ConfirmDialog } from "@/features/team/components/ConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { creatorName, creatorPicture } from "@/features/collections/format";
 import { cn } from "@/lib/utils";
 
@@ -249,7 +249,7 @@ export function PackDetailScreen({ id }: { id: string }) {
     try {
       await downloadCollectionZip(id, name);
     } catch (err) {
-      toast.error("Could not download the pack", { description: err instanceof Error ? err.message : "Try again." });
+      toast.error("Could not download the collection", { description: err instanceof Error ? err.message : "Try again." });
     } finally {
       setZipping(false);
     }
@@ -267,13 +267,13 @@ export function PackDetailScreen({ id }: { id: string }) {
   async function handleLike() {
     if (liking) return;
     if (!user) {
-      toast.error("Sign in to like packs", {
+      toast.error("Sign in to like collections", {
         action: { label: "Sign in", onClick: () => router.push(`/login?next=${encodeURIComponent(`/collections/${id}`)}`) },
       });
       return;
     }
     if (liked) {
-      toast.info("You already like this pack");
+      toast.info("You already like this collection");
       return;
     }
     setLiking(true);
@@ -283,7 +283,7 @@ export function PackDetailScreen({ id }: { id: string }) {
       setLiked(true);
       toast.success("Added to your likes");
     } catch (err) {
-      toast.error("Could not like this pack", { description: err instanceof Error ? err.message : undefined });
+      toast.error("Could not like this collection", { description: err instanceof Error ? err.message : undefined });
     } finally {
       setLiking(false);
     }
@@ -302,7 +302,7 @@ export function PackDetailScreen({ id }: { id: string }) {
   const own = collection !== null && collection.access.via !== "public";
   const crumbs = [
     own ? { label: "My collections", href: "/dashboard/collections" } : { label: "Community", href: "/collections" },
-    { label: collection?.name ?? "Pack" },
+    { label: collection?.name ?? "Collection" },
   ];
 
   let body: React.ReactNode;
@@ -310,14 +310,14 @@ export function PackDetailScreen({ id }: { id: string }) {
     body = (
       <div role="status" className="oa-label flex items-center justify-center gap-2.5 py-16">
         <LoaderCircle aria-hidden className="size-4 animate-spin" />
-        Loading pack
+        Loading collection
       </div>
     );
   } else if (current.status === "error") {
     body = (
       <EmptyState
         tone="danger"
-        title="Could not open this pack"
+        title="Could not open this collection"
         description={current.message}
         actions={
           <Button asChild>
@@ -333,7 +333,7 @@ export function PackDetailScreen({ id }: { id: string }) {
     const canEdit = c.access.canEdit;
     body = (
       <div className="grid items-start gap-10 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <section aria-label="Pack details" className="flex flex-col gap-[18px] lg:sticky lg:top-0">
+        <section aria-label="Collection details" className="flex flex-col gap-[18px] lg:sticky lg:top-0">
           <div className="flex flex-col gap-2">
             <h1 className="oa-h3 break-words">{c.name}</h1>
             <span className="flex items-center gap-2 text-xs leading-[18px] text-ink-2">
@@ -352,7 +352,7 @@ export function PackDetailScreen({ id }: { id: string }) {
           {c.access.teamReadOnly && (
             <Notice tone="warning" role="status">
               This team is read-only because the owner&apos;s plan no longer includes team sharing. You can view and
-              download this pack, not edit it.
+              download this collection, not edit it.
             </Notice>
           )}
           {c.description && <p className="text-xs leading-[18px] text-ink-2">{c.description}</p>}
@@ -375,7 +375,7 @@ export function PackDetailScreen({ id }: { id: string }) {
               <Button asChild variant="primary" className="flex-1">
                 <a href={collectionDownloadUrl(id)}>
                   <Download aria-hidden />
-                  Download pack
+                  Download collection
                 </a>
               </Button>
             ) : (
@@ -386,12 +386,12 @@ export function PackDetailScreen({ id }: { id: string }) {
                 onClick={() => handleDownloadPack(c.name)}
               >
                 {zipping ? <LoaderCircle aria-hidden className="animate-spin" /> : <Download aria-hidden />}
-                Download pack
+                Download collection
               </Button>
             )}
             <Button
               icon
-              aria-label="Like this pack"
+              aria-label="Like this collection"
               aria-pressed={liked}
               aria-busy={liking || undefined}
               onClick={handleLike}
@@ -418,7 +418,7 @@ export function PackDetailScreen({ id }: { id: string }) {
           {c.folders.length === 0 ? (
             <EmptyState
               title="No assets yet"
-              description={canEdit ? "Add a folder, then save assets into it from any export." : "This pack has no folders to show."}
+              description={canEdit ? "Add a folder, then save assets into it from any export." : "This collection has no folders to show."}
             />
           ) : (
             c.folders.map((folder) => (
@@ -475,7 +475,6 @@ export function PackDetailScreen({ id }: { id: string }) {
           </>
         }
         confirmLabel="Delete image"
-        cancelLabel="Keep it"
         onConfirm={handleDeleteImage}
       />
     </>

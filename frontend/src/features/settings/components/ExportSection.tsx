@@ -85,7 +85,6 @@ export function ExportContent() {
             mode={pref.mode}
           >
             <Button
-              variant="primary"
               size="sm"
               disabled={!dirty || !valid || saving}
               aria-busy={saving || undefined}

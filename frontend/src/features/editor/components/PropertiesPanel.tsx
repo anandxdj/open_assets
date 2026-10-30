@@ -6,7 +6,7 @@ import type { BoundingBox } from "@/types";
 import type { DetectionMode } from "@/features/upload/services/uploadApi";
 import { Button } from "@/components/ui/button";
 import { Range } from "@/components/ui/controls";
-import { ProBadge, UpgradeAction } from "@/features/plans/UpgradeAction";
+import { ProGate } from "@/features/plans/ProGate";
 import { DETECTION_LIMITS } from "@/lib/plans";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -170,15 +170,7 @@ function TuningControls({ detection }: { detection: DetectionControls }) {
           Adds space around every box when you detect again.
         </span>
       </div>
-      {locked && tuning.ready && (
-        <div className="flex flex-col items-start gap-2 border-[1.5px] border-line px-2.5 py-2.5">
-          <p className="flex flex-wrap items-center gap-2 text-[11px] leading-4 text-ink-2">
-            <ProBadge />
-            Threshold and padding are part of Pro.
-          </p>
-          <UpgradeAction />
-        </div>
-      )}
+      {locked && tuning.ready && <ProGate feature="Threshold and padding" />}
     </>
   );
 }

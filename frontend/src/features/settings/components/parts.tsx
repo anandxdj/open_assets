@@ -1,6 +1,5 @@
-import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Notice } from "@/components/ui/feedback";
+import { Loading, Notice } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
 
 /**
@@ -65,12 +64,7 @@ export function SubSection({
 }
 
 export function SectionLoading({ label }: { label: string }) {
-  return (
-    <div role="status" className="oa-label flex items-center gap-2.5 py-3">
-      <LoaderCircle aria-hidden className="size-4 animate-spin" />
-      {label}
-    </div>
-  );
+  return <Loading label={label} className="py-3" />;
 }
 
 export function SectionError({ message, onRetry }: { message: string; onRetry: () => void }) {

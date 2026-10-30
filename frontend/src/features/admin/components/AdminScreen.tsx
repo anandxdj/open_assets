@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
 import { Dialog, DialogBody, DialogContent, DialogFooter } from "@/components/ui/dialog";
-import { EmptyState, Notice } from "@/components/ui/feedback";
+import { EmptyState, Loading, Notice } from "@/components/ui/feedback";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/context/AuthContext";
@@ -299,7 +299,7 @@ export function AdminScreen() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </Field>
-          <Button type="submit" variant="primary" aria-disabled={loading || undefined}>
+          <Button type="submit" aria-disabled={loading || undefined}>
             {loading ? <LoaderCircle aria-hidden className="animate-spin" /> : <Search aria-hidden />}
             Search
           </Button>
@@ -322,12 +322,7 @@ export function AdminScreen() {
             description="Nothing matches that search. Try part of an email address or a name."
           />
         )}
-        {!users && loading && (
-          <p role="status" className="oa-label flex items-center gap-2.5">
-            <LoaderCircle aria-hidden className="size-4 animate-spin" />
-            Loading users
-          </p>
-        )}
+        {!users && loading && <Loading label="Loading users" />}
       </PageBody>
 
       <SetPlanDialog user={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />

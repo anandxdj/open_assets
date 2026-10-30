@@ -38,7 +38,7 @@ export function HeroSection() {
               </Link>
             </Button>
             <Button asChild variant="secondary" size="xl" className="max-sm:w-full">
-              <Link href="/collections">Browse packs</Link>
+              <Link href="/collections">Browse collections</Link>
             </Button>
           </div>
           <p className="text-[11px] leading-4 text-ink-2">Free plan: {FREE_SHEETS_PER_MONTH} sheets a month.</p>

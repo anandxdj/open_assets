@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -108,39 +109,20 @@ export function ConfirmDeleteDialog({
   onConfirm: () => Promise<boolean>;
   onCloseAutoFocus?: (event: Event) => void;
 }) {
-  const [busy, setBusy] = useState(false);
-
-  async function handleConfirm() {
-    setBusy(true);
-    const ok = await onConfirm();
-    setBusy(false);
-    if (ok) onOpenChange(false);
-  }
-
   return (
-    <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent
-        onCloseAutoFocus={onCloseAutoFocus}
-        title="Delete this collection?"
-        description={
-          <>
-            <span className="font-bold text-ink">{name}</span> and every image in it will be deleted for good. This
-            cannot be undone.
-          </>
-        }
-      >
-        <DialogFooter className="border-t-0 pt-5">
-          <DialogClose asChild>
-            <Button variant="ghost" disabled={busy}>
-              Keep it
-            </Button>
-          </DialogClose>
-          <Button variant="danger" onClick={handleConfirm} disabled={busy} aria-busy={busy || undefined}>
-            {busy && <LoaderCircle aria-hidden className="animate-spin" />}
-            Delete collection
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      onCloseAutoFocus={onCloseAutoFocus}
+      title="Delete this collection?"
+      description={
+        <>
+          <span className="font-bold text-ink">{name}</span> and every image in it will be deleted for good. This cannot
+          be undone.
+        </>
+      }
+      confirmLabel="Delete collection"
+      onConfirm={onConfirm}
+    />
   );
 }

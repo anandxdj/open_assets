@@ -1,5 +1,5 @@
 import * as React from "react";
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { CircleAlert, CircleCheck, Info, LoaderCircle, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Tone = "info" | "warning" | "danger" | "success";
@@ -29,6 +29,16 @@ export function Notice({
       <Icon aria-hidden className="mt-px size-4 flex-none" />
       <div className="min-w-0 flex-1">{children}</div>
     </div>
+  );
+}
+
+/** Announced loading line: a spinner and an uppercase label. Block-level; add layout classes as needed. */
+export function Loading({ label = "Loading", className }: { label?: React.ReactNode; className?: string }) {
+  return (
+    <p role="status" className={cn("oa-label flex items-center gap-2.5", className)}>
+      <LoaderCircle aria-hidden className="size-4 animate-spin" />
+      {label}
+    </p>
   );
 }
 

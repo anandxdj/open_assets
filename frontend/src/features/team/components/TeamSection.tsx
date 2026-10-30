@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, type FormEvent } from "react";
-import { LoaderCircle, Lock, Users } from "lucide-react";
+import { LoaderCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,8 @@ import { Notice } from "@/components/ui/feedback";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { NameDialog } from "@/features/collections/components/CollectionDialogs";
 import { formatFullDate, formatRelativeTime, useNow } from "@/features/jobs/time";
-import { ProBadge, UpgradeAction } from "@/features/plans/UpgradeAction";
+import { ProGate } from "@/features/plans/ProGate";
+import { UpgradeAction } from "@/features/plans/UpgradeAction";
 import { errorMessage } from "@/features/settings/api";
 import { SectionError, SectionLoading, SubSection } from "@/features/settings/components/parts";
 import { useRemote } from "@/features/settings/useRemote";
@@ -30,7 +31,7 @@ import {
   type TeamMember,
   type TeamOverview,
 } from "@/features/team/api";
-import { ConfirmDialog } from "@/features/team/components/ConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ApiRequestError } from "@/lib/api-error";
 import { ENTITLEMENT_TABLE } from "@/lib/plans";
 
@@ -45,27 +46,12 @@ function plural(n: number, one: string, many = `${one}s`) {
 /** Free accounts: the section is visible but locked, with the way up. */
 function Locked({ onStarted }: { onStarted: () => void }) {
   return (
-    <div className="flex max-w-[560px] items-start gap-3 border-[1.5px] border-dashed border-line p-4">
-      <span className="oa-icon-box" aria-hidden>
-        <Lock className="size-4" />
-      </span>
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <p className="flex items-center gap-2 text-xs font-bold leading-[18px]">
-            Team sharing
-            <ProBadge />
-          </p>
-          <p className="text-xs leading-[18px] text-ink-2">
-            Invite people by email and share your collections with them. Everyone on the team can view, edit and
-            download what you share. Teammates can be on any plan. A team takes up to {ENTITLEMENT_TABLE.pro.teamSeats}{" "}
-            people on Pro.
-          </p>
-        </div>
-        <div>
-          <UpgradeAction variant="primary" onStarted={onStarted} />
-        </div>
-      </div>
-    </div>
+    <ProGate
+      layout="block"
+      feature="Team sharing"
+      description={`Invite people by email and share your collections with them. Everyone on the team can view, edit and download what you share. Teammates can be on any plan. A team takes up to ${ENTITLEMENT_TABLE.pro.teamSeats} people, you included.`}
+      onStarted={onStarted}
+    />
   );
 }
 
@@ -126,7 +112,7 @@ function CreateTeam({ seatLimit, onCreated }: { seatLimit: number; onCreated: ()
         />
       </Field>
       <div>
-        <Button type="submit" variant="primary" disabled={busy} aria-busy={busy || undefined}>
+        <Button type="submit" disabled={busy} aria-busy={busy || undefined}>
           {busy && <LoaderCircle aria-hidden className="animate-spin" />}
           Create team
         </Button>
@@ -286,7 +272,7 @@ function InviteForm({ team, onInvited }: { team: Team; onInvited: () => void }) 
         />
       </Field>
       <div>
-        <Button type="submit" variant="primary" disabled={busy || blocked} aria-busy={busy || undefined}>
+        <Button type="submit" disabled={busy || blocked} aria-busy={busy || undefined}>
           {busy && <LoaderCircle aria-hidden className="animate-spin" />}
           Send invite
         </Button>
@@ -444,7 +430,7 @@ function TeamDetails({ team, reload }: { team: Team; reload: () => void }) {
     }
   }
 
-  const copy: Record<Confirm["kind"], { title: string; description: React.ReactNode; confirmLabel: string; cancelLabel: string }> = {
+  const copy: Record<Confirm["kind"], { title: string; description: React.ReactNode; confirmLabel: string }> = {
     remove: {
       title: "Remove this person?",
       description: (
@@ -454,7 +440,6 @@ function TeamDetails({ team, reload }: { team: Team; reload: () => void }) {
         </>
       ),
       confirmLabel: "Remove from team",
-      cancelLabel: "Keep them",
     },
     revoke: {
       title: "Withdraw this invite?",
@@ -465,20 +450,17 @@ function TeamDetails({ team, reload }: { team: Team; reload: () => void }) {
         </>
       ),
       confirmLabel: "Withdraw invite",
-      cancelLabel: "Keep it",
     },
     leave: {
       title: `Leave ${team.name}?`,
       description:
         "You lose access to the team's collections right away. Anything you added stays with the team. The owner can invite you again.",
       confirmLabel: "Leave team",
-      cancelLabel: "Stay in the team",
     },
     dissolve: {
       title: `Dissolve ${team.name}?`,
       description: `The team, its ${plural(Math.max(0, team.members.length - 1), "member")} and pending invites are removed. Your collections stay yours; they just stop being shared, so members lose access to them.`,
       confirmLabel: "Dissolve team",
-      cancelLabel: "Keep the team",
     },
   };
   const active = copy[confirm?.kind ?? "leave"];
@@ -562,7 +544,6 @@ function TeamDetails({ team, reload }: { team: Team; reload: () => void }) {
         title={active.title}
         description={active.description}
         confirmLabel={active.confirmLabel}
-        cancelLabel={active.cancelLabel}
         onConfirm={handleConfirm}
       />
       <NameDialog

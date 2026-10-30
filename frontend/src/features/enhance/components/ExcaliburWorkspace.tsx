@@ -307,7 +307,7 @@ export function ExcaliburWorkspace() {
                 {error}
               </Notice>
             )}
-            <Button variant="primary" size="lg" block disabled={!source || busy} onClick={() => void submit()}>
+            <Button variant={resultUrl && !busy ? "secondary" : "primary"} size="lg" block disabled={!source || busy} onClick={() => void submit()}>
               {busy && <LoaderCircle aria-hidden className="animate-spin" />}
               {busy ? "Enhancing…" : resultUrl ? "Enhance again" : "Enhance image"}
             </Button>
@@ -400,9 +400,9 @@ export function ExcaliburWorkspace() {
                     Drop artwork here, or choose a file. SVG, PNG, JPEG or WebP up to 20 MB.
                   </p>
                 </div>
-                <Button variant="primary" size="lg" onClick={openPicker}>
+                <Button size="lg" onClick={openPicker}>
                   <ImageUp aria-hidden />
-                  Choose artwork
+                  Choose image
                 </Button>
               </div>
             </div>

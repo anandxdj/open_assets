@@ -519,7 +519,7 @@ export function MyCollectionsScreen() {
         <EmptyState
           icon={<Folder aria-hidden className="size-5" />}
           title="No collections yet"
-          description="Save assets from any export and we start a private draft pack for you."
+          description="Save assets from any export and we start a private draft collection for you."
           actions={
             <Button asChild>
               <Link href="/upload">Extract a sheet</Link>
@@ -557,7 +557,7 @@ export function MyCollectionsScreen() {
       <EmptyState
         icon={<Folder aria-hidden className="size-5" />}
         title="No collections yet"
-        description="Save assets from any export and we start a private draft pack for you."
+        description="Save assets from any export and we start a private draft collection for you."
         actions={
           <Button asChild>
             <Link href="/upload">Extract a sheet</Link>
@@ -646,7 +646,7 @@ export function MyCollectionsScreen() {
         onOpenChange={closeDialog}
         onCloseAutoFocus={restoreFocus}
         title="Name your collection"
-        description="Give this pack a name before you publish it to the community."
+        description="Give this collection a name before you publish it to the community."
         submitLabel="Publish"
         placeholder="e.g. Retro RPG assets"
         minLength={2}

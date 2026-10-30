@@ -110,7 +110,7 @@ export function ProfileSection({ account, onSaved }: { account: Account; onSaved
           />
         </Field>
         <div>
-          <Button type="submit" variant="primary" disabled={!dirty || busy} aria-busy={busy || undefined}>
+          <Button type="submit" disabled={!dirty || busy} aria-busy={busy || undefined}>
             {busy && <LoaderCircle aria-hidden className="animate-spin" />}
             {busy ? "Saving…" : "Save name"}
           </Button>

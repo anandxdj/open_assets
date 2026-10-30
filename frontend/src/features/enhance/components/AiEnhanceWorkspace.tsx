@@ -11,7 +11,7 @@ import { AiComparePane } from "@/features/enhance/components/AiComparePane";
 import { EnhanceTopbar } from "@/features/enhance/components/EnhanceTopbar";
 import { useAiCapabilities, useAiEnhance } from "@/features/enhance/hooks/useAiEnhance";
 import { useEntitlement, usePlan } from "@/features/plans/PlanContext";
-import { UpgradeAction } from "@/features/plans/UpgradeAction";
+import { ProGate } from "@/features/plans/ProGate";
 import { isPlanErrorCode } from "@/lib/plans";
 import {
   baseName,
@@ -284,17 +284,7 @@ export function AiEnhanceWorkspace() {
                 onChange={setScale}
               />
               <span className="text-[11px] leading-4 text-ink-3">{upscaleHelp}</span>
-              {scaleLocked && (
-                <div className="flex flex-col items-start gap-2">
-                  <p className="text-[11px] leading-4 text-ink-2">
-                    4× is part of Pro.{" "}
-                    <Link href="/pricing" className="oa-link">
-                      See plans
-                    </Link>
-                  </p>
-                  <UpgradeAction />
-                </div>
-              )}
+              {scaleLocked && <ProGate feature="4× upscale" />}
               {limits && options.scale !== null && (
                 <span className="text-[11px] leading-4 text-ink-3">
                   Takes images under {formatMegapixels(limits.maxUpscaleInputPixels)}.
@@ -358,7 +348,7 @@ export function AiEnhanceWorkspace() {
             {!runError && !limitMessage && noOperation && source && (
               <Notice tone="info">Turn on an upscale or remove the background to continue.</Notice>
             )}
-            <Button variant="primary" size="lg" block disabled={!canRun} onClick={() => void submit()}>
+            <Button variant={enhance.phase === "ready" ? "secondary" : "primary"} size="lg" block disabled={!canRun} onClick={() => void submit()}>
               {busy && <LoaderCircle aria-hidden className="animate-spin" />}
               {busy ? "Enhancing…" : enhance.phase === "ready" ? "Enhance again" : "Enhance image"}
             </Button>
@@ -381,7 +371,7 @@ export function AiEnhanceWorkspace() {
                 title="AI enhance isn't available here"
                 description={`${caps.message ?? "Storage isn't configured on this server."} Ask whoever runs this server to add storage credentials. Cleanup works without them.`}
                 actions={
-                  <Button asChild variant="primary">
+                  <Button asChild>
                     <Link href="/enhance/excalibur">Go to cleanup</Link>
                   </Button>
                 }
@@ -424,7 +414,7 @@ export function AiEnhanceWorkspace() {
                     Drop an image here, or choose a file. PNG, JPEG or WebP up to {formatBytes(maxBytes)}.
                   </p>
                 </div>
-                <Button variant="primary" size="lg" onClick={openPicker}>
+                <Button size="lg" onClick={openPicker}>
                   <ImageUp aria-hidden />
                   Choose image
                 </Button>

@@ -101,7 +101,7 @@ function DeleteAccount({ email }: { email: string }) {
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="ghost" disabled={busy}>
-                Keep my account
+                Cancel
               </Button>
             </DialogClose>
             <Button

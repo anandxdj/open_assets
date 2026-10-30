@@ -9,13 +9,13 @@ import { Crumbs, Topbar } from "@/components/layout/AppShell";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Progress, Segmented, Switch } from "@/components/ui/controls";
-import { EmptyState, Notice } from "@/components/ui/feedback";
+import { EmptyState, Loading, Notice } from "@/components/ui/feedback";
 import { ExportToCollectionButton } from "@/features/collections/components/ExportToCollectionButton";
 import { resolveExportNames, saveExportPattern } from "@/features/naming/api";
 import { NamingControl } from "@/features/naming/components/NamingControl";
 import { useExportPreference } from "@/features/naming/useExportPreference";
 import { usePlan, useEntitlement } from "@/features/plans/PlanContext";
-import { UpgradeAction } from "@/features/plans/UpgradeAction";
+import { ProGate } from "@/features/plans/ProGate";
 import { ApiRequestError } from "@/lib/api-error";
 import {
   DEFAULT_PATTERN,
@@ -514,11 +514,8 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
     return (
       <>
         {topbar}
-        <div className="flex flex-1 items-center justify-center" role="status">
-          <span className="oa-label flex items-center gap-2.5">
-            <LoaderCircle aria-hidden className="size-4 animate-spin" />
-            Loading assets
-          </span>
+        <div className="flex flex-1 items-center justify-center">
+          <Loading label="Loading assets" />
         </div>
       </>
     );
@@ -727,17 +724,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                         },
                       ]}
                     />
-                    {scaleLocked && (
-                      <div className="flex flex-col items-start gap-2">
-                        <p className="text-[11px] leading-4 text-ink-2">
-                          4× is part of Pro.{" "}
-                          <Link href="/pricing" className="oa-link">
-                            See plans
-                          </Link>
-                        </p>
-                        <UpgradeAction />
-                      </div>
-                    )}
+                    {scaleLocked && <ProGate feature="4× upscale" />}
                   </div>
                 )}
               </div>

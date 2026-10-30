@@ -46,7 +46,7 @@ export default function NotFound() {
         label="Useful pages"
         links={[
           { label: "Pricing", hint: "Plans and limits", href: "/pricing" },
-          { label: "Community packs", hint: "Browse shared asset packs", href: "/collections" },
+          { label: "Community collections", hint: "Browse shared collections", href: "/collections" },
           { label: "Docs", hint: "How OpenAssets works", href: DOCS_URL },
           { label: "Support", hint: SUPPORT_EMAIL, href: `mailto:${SUPPORT_EMAIL}`, external: true },
         ]}

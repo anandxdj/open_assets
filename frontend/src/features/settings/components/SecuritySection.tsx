@@ -4,7 +4,7 @@ import { useId, useState, type FormEvent } from "react";
 import { LoaderCircle, Puzzle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, describedBy } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/feedback";
@@ -167,7 +167,7 @@ function PasswordForm({
         extension.
       </p>
       <div>
-        <Button type="submit" variant="primary" disabled={busy} aria-busy={busy || undefined}>
+        <Button type="submit" disabled={busy} aria-busy={busy || undefined}>
           {busy && <LoaderCircle aria-hidden className="animate-spin" />}
           {busy ? "Saving…" : hasPassword ? "Change password" : "Set password"}
         </Button>
@@ -180,59 +180,37 @@ function PasswordForm({
 
 function SignOutEverywhere() {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleConfirm() {
-    setBusy(true);
     setError(null);
     try {
       await signOutEverywhere();
-      // Stay busy: the page is about to be replaced.
+      // Stay open and busy: the page is about to be replaced.
       leaveSignedOut("/login");
+      return false;
     } catch (err) {
       setError(errorMessage(err, "Could not sign you out everywhere. Try again."));
-      setBusy(false);
+      return false;
     }
   }
 
   return (
     <div>
-      <Dialog
+      <Button onClick={() => setOpen(true)}>Sign out of all devices</Button>
+      <ConfirmDialog
         open={open}
         onOpenChange={(next) => {
-          if (busy) return;
           setOpen(next);
           if (!next) setError(null);
         }}
-      >
-        <DialogTrigger asChild>
-          <Button>Sign out of all devices</Button>
-        </DialogTrigger>
-        <DialogContent
-          title="Sign out of all devices?"
-          description="Every browser and the Chrome extension is signed out, including this one. You sign in again to continue."
-        >
-          {error && (
-            <div className="px-5 pt-4">
-              <Notice tone="danger" role="alert">
-                {error}
-              </Notice>
-            </div>
-          )}
-          <DialogFooter className="border-t-0 pt-5">
-            <DialogClose asChild>
-              <Button variant="ghost" disabled={busy}>
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button variant="primary" onClick={handleConfirm} disabled={busy} aria-busy={busy || undefined}>
-              {busy && <LoaderCircle aria-hidden className="animate-spin" />}
-              Sign out everywhere
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title="Sign out of all devices?"
+        description="Every browser and the Chrome extension is signed out, including this one. You sign in again to continue."
+        confirmLabel="Sign out everywhere"
+        tone="primary"
+        error={error}
+        onConfirm={handleConfirm}
+      />
     </div>
   );
 }

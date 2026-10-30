@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { Check, Copy, KeyRound, LoaderCircle, Lock } from "lucide-react";
+import { Check, Copy, KeyRound, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -13,7 +13,8 @@ import { SectionError, SectionLoading, SubSection } from "@/features/settings/co
 import { createApiKey, errorMessage, listApiKeys, revokeApiKey } from "@/features/settings/api";
 import { useRemote } from "@/features/settings/useRemote";
 import { useEntitlement } from "@/features/plans/PlanContext";
-import { ProBadge, UpgradeAction } from "@/features/plans/UpgradeAction";
+import { ProGate } from "@/features/plans/ProGate";
+import { UpgradeAction } from "@/features/plans/UpgradeAction";
 import { formatFullDate, formatRelativeTime, useNow } from "@/features/jobs/time";
 import { ENTITLEMENT_TABLE } from "@/lib/plans";
 import type { ApiKey, CreatedApiKey } from "@/types/account";
@@ -381,22 +382,11 @@ export function ApiKeysContent() {
   if (!allowed && list.length === 0) {
     return (
       <SubSection first title="Keys" description={intro}>
-        <div className="flex flex-col items-start gap-3 border-[1.5px] border-dashed border-line p-4">
-          <div className="flex items-center gap-3">
-            <span className="oa-icon-box" aria-hidden>
-              <Lock className="size-4" />
-            </span>
-            <div className="flex flex-col gap-1">
-              <p className="flex items-center gap-2 text-xs font-bold leading-[18px]">
-                API keys <ProBadge />
-              </p>
-              <p className="text-xs leading-[18px] text-ink-2">
-                Pro accounts can create up to {proLimit} API keys to run extractions from scripts and build pipelines.
-              </p>
-            </div>
-          </div>
-          <UpgradeAction />
-        </div>
+        <ProGate
+          layout="block"
+          feature="API keys"
+          description={`Create up to ${proLimit} API keys to run extractions from scripts and build pipelines.`}
+        />
       </SubSection>
     );
   }

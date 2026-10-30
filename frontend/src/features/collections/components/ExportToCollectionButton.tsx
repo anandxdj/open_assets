@@ -174,7 +174,7 @@ export function ExportToCollectionButton({ jobId, selectedIds, disabled, namingP
                 <Input
                   id={nameField}
                   value={newCollectionName}
-                  placeholder="e.g. RPG pack v1"
+                  placeholder="e.g. RPG assets v1"
                   invalid={Boolean(nameError)}
                   aria-describedby={nameError ? `${nameField}-note` : undefined}
                   disabled={saving}

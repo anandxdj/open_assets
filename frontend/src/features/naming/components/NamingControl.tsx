@@ -1,12 +1,12 @@
 "use client";
 
 import { useId, useRef, type ReactNode } from "react";
-import Link from "next/link";
 import { CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { ProBadge, UpgradeAction } from "@/features/plans/UpgradeAction";
+import { ProGate } from "@/features/plans/ProGate";
+import { ProBadge } from "@/features/plans/UpgradeAction";
 import {
   DEFAULT_PATTERN,
   MAX_PATTERN_LENGTH,
@@ -115,15 +115,7 @@ export function NamingControl({ value, onChange, items, context, mode, frozenNot
       </Field>
 
       {locked ? (
-        <div className="flex flex-col items-start gap-2">
-          <p className="text-[11px] leading-4 text-ink-2">
-            Custom naming patterns are part of Pro.{" "}
-            <Link href="/pricing" className="oa-link">
-              See plans
-            </Link>
-          </p>
-          <UpgradeAction />
-        </div>
+        <ProGate feature="Custom naming patterns" />
       ) : (
         <div role="group" aria-label="Insert a token" className="flex flex-wrap gap-1.5">
           {TOKENS.map((t) => (

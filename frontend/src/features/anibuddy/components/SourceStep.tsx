@@ -191,7 +191,7 @@ export function SourceStep({
                         : "Drop an image here. PNG works best: one mostly front-facing character with a clean silhouette. JPEG and WebP work too."}
                     </p>
                   </div>
-                  <Button variant="primary" size="lg" onClick={open}>
+                  <Button size="lg" onClick={open}>
                     <ImageUp aria-hidden />
                     Choose image
                   </Button>

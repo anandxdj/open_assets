@@ -62,7 +62,7 @@ export function UsageMeter() {
               resets on {reset}. Pro has no sheet limit.
             </p>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <UpgradeAction variant="primary" />
+              <UpgradeAction />
               <Link href="/pricing" className="oa-link text-xs">
                 View plans
               </Link>
