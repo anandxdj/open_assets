@@ -72,6 +72,9 @@ Gates on existing routes:
 - `POST /api/finalize` takes `scale` (2 or 4; 4 needs Pro, else 403 `PLAN_LIMIT`).
 - `POST /api/enhance/ai` takes `scale` 2 or 4 the same way (4 needs Pro); `GET /api/enhance/capabilities`
   reports the plan's `operations.upscale.maxScale`.
+- `POST /api/finalize`, `POST /api/jobs/:id/export-names` and saving to a collection take `namingPattern`;
+  anything but the default pattern needs Pro (403 `PLAN_REQUIRED`). `PUT /api/preferences/export` saves the
+  default pattern the same way. See `docs/naming-patterns.md`.
 - `POST /api/jobs/:id/redetect` takes `threshold` (1 to 100, default 50) and `padding` (0 to 64 px,
   default 0); free accounts may only send the defaults (else 403 `PLAN_REQUIRED`).
 

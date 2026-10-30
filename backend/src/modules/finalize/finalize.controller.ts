@@ -7,15 +7,21 @@ import { assertOwner } from '../../common/utils/authz';
 import type { AuthRequest } from '../auth/auth.middleware';
 import { assertWithinLimit } from '../plans/entitlements';
 import { UPSCALE_SCALES } from '../plans/upscale';
+import { resolveNamingPattern } from '../naming/naming.service';
 
 export async function startFinalize(req: AuthRequest, res: Response): Promise<void> {
-  const { jobId, selectedIds, updatedNames, skipUpscale, scale } = req.body as {
+  const { jobId, selectedIds, updatedNames, skipUpscale, scale, namingPattern } = req.body as {
     jobId: string;
     selectedIds: string[];
     updatedNames?: Record<string, string>;
     skipUpscale?: boolean;
     /** Upscale factor, 2 (default) or 4. 4 needs the Pro plan. */
     scale?: number;
+    /**
+     * Naming pattern for the export's file names. A custom one needs Pro (403 PLAN_REQUIRED);
+     * omitted, a Pro account's saved default applies, otherwise the default pattern.
+     */
+    namingPattern?: string;
   };
 
   if (!jobId) throw ApiError.badRequest('jobId required');
@@ -29,6 +35,8 @@ export async function startFinalize(req: AuthRequest, res: Response): Promise<vo
   // Plan gate: 403 PLAN_LIMIT when the factor is above the plan's maxUpscale.
   // Skipped exports do not upscale, so they have nothing to gate.
   if (!skipUpscale && req.user) assertWithinLimit(req.user, 'maxUpscale', upscaleScale);
+  // Plan gate for custom naming patterns: 403 PLAN_REQUIRED, 400 INVALID_PATTERN.
+  const pattern = await resolveNamingPattern(req.user, namingPattern);
 
   const jobData = await getJob(jobId);
   if (!jobData) throw ApiError.notFound('Job not found');
@@ -54,6 +62,7 @@ export async function startFinalize(req: AuthRequest, res: Response): Promise<vo
     selectedIds: JSON.stringify(valid),
     skipUpscale: skipUpscale ? 'true' : 'false',
     upscaleScale: String(upscaleScale),
+    namingPattern: pattern,
   });
   await finalizeQueue.add('finalize', { jobId });
 

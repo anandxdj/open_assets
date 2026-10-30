@@ -44,6 +44,8 @@ export interface JobResponse {
   downloadUrl?: string;
   /** Upscale factor chosen for the export (2 or 4), once finalize has started. */
   upscaleScale?: number;
+  /** Naming pattern the export's file names follow, once finalize has started. */
+  namingPattern?: string;
   error?: string;
 }
 
@@ -70,6 +72,8 @@ export interface Asset {
   cropped_url: string;
   public_id: string;
   upscaled_url?: string; // set per-asset as cloud upscale completes
+  /** Export file name (with .png) the server's naming pattern gave it, set when finalize starts. */
+  file_name?: string;
 }
 
 export interface ExportJobResponse {

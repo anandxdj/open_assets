@@ -8,6 +8,8 @@ export interface IUser extends Document {
   password?: string;
   sub?: string; // Optional: for backward compatibility or future OIDC use
   picture?: string;
+  /** Default naming pattern for exports (Pro). Unset = the default pattern. Read it through modules/naming. */
+  exportNamingPattern?: string;
   role: 'user' | 'admin';
   isVerified: boolean;
   verificationToken?: string;
@@ -44,6 +46,7 @@ const UserSchema = new Schema<IUser>({
   password: { type: String, select: false },
   sub: { type: String, unique: true, sparse: true },
   picture: { type: String },
+  exportNamingPattern: { type: String, maxlength: 100 },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   isVerified: { type: Boolean, default: false },
   verificationToken: { type: String, select: false },

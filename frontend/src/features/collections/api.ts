@@ -125,10 +125,12 @@ export function exportJobToFolder(
   folderId: string,
   jobId: string,
   assetIds?: string[],
+  /** Naming pattern for the saved names. A custom one needs Pro (403 PLAN_REQUIRED). */
+  namingPattern?: string,
 ): Promise<ApiWrap<CollectionImage[]>> {
   return apiClient.post<ApiWrap<CollectionImage[]>>(
     `/api/collections/${collectionId}/folders/${folderId}/images`,
-    { jobId, assetIds },
+    { jobId, assetIds, namingPattern },
   );
 }
 
