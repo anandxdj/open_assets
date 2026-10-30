@@ -22,7 +22,7 @@ function Facts({ invite }: { invite: InvitePreview }) {
   return (
     <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 border-y-[1.5px] border-line py-3.5 text-xs leading-[18px]">
       <dt className="text-ink-2">Invited address</dt>
-      <dd className="oa-value break-all">{invite.email}</dd>
+      <dd className="oa-value break-words">{invite.email}</dd>
       <dt className="text-ink-2">Link works until</dt>
       <dd className="oa-value">
         <time dateTime={invite.expiresAt}>{expiryFormat.format(Date.parse(invite.expiresAt))}</time>
@@ -164,7 +164,7 @@ export function InviteScreen({ token }: { token: string }) {
       {!user && (
         <>
           <Notice tone="info">
-            Sign in or create an account with <span className="oa-value break-all">{invite.email}</span> to accept.
+            Sign in or create an account with <span className="oa-value break-words">{invite.email}</span> to accept.
           </Notice>
           <div className="flex flex-col gap-3">
             <Button asChild variant="primary" size="lg" block>
@@ -180,7 +180,7 @@ export function InviteScreen({ token }: { token: string }) {
       {user && matches && (
         <div className="flex flex-col gap-3">
           <p className="text-xs leading-[18px] text-ink-2">
-            Signed in as <span className="oa-value break-all">{user.email}</span>.
+            Signed in as <span className="oa-value break-words">{user.email}</span>.
           </p>
           <Button
             variant="primary"
@@ -199,8 +199,8 @@ export function InviteScreen({ token }: { token: string }) {
       {user && !matches && (
         <>
           <Notice tone="warning" role="status">
-            You are signed in as <span className="oa-value break-all">{user.email}</span>, but this invite was sent to{" "}
-            <span className="oa-value break-all">{invite.email}</span>. Sign in with that address to accept it.
+            You are signed in as <span className="oa-value break-words">{user.email}</span>, but this invite was sent to{" "}
+            <span className="oa-value break-words">{invite.email}</span>. Sign in with that address to accept it.
           </Notice>
           <div className="flex flex-col gap-3">
             <Button variant="primary" size="lg" block onClick={() => void handleSwitchAccount()}>

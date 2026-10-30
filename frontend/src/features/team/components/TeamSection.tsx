@@ -56,8 +56,9 @@ function Locked({ onStarted }: { onStarted: () => void }) {
             <ProBadge />
           </p>
           <p className="text-xs leading-[18px] text-ink-2">
-            Share collections with the people you work with. Everyone on the team can view, edit and download them.
-            Teammates can be on any plan. A team takes up to {ENTITLEMENT_TABLE.pro.teamSeats} people on Pro.
+            Invite people by email and share your collections with them. Everyone on the team can view, edit and
+            download what you share. Teammates can be on any plan. A team takes up to {ENTITLEMENT_TABLE.pro.teamSeats}{" "}
+            people on Pro.
           </p>
         </div>
         <div>
@@ -494,7 +495,9 @@ function TeamDetails({ team, reload }: { team: Team; reload: () => void }) {
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="text-xs text-ink-2" aria-label="Seats in use">
-              {team.seats.used} of {team.seats.limit} seats
+              {team.readOnly
+                ? `${team.members.length} ${team.members.length === 1 ? "person" : "people"}`
+                : `${team.seats.used} of ${team.seats.limit} seats`}
             </span>
             {isOwner && (
               <Button size="sm" onClick={() => setRenaming(true)}>

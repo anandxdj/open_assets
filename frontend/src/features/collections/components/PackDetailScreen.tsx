@@ -175,7 +175,8 @@ function FolderSection({
 
 export function PackDetailScreen({ id }: { id: string }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?._id;
   const [state, setState] = useState<LoadState | null>(null);
   const [closed, setClosed] = useState<Set<string>>(new Set()); // every folder starts open
   const [likes, setLikes] = useState<number | null>(null);
@@ -187,6 +188,9 @@ export function PackDetailScreen({ id }: { id: string }) {
   const [deleting, setDeleting] = useState<{ folder: CollectionFolder; image: CollectionImage } | null>(null);
 
   useEffect(() => {
+    // A private or team collection needs the access token, which a hard load only
+    // has once the session is restored: asking earlier would be a 403.
+    if (authLoading) return;
     let alive = true;
     getCollection(id)
       .then((res) => {
@@ -200,7 +204,7 @@ export function PackDetailScreen({ id }: { id: string }) {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, authLoading, userId]);
 
   const current = state?.id === id ? state : null;
   const collection = current?.status === "ready" ? current.collection : null;
@@ -294,7 +298,12 @@ export function PackDetailScreen({ id }: { id: string }) {
     }
   }
 
-  const crumbs = [{ label: "Community", href: "/collections" }, { label: collection?.name ?? "Pack" }];
+  // The owner and their team reach a pack through My collections; everyone else through the community.
+  const own = collection !== null && collection.access.via !== "public";
+  const crumbs = [
+    own ? { label: "My collections", href: "/dashboard/collections" } : { label: "Community", href: "/collections" },
+    { label: collection?.name ?? "Pack" },
+  ];
 
   let body: React.ReactNode;
   if (!current) {
