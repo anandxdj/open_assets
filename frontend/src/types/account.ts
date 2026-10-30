@@ -52,6 +52,27 @@ export interface ExtensionSession {
   expiresAt: string;
 }
 
+/** One row of GET /api/api-keys. The secret is never part of it. */
+export interface ApiKey {
+  id: string;
+  name: string;
+  /** `oa_live_` plus the first characters of the secret: enough to tell keys apart. */
+  prefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+/** POST /api/api-keys. `key` is the full secret and is only ever returned here. */
+export interface CreatedApiKey extends ApiKey {
+  key: string;
+}
+
+/** DELETE /api/api-keys/:id */
+export interface RevokedApiKey {
+  id: string;
+  revokedAt: string;
+}
+
 /** DELETE /api/account */
 export interface DeleteAccountResult {
   collections: number;

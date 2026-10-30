@@ -3,6 +3,7 @@
 import { Crumbs, PageBody, PageTitle, Topbar } from "@/components/layout/AppShell";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { getAccount } from "@/features/settings/api";
+import { ApiKeysContent } from "@/features/settings/components/ApiKeysSection";
 import { DangerZoneContent } from "@/features/settings/components/DangerZone";
 import { PlanUsageContent } from "@/features/settings/components/PlanUsageSection";
 import { ProfileSection } from "@/features/settings/components/ProfileSection";
@@ -36,7 +37,7 @@ export function SettingsScreen() {
         <Crumbs items={[{ label: "Settings" }]} />
       </Topbar>
       <PageBody className="flex flex-col gap-6">
-        <PageTitle title="Settings" description="Your profile, sign-in security, plan and usage." />
+        <PageTitle title="Settings" description="Your profile, sign-in security, plan, usage and API keys." />
 
         <div className="flex flex-col">
           <SettingsSection id="profile" title="Profile" description="How you appear in OpenAssets, and the email you sign in with.">
@@ -67,6 +68,10 @@ export function SettingsScreen() {
 
           <SettingsSection id="plan" title="Plan and usage" description="Your plan, your credits for the month, and what spent them.">
             <PlanUsageContent />
+          </SettingsSection>
+
+          <SettingsSection id="api-keys" title="API keys" description="Keys for the OpenAssets API. Part of Pro.">
+            <ApiKeysContent />
           </SettingsSection>
 
           <SettingsSection

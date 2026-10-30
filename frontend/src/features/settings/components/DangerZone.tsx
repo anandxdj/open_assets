@@ -15,6 +15,7 @@ const LOSSES = [
   "Every collection you own, including published ones, and the images in them",
   "Your usage history",
   "Your connected Chrome extension sessions",
+  "Your API keys, which stop working at once",
 ];
 
 function DeleteAccount({ email }: { email: string }) {
