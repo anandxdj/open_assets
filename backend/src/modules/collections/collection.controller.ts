@@ -4,12 +4,15 @@ import type { AuthRequest } from '../auth/auth.middleware';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { ApiError } from '../../common/utils/ApiError';
 import { storage } from '../../lib/storage';
-import { getJob, parseAssets } from '../jobs/job.store';
+import { getJob, parseAssets, parseBoxes } from '../jobs/job.store';
 import { assertOwner } from '../../common/utils/authz';
 import { buildZipBuffer } from '../../lib/zip.builder';
 import type { ZipItem } from '../../lib/zip.builder';
 import * as service from './collection.service';
 import type { ScaffoldImage } from './collection.service';
+import { exportScaleOf, nameExportAssets } from '../naming/exportNames';
+import { resolveNamingPattern } from '../naming/naming.service';
+import { isDefaultPattern } from '../naming/pattern';
 
 function requireUser(req: AuthRequest): { id: string; role: string } {
   if (!req.user) throw ApiError.unauthorized('Not authenticated');
@@ -82,8 +85,9 @@ export async function createFolder(req: AuthRequest, res: Response): Promise<voi
 /**
  * Add images to a folder. Two modes:
  *  1. Direct upload  — multipart/form-data files (req.files).
- *  2. Editor export  — JSON `{ jobId, assetIds? }` pushing finished crops from a
- *     job (owned by the caller) into the folder.
+ *  2. Editor export  — JSON `{ jobId, assetIds?, namingPattern? }` pushing finished crops from a
+ *     job (owned by the caller) into the folder. Image names follow the naming pattern: a custom
+ *     one needs Pro (403 PLAN_REQUIRED); the default pattern keeps each asset's name as it is.
  */
 export async function addImages(req: AuthRequest, res: Response): Promise<void> {
   const user = requireUser(req);
@@ -114,8 +118,9 @@ export async function addImages(req: AuthRequest, res: Response): Promise<void> 
       }),
     );
   } else {
-    const { jobId, assetIds } = req.body as { jobId?: string; assetIds?: string[] };
+    const { jobId, assetIds, namingPattern } = req.body as { jobId?: string; assetIds?: string[]; namingPattern?: string };
     if (!jobId) throw ApiError.badRequest('Provide image files or a jobId to export from');
+    const pattern = await resolveNamingPattern(req.user, namingPattern);
 
     const job = await getJob(jobId);
     if (!job) throw ApiError.notFound('Job not found');
@@ -125,8 +130,21 @@ export async function addImages(req: AuthRequest, res: Response): Promise<void> 
     const assets = parseAssets(job.assets).filter((a) => (wanted ? wanted.has(a.id) : true));
     if (assets.length === 0) throw ApiError.badRequest('No matching assets to export');
 
-    images = assets.map((a) => ({
-      name: a.name,
+    // The default pattern keeps today's names untouched; a custom one names the images as its file stems.
+    const names = isDefaultPattern(pattern)
+      ? assets.map((a) => a.name)
+      : nameExportAssets({
+          assets,
+          boxes: parseBoxes(job.boxes),
+          sheetWidth: Number(job.imageWidth) || 0,
+          sheetHeight: Number(job.imageHeight) || 0,
+          sheetFileName: job.fileName,
+          pattern,
+          scale: assets.every((a) => a.upscaled_url) ? exportScaleOf(job) : 1,
+        }).map((n) => n.stem);
+
+    images = assets.map((a, i) => ({
+      name: names[i] ?? a.name,
       cloudinaryUrl: a.upscaled_url || a.cropped_url,
       cloudinaryPublicId: a.public_id,
       sourceAssetName: a.name,
