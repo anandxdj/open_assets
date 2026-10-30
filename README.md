@@ -214,6 +214,8 @@ limited) reports MongoDB and Redis for Docker and load balancers.
 | GET | `/api/jobs/:jobId/download` | 302 → ZIP URL (when `ready`) |
 | POST | `/api/crop` | `{ jobId, boxes }` → name + crop pipeline |
 | POST | `/api/finalize` | `{ jobId, selectedIds, skipUpscale, scale }` → ZIP pipeline (`scale` 4 needs Pro) |
+| GET/POST/DELETE | `/api/api-keys` · `/api/api-keys/:id` | API keys (Pro, signed-in session only): list, create (the full key is returned once), revoke |
+| any | `/api/v1/…` | Public API (Pro), `Authorization: Bearer oa_live_…` only: `GET /me`, `POST`/`GET /jobs`, `GET /jobs/:id`, `POST /jobs/:id/crop`, `POST /jobs/:id/export`, `GET /jobs/:id/download`. Per-key rate limits, coded errors. Docs at `/docs/api` |
 | GET/POST | `/api/plans/me` · `/api/plans/trial` | Plan, limits, usage; start the 14-day trial ([plans](docs/plans-and-entitlements.md)) |
 | GET/PUT | `/api/admin/users` · `/api/admin/users/:id/plan` | Admin only: find users, set their plan |
 | GET/POST/PUT/DELETE | `/api/collections…` | Public galleries: CRUD, folders, images, `/like`, `/download` |
@@ -237,7 +239,11 @@ indexes for recency/popularity sorting and full-text search over name/descriptio
 
 ## Auth
 
-- **Access token** — JWT, 15 min, sent as `Authorization: Bearer`.
+- **Access token** — JWT, 15 min, sent as `Authorization: Bearer`. "Sign out everywhere" and
+  password changes and resets set `tokensValidAfter` on the user, and `authenticate()` rejects any
+  access token issued before it, so they take effect at once instead of at expiry.
+- **API key** — `oa_live_…`, Pro only, for `/api/v1` only (it is not a session and cookies and JWTs are
+  not accepted there). Only a SHA-256 hash is stored; revoke it in Settings.
 - **Refresh token** — 7 days, `httpOnly` cookie; `POST /api/auth/refresh-token`
   mints a new access token. `Secure`, `SameSite` and `Domain` come from `COOKIE_SECURE`,
   `COOKIE_SAMESITE` and `COOKIE_DOMAIN` (defaults: `Secure` + `SameSite=None` in

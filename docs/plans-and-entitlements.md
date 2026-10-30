@@ -86,6 +86,20 @@ Account deletion (`account.service.deleteAccount`) also removes the user's month
 their Redis history index and job records, and their AI enhance jobs, deleting the stored originals,
 crops and enhance sources best-effort (`account.purge.ts`). A Redis or storage failure never blocks it.
 
+## API keys and the public API
+
+`apiKeys` (Pro: 5) gates `backend/src/modules/apikeys` (`/api/api-keys`, session only) and
+`/api/v1` (`modules/publicapi`, API key only).
+
+- Creating a key: `assertEntitled(user, 'apiKeys')` (403 `PLAN_REQUIRED` on Free), then
+  `assertWithinLimit(user, 'apiKeys', activeKeys + 1)` (403 `PLAN_LIMIT`). Listing and revoking work on
+  any plan.
+- `/api/v1` authenticates the key, loads its owner and calls `assertEntitled(user, 'apiKeys')` on every
+  request, so when a Pro period ends the keys stay listed but answer 403 `PLAN_REQUIRED`.
+- Uploads, crops and exports go through the web app's own controllers, so the sheet counter, the
+  `maxUpscale` gate and the naming-pattern gate apply unchanged.
+- Account deletion deletes the user's keys.
+
 ## Frontend
 
 - `@/lib/plans`: the table, types (`PlanStatus`, `Entitlements`), `FREE_SHEETS_PER_MONTH`.

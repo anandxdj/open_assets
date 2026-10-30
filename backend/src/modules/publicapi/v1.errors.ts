@@ -25,6 +25,7 @@ export const V1_ERROR_CODES = [
   'VALIDATION_ERROR', // 400 request body or parameters failed validation
   'IMAGE_REQUIRED', //  400  no `image` file in the upload
   'INVALID_IMAGE', //   400  wrong format or size
+  'INVALID_PATTERN', // 400  the naming pattern is not valid
   'INVALID_JSON', //    400  body is not valid JSON
   'INVALID_UPLOAD', //  400  malformed multipart request
   'BAD_REQUEST', //     400  anything else

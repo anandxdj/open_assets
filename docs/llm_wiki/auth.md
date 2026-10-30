@@ -49,6 +49,8 @@ Pre-save hook: auto-hashes password with bcryptjs (salt 12) when `password` fiel
 - **Access token**: 15 min, Bearer header (`Authorization: Bearer <token>`)
 - **Refresh token**: 7 days, httpOnly cookie (`refreshToken`)
 - Secrets from `ACCESS_TOKEN_SECRET` and `REFRESH_TOKEN_SECRET` env vars
+- Access tokens also carry `iatMs` (issue time in ms). `user.tokensValidAfter` is set by logout-all,
+  password change and password reset; `authenticate()` rejects tokens with `iatMs` before it
 
 ## Middleware
 

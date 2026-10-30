@@ -28,6 +28,8 @@ export interface V1Asset {
   url: string;
   /** The upscaled PNG, once the export has produced it. */
   upscaledUrl: string | null;
+  /** The file name (with .png) the export's naming pattern gave it. null until the export has started. */
+  fileName: string | null;
 }
 
 export interface V1Job {
@@ -40,8 +42,10 @@ export interface V1Job {
   boxes: V1Box[];
   assets: V1Asset[];
   export: {
-    /** Upscale factor chosen for the export, once it has started. */
-    scale: 2 | 4 | null;
+    /** Upscale factor of the export once it has started: 2 or 4, or 1 when it skipped upscaling. */
+    scale: 1 | 2 | 4 | null;
+    /** The naming pattern the export's file names follow, once it has started. */
+    namingPattern: string | null;
     /** The ZIP can be downloaded. */
     ready: boolean;
   };
@@ -92,8 +96,13 @@ export function serializeJob(job: JobHash & { id: string }): V1Job {
       name: a.name,
       url: a.cropped_url,
       upscaledUrl: a.upscaled_url ?? null,
+      fileName: a.file_name ?? null,
     })),
-    export: { scale: scale === 2 || scale === 4 ? scale : null, ready: job.status === 'ready' },
+    export: {
+      scale: job.skipUpscale === 'true' ? 1 : scale === 2 || scale === 4 ? scale : null,
+      namingPattern: job.namingPattern || null,
+      ready: job.status === 'ready',
+    },
     error: job.error || null,
   };
 }

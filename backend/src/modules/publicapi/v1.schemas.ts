@@ -28,12 +28,17 @@ const assetId = z.string().min(1).max(64);
 export const exportBodySchema = z.object({
   /** Asset ids to export. Default: every asset the crop produced. */
   selectedIds: z.array(assetId).min(1).max(1000).optional(),
-  /** Rename assets for this export: asset id to file name (without extension). */
+  /** Rename assets for this export: asset id to its new name. That name is what `{name}` stands for in the naming pattern. */
   names: z.record(assetId, z.string().trim().min(1).max(120)).optional(),
   /** Upscale factor. 4 needs a plan with `maxUpscale` 4 (Pro). Default 2. */
   scale: z.union([z.literal(2), z.literal(4)]).optional(),
   /** false exports the crops as they are, without AI upscaling. Default true. */
   upscale: z.boolean().optional(),
+  /**
+   * How the exported files are named, for example "{sheet}_{index:03}_{name}". Checked by the
+   * naming module (400 INVALID_PATTERN). Omit it to use the account's saved default pattern.
+   */
+  namingPattern: z.string().max(500).optional(),
 });
 export type ExportBody = z.infer<typeof exportBodySchema>;
 

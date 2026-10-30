@@ -8,7 +8,8 @@ import type { ZipItem } from '../../lib/zip.builder';
 import { enforceSheetLimit } from '../plans/plans.middleware';
 import { getPlanStatus } from '../plans/plans.service';
 import { startCrop } from '../crop/crop.controller';
-import { startFinalize } from '../finalize/finalize.controller';
+import { beginFinalize } from '../finalize/finalize.controller';
+import { nameExportAssets } from '../naming/exportNames';
 import { getJob, listUserJobs, parseAssets, parseBoxes } from '../jobs/job.store';
 import { parseListQuery } from '../jobs/job.list';
 import type { JobHash } from '../jobs/job.types';
@@ -128,8 +129,12 @@ router.post(
 );
 
 /**
- * Start the export: optional rename, upscale and the ZIP. Needs status `cropped`.
- * `scale` 4 is checked against the plan's maxUpscale like on the web.
+ * Start the export: optional rename, upscale, naming pattern and the ZIP. Needs
+ * status `cropped`. `scale` 4 is checked against the plan's maxUpscale and a
+ * custom `namingPattern` against the customNamingPatterns entitlement, both by
+ * the same code the web export runs (beginFinalize). The response lists the file
+ * names the export will use, worked out by the same naming function the finalize
+ * worker uses.
  */
 router.post(
   '/jobs/:jobId/export',
@@ -139,15 +144,34 @@ router.post(
     const job = await loadOwnedJob(req);
     if (job.status !== 'cropped') throw wrongState(job, 'cropped');
 
-    const { selectedIds, names, scale, upscale } = req.body as ExportBody;
-    req.body = {
+    const { selectedIds, names, scale, upscale, namingPattern } = req.body as ExportBody;
+    const started = await beginFinalize(req.user, {
       jobId: job.id,
       selectedIds: selectedIds ?? parseAssets(job.assets).map((a) => a.id),
-      updatedNames: names,
+      ...(names ? { updatedNames: names } : {}),
       skipUpscale: upscale === false,
-      scale,
-    };
-    await startFinalize(req, res);
+      ...(scale ? { scale } : {}),
+      ...(namingPattern !== undefined ? { namingPattern } : {}),
+    });
+
+    const chosen = new Set(started.selectedIds);
+    const exportScale = started.skipUpscale ? 1 : started.scale;
+    const files = nameExportAssets({
+      assets: started.assets.filter((a) => chosen.has(a.id)),
+      boxes: parseBoxes(job.boxes),
+      sheetWidth: Number(job.imageWidth) || 0,
+      sheetHeight: Number(job.imageHeight) || 0,
+      sheetFileName: job.fileName,
+      pattern: started.pattern,
+      scale: exportScale,
+    }).map(({ id, name, fileName }) => ({ id, name, fileName }));
+
+    ApiResponse.created(res, 'Export started', {
+      jobId: job.id,
+      namingPattern: started.pattern,
+      scale: exportScale,
+      files,
+    });
   }),
 );
 
@@ -160,7 +184,7 @@ function selectedAssetIds(job: JobHash): Set<string> {
   }
 }
 
-/** The ZIP of the exported PNGs. Needs status `ready`. Built on request, like collection downloads. */
+/** The ZIP of the exported PNGs, named by the export's pattern. Needs status `ready`. Built on request, like collection downloads. */
 router.get(
   '/jobs/:jobId/download',
   asyncHandler(async (req: ApiKeyRequest, res: Response) => {
@@ -172,7 +196,12 @@ router.get(
     const selected = selectedAssetIds(job);
     const items: ZipItem[] = parseAssets(job.assets)
       .filter((asset) => selected.has(asset.id))
-      .map((asset) => ({ name: asset.name, url: asset.upscaled_url ?? asset.cropped_url }));
+      .map((asset) => ({
+        name: asset.name,
+        // The names the export's naming pattern chose, exactly as the web app's ZIP uses them.
+        ...(asset.file_name ? { stem: asset.file_name.replace(/\.png$/i, '') } : {}),
+        url: asset.upscaled_url ?? asset.cropped_url,
+      }));
 
     let zip: Buffer;
     try {

@@ -45,6 +45,8 @@ interface Ctx {
   makeKey: (userId: string, name?: string) => Promise<{ key: string; id: string }>;
   seedJob: (userId: string, status: string, extra?: Record<string, string>) => Promise<string>;
   getJob: typeof import('../modules/jobs/job.store').getJob;
+  /** Runs the finalize worker's job function (the real one) for a job. */
+  runFinalize: (jobId: string) => Promise<void>;
   limits: { requestsPerMinute: number; startsPer15Minutes: number; failedAuthPer15Minutes: number };
 }
 
@@ -107,6 +109,7 @@ before(async () => {
   const { generateApiKey } = await import('../modules/apikeys/apiKey.service');
   const { generateAccessToken } = await import('../common/utils/jwt.utils');
   const { V1_LIMITS } = await import('../modules/publicapi/v1.limits');
+  const { processFinalize } = await import('../modules/workers/finalize.worker');
   const { createApp } = await import('../app');
 
   const queued: Ctx['queued'] = [];
@@ -123,6 +126,7 @@ before(async () => {
     };
   }) as typeof storage.upload;
   storage.delete = async () => undefined;
+  storage.applyUpscale = (async (publicId: string, scale: number) => `https://res.example.test/up/${publicId}@${scale}x.png`) as typeof storage.applyUpscale;
   detectionQueue.add = (async (_name: string, data: Record<string, unknown>) => {
     queued.push({ queue: 'detect', data });
     return {};
@@ -158,6 +162,7 @@ before(async () => {
     fetchFails,
     models: { User: UserModel, ApiKey: ApiKeyModel },
     getJob,
+    runFinalize: processFinalize,
     limits: V1_LIMITS,
     async makeUser(extra = { plan: 'pro', planSource: 'admin' }) {
       const email = `v1-${randomUUID()}@test.local`;
@@ -596,7 +601,7 @@ test('GET /jobs/:id: status, boxes and names in the stable shape', { skip }, asy
   assert.deepEqual(d.boxes[0], { id: 'box_1', x: 10, y: 10, width: 100, height: 80, label: 'asset_001' });
   assert.equal(d.boxes.length, 2);
   assert.deepEqual(d.assets, []);
-  assert.deepEqual(d.export, { scale: null, ready: false });
+  assert.deepEqual(d.export, { scale: null, namingPattern: null, ready: false });
   assert.equal(d.error, null);
   for (const internal of ['cloudinaryUrl', 'publicId', 'workingUrl', 'userId', 'nameMap', 'selectedIds']) {
     assert.equal(internal in d, false, `${internal} is not part of the public shape`);
@@ -614,9 +619,10 @@ test('GET /jobs/:id: status, boxes and names in the stable shape', { skip }, asy
     name: 'fire_sword',
     url: 'https://res.example.test/crop/fire_sword.png',
     upscaledUrl: 'https://res.example.test/up/fire_sword.png',
+    fileName: null,
   });
   assert.equal(ready.assets[1].upscaledUrl, null);
-  assert.deepEqual(ready.export, { scale: 4, ready: true });
+  assert.deepEqual(ready.export, { scale: 4, namingPattern: null, ready: true });
 
   const failed = await ctx.seedJob(user.id, 'failed', { error: 'Cropping failed: boom' });
   assert.equal((await send('GET', `/api/v1/jobs/${failed}`, { key })).json.data.error, 'Cropping failed: boom');
@@ -739,6 +745,12 @@ test('export: defaults to every asset at 2x and queues the same finalize job as 
   const res = await send('POST', `/api/v1/jobs/${jobId}/export`, { key });
   assert.equal(res.status, 201, JSON.stringify(res.json));
   assert.equal(res.json.data.jobId, jobId);
+  assert.equal(res.json.data.namingPattern, '{name}', 'no pattern and no saved default: the default pattern');
+  assert.equal(res.json.data.scale, 2);
+  assert.deepEqual(res.json.data.files, [
+    { id: 'box_1', name: 'fire_sword', fileName: 'fire_sword.png' },
+    { id: 'box_2', name: 'health_potion', fileName: 'health_potion.png' },
+  ]);
   assert.deepEqual(ctx.queued.slice(before), [{ queue: 'finalize', data: { jobId } }]);
   const job = await ctx.getJob(jobId);
   assert.deepEqual(JSON.parse(job?.selectedIds ?? '[]'), ['box_1', 'box_2']);
@@ -761,10 +773,15 @@ test('export: options. A subset, new names, scale 4 (Pro allows it) and no upsca
   assert.equal(job?.upscaleScale, '4');
   const names = (JSON.parse(job?.assets ?? '[]') as { id: string; name: string }[]).map((a) => `${a.id}:${a.name}`);
   assert.deepEqual(names, ['box_1:fire_sword', 'box_2:big_potion']);
+  assert.deepEqual(res.json.data.files, [{ id: 'box_2', name: 'big_potion', fileName: 'big_potion.png' }], 'only the selected, with the new name');
+  assert.equal(res.json.data.scale, 4);
 
   const second = await ctx.seedJob(user.id, 'cropped', { boxes: JSON.stringify(BOXES), assets: JSON.stringify(ASSETS) });
-  assert.equal((await send('POST', `/api/v1/jobs/${second}/export`, { key, body: { upscale: false } })).status, 201);
+  const plain = await send('POST', `/api/v1/jobs/${second}/export`, { key, body: { upscale: false } });
+  assert.equal(plain.status, 201);
+  assert.equal(plain.json.data.scale, 1, 'no upscaling: the naming scale is 1');
   assert.equal((await ctx.getJob(second))?.skipUpscale, 'true');
+  assert.equal((await send('GET', `/api/v1/jobs/${second}`, { key })).json.data.export.scale, 1, 'the job reports the same factor');
 });
 
 test('export: validation, state, and ids that match nothing', { skip }, async () => {
@@ -773,7 +790,7 @@ test('export: validation, state, and ids that match nothing', { skip }, async ()
   const cropped = await ctx.seedJob(user.id, 'cropped', { boxes: JSON.stringify(BOXES), assets: JSON.stringify(ASSETS) });
   const before = ctx.queued.length;
 
-  for (const body of [{ scale: 3 }, { scale: '4' }, { upscale: 'yes' }, { selectedIds: [] }, { names: { box_1: '' } }, { selectedIds: 'all' }]) {
+  for (const body of [{ scale: 3 }, { scale: '4' }, { upscale: 'yes' }, { selectedIds: [] }, { names: { box_1: '' } }, { selectedIds: 'all' }, { namingPattern: 5 }]) {
     const res = await send('POST', `/api/v1/jobs/${cropped}/export`, { key, body });
     assert.equal(res.status, 400, JSON.stringify(body));
     assert.equal(res.json.code, 'VALIDATION_ERROR');
@@ -791,6 +808,83 @@ test('export: validation, state, and ids that match nothing', { skip }, async ()
     assert.deepEqual(res.json.details, { status, expected: 'cropped' });
   }
   assert.equal(ctx.queued.length, before);
+});
+
+test('export: a naming pattern names the files, and the response lists them', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const { key } = await ctx.makeKey(user.id);
+  const jobId = await ctx.seedJob(user.id, 'cropped', { boxes: JSON.stringify(BOXES), assets: JSON.stringify(ASSETS) });
+
+  const res = await send('POST', `/api/v1/jobs/${jobId}/export`, {
+    key,
+    body: { namingPattern: '{sheet}_{index:03}_{name}_{w}x{h}@{scale}x', scale: 4 },
+  });
+  assert.equal(res.status, 201, JSON.stringify(res.json));
+  assert.equal(res.json.data.namingPattern, '{sheet}_{index:03}_{name}_{w}x{h}@{scale}x');
+  assert.equal(res.json.data.scale, 4);
+  assert.deepEqual(
+    res.json.data.files.map((f: { fileName: string }) => f.fileName),
+    ['sheet_001_fire_sword_400x320@4x.png', 'sheet_002_health_potion_256x256@4x.png'],
+    'the crop size times the upscale factor, the sheet name without its extension, the position padded',
+  );
+  assert.equal((await ctx.getJob(jobId))?.namingPattern, '{sheet}_{index:03}_{name}_{w}x{h}@{scale}x', 'stored on the job like a web export');
+});
+
+test('export: a bad pattern is 400 INVALID_PATTERN and nothing is queued', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const { key } = await ctx.makeKey(user.id);
+  const jobId = await ctx.seedJob(user.id, 'cropped', { boxes: JSON.stringify(BOXES), assets: JSON.stringify(ASSETS) });
+  const before = ctx.queued.length;
+
+  for (const namingPattern of ['{nope}', 'no tokens', '{name', 'a/{name}', '']) {
+    const res = await send('POST', `/api/v1/jobs/${jobId}/export`, { key, body: { namingPattern } });
+    assert.equal(res.status, 400, namingPattern);
+    assert.equal(res.json.code, 'INVALID_PATTERN', namingPattern);
+    assert.ok(Array.isArray(res.json.details.issues));
+  }
+  assert.equal(ctx.queued.length, before);
+  assert.equal((await ctx.getJob(jobId))?.status, 'cropped', 'the job is untouched');
+});
+
+test('export: without a pattern the account\'s saved default applies, as on the web', { skip }, async () => {
+  const user = await ctx.makeUser({ plan: 'pro', planSource: 'admin', exportNamingPattern: '{name}@{scale}x' });
+  const { key } = await ctx.makeKey(user.id);
+  const jobId = await ctx.seedJob(user.id, 'cropped', { boxes: JSON.stringify(BOXES), assets: JSON.stringify(ASSETS) });
+
+  const res = await send('POST', `/api/v1/jobs/${jobId}/export`, { key, body: {} });
+  assert.equal(res.status, 201);
+  assert.equal(res.json.data.namingPattern, '{name}@{scale}x');
+  assert.deepEqual(res.json.data.files.map((f: { fileName: string }) => f.fileName), ['fire_sword@2x.png', 'health_potion@2x.png']);
+
+  const explicit = await ctx.seedJob(user.id, 'cropped', { boxes: JSON.stringify(BOXES), assets: JSON.stringify(ASSETS) });
+  const over = await send('POST', `/api/v1/jobs/${explicit}/export`, { key, body: { namingPattern: '{name}' } });
+  assert.deepEqual(over.json.data.files.map((f: { fileName: string }) => f.fileName), ['fire_sword.png', 'health_potion.png'], 'a pattern in the request wins');
+});
+
+test('export, finalize worker, job status and ZIP agree on the file names', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const { key } = await ctx.makeKey(user.id);
+  const jobId = await ctx.seedJob(user.id, 'cropped', { boxes: JSON.stringify(BOXES), assets: JSON.stringify(ASSETS) });
+
+  const started = await send('POST', `/api/v1/jobs/${jobId}/export`, {
+    key,
+    body: { namingPattern: '{index:02}-{name}@{scale}x', scale: 2 },
+  });
+  assert.equal(started.status, 201);
+  const promised = started.json.data.files.map((f: { fileName: string }) => f.fileName);
+  assert.deepEqual(promised, ['01-fire_sword@2x.png', '02-health_potion@2x.png']);
+
+  await ctx.runFinalize(jobId); // what the queue would do
+  const status = await send('GET', `/api/v1/jobs/${jobId}`, { key });
+  assert.equal(status.json.data.status, 'ready');
+  assert.deepEqual(status.json.data.export, { scale: 2, namingPattern: '{index:02}-{name}@{scale}x', ready: true });
+  assert.deepEqual(status.json.data.assets.map((a: { fileName: string }) => a.fileName), promised, 'the worker used the names the export promised');
+  assert.ok(status.json.data.assets.every((a: { upscaledUrl: string }) => a.upscaledUrl.includes('@2x.png')));
+
+  const zip = await send('GET', `/api/v1/jobs/${jobId}/download`, { key });
+  assert.equal(zip.status, 200);
+  const text = zip.raw.toString('latin1');
+  for (const name of promised) assert.ok(text.includes(name), `${name} is in the ZIP, characters like @ intact`);
 });
 
 /* ------------------------------------------------------------------ *
