@@ -1,6 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import axios from 'axios';
-import type { StorageAdapter, UploadOptions, UploadResult, ResourceType } from './interface';
+import type { StorageAdapter, UploadOptions, UploadResult, ResourceType, EnhanceTransform } from './interface';
 
 const POLL_TIMEOUT_MS = 120_000;
 const POLL_INTERVAL_MS = 2_000;
@@ -68,6 +68,30 @@ export class CloudinaryAdapter implements StorageAdapter {
     const url = cloudinary.url(publicId, {
       resource_type: 'image',
       transformation: [{ effect: 'upscale' }, { effect: 'background_removal' }],
+      fetch_format: 'png',
+      secure: true,
+    });
+    await this.pollUntilReady(url);
+    return url;
+  }
+
+  async applyEnhance(publicId: string, transform: EnhanceTransform): Promise<string> {
+    const { upscale, removeBackground } = transform;
+    if (!upscale && !removeBackground) {
+      throw new Error('applyEnhance needs an upscale, a background removal, or both.');
+    }
+    // Order matters: e_upscale flattens alpha, so e_background_removal must come
+    // after it. e_upscale is a fixed 4x; 2x resizes the 4x result back down.
+    const transformation: Record<string, unknown>[] = [];
+    if (upscale) {
+      transformation.push({ effect: 'upscale' });
+      if (upscale.scale === 2) transformation.push({ width: upscale.sourceWidth * 2, crop: 'scale' });
+    }
+    if (removeBackground) transformation.push({ effect: 'background_removal' });
+
+    const url = cloudinary.url(publicId, {
+      resource_type: 'image',
+      transformation,
       fetch_format: 'png',
       secure: true,
     });
