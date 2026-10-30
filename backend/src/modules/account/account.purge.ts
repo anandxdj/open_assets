@@ -50,8 +50,9 @@ function parseAssetIds(raw: string | null): string[] {
 /**
  * Removes what a user's extraction history and AI enhance jobs hold in Redis,
  * and the stored image files behind them: the `user:<id>:jobs` index, each of
- * the user's `job:<id>` hashes (original upload and cropped assets), and every
- * `enhance:ai:<id>` hash they own (its source image).
+ * the user's `job:<id>` hashes (original upload and cropped assets, including
+ * jobs they already removed from their history), and every `enhance:ai:<id>`
+ * hash they own (its source image).
  *
  * Best effort, like the rest of account deletion: a Redis or storage failure is
  * logged and counted, never thrown. Only entries whose stored `userId` is the
@@ -82,6 +83,29 @@ export async function purgeUserRedisData(userId: string, deps: PurgeDeps = {}): 
       result.jobs = owned.length;
     }
     await client.del(userJobsKey(userId));
+
+    // Jobs the user removed from their history, or cleared, are no longer in the index but still hold
+    // their original upload and crops (a job lives on for 24 hours). Find them by scanning, like the
+    // enhance jobs below, so deleting the account leaves none of their files behind.
+    let jobCursor = '0';
+    do {
+      const [next, keys] = await client.scan(jobCursor, 'MATCH', jobKey('*'), 'COUNT', SCAN_BATCH);
+      jobCursor = next;
+      if (keys.length === 0) continue;
+      const pipeline = client.pipeline();
+      for (const k of keys) pipeline.hmget(k, 'userId', 'publicId', 'assets');
+      const rows = (await pipeline.exec()) ?? [];
+      const owned: string[] = [];
+      rows.forEach(([err, values], i) => {
+        const [owner, publicId, assets] = (values ?? []) as (string | null)[];
+        if (err || owner !== userId) return;
+        owned.push(keys[i] as string);
+        if (publicId) publicIds.add(publicId);
+        for (const id of parseAssetIds(assets ?? null)) publicIds.add(id);
+      });
+      if (owned.length > 0) await client.del(...owned);
+      result.jobs += owned.length;
+    } while (jobCursor !== '0');
 
     // AI enhance jobs have no per-user index: scan for them. They expire after
     // 24 hours, so the keyspace this walks is small.
