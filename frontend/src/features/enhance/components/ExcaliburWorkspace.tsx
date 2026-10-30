@@ -204,7 +204,7 @@ export function ExcaliburWorkspace() {
                       {[formatSize(sourceSize), formatBytes(source.file.size)].filter(Boolean).join(" · ")}
                     </span>
                   </span>
-                  <Button variant="ghost" size="sm" aria-label="Replace artwork" onClick={openPicker}>
+                  <Button variant="ghost" size="sm" aria-label="Replace image" onClick={openPicker}>
                     Replace
                   </Button>
                 </div>
@@ -212,7 +212,7 @@ export function ExcaliburWorkspace() {
                 <>
                   <Button variant="secondary" block onClick={openPicker}>
                     <ImageUp aria-hidden />
-                    Choose artwork
+                    Choose image
                   </Button>
                   <span className="text-[11px] leading-4 text-ink-3">SVG, PNG, JPEG or WebP · up to 20 MB</span>
                 </>
@@ -397,7 +397,7 @@ export function ExcaliburWorkspace() {
                 <div className="flex flex-col gap-1">
                   <h2 className="oa-section">Polish the lines, keep the intent</h2>
                   <p className="text-xs leading-[18px] text-ink-2">
-                    Drop artwork here, or choose a file. SVG, PNG, JPEG or WebP up to 20 MB.
+                    Drop an image here, or choose a file. SVG, PNG, JPEG or WebP up to 20 MB.
                   </p>
                 </div>
                 <Button size="lg" onClick={openPicker}>

@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Compass, Download, Heart, LoaderCircle, Search } from "lucide-react";
+import { Compass, Download, Heart, Search } from "lucide-react";
 import { Crumbs, PageBody, PageTitle, Topbar } from "@/components/layout/AppShell";
 import { Avatar } from "@/components/layout/UserMenu";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/feedback";
+import { EmptyState, Loading } from "@/components/ui/feedback";
 import { InputGroup, Select } from "@/components/ui/input";
 import { listCollections, type CollectionSummary, type SortKey } from "@/features/collections/api";
 import { CoverGrid } from "@/features/collections/components/CoverGrid";
@@ -98,10 +98,7 @@ export function CommunityScreen() {
   let body: React.ReactNode;
   if (!result) {
     body = (
-      <div className="oa-label flex items-center justify-center gap-2.5 py-16">
-        <LoaderCircle aria-hidden className="size-4 animate-spin" />
-        Loading collections
-      </div>
+<Loading label="Loading collections" announce={false} className="justify-center py-16" />
     );
   } else if (result.error) {
     body = (

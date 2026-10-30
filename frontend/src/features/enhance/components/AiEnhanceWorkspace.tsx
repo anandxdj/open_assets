@@ -202,7 +202,7 @@ export function AiEnhanceWorkspace() {
             <div className="oa-panel-sec gap-0.5">
               <h1 className="oa-section">AI enhance</h1>
               <p className="text-[11px] leading-4 text-ink-2">
-                Upscale artwork, remove its background, or both.
+                Upscale an image, remove its background, or both.
                 {caps?.available ? ` Runs on ${caps.providerLabel}.` : ""}
               </p>
             </div>
@@ -221,8 +221,8 @@ export function AiEnhanceWorkspace() {
             {unavailable && caps && (
               <div className="oa-panel-sec">
                 <Notice tone="warning" role="status">
-                  <p className="font-bold">Storage provider not configured</p>
-                  <p className="mt-1">{caps.message ?? "AI enhance isn't available on this server."}</p>
+                  <p className="font-bold">AI enhance is unavailable</p>
+                  <p className="mt-1">It needs image storage that is not set up on this server.</p>
                 </Notice>
               </div>
             )}
@@ -369,7 +369,7 @@ export function AiEnhanceWorkspace() {
                 className="flex-1 justify-center"
                 icon={<Sparkles aria-hidden className="size-5" />}
                 title="AI enhance isn't available here"
-                description={`${caps.message ?? "Storage isn't configured on this server."} Ask whoever runs this server to add storage credentials. Cleanup works without them.`}
+                description={`${caps.message ?? "Image storage isn't set up on this server."} Ask whoever runs this server to set it up. Cleanup works without it.`}
                 actions={
                   <Button asChild>
                     <Link href="/enhance/excalibur">Go to cleanup</Link>

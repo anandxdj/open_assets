@@ -33,9 +33,18 @@ export function Notice({
 }
 
 /** Announced loading line: a spinner and an uppercase label. Block-level; add layout classes as needed. */
-export function Loading({ label = "Loading", className }: { label?: React.ReactNode; className?: string }) {
+export function Loading({
+  label = "Loading",
+  className,
+  announce = true,
+}: {
+  label?: React.ReactNode;
+  className?: string;
+  /** Turn off when the page already announces the same thing in a live region. */
+  announce?: boolean;
+}) {
   return (
-    <p role="status" className={cn("oa-label flex items-center gap-2.5", className)}>
+    <p role={announce ? "status" : undefined} className={cn("oa-label flex items-center gap-2.5", className)}>
       <LoaderCircle aria-hidden className="size-4 animate-spin" />
       {label}
     </p>

@@ -8,7 +8,7 @@ import { Crumbs, PageBody, PageTitle, Topbar } from "@/components/layout/AppShel
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
-import { EmptyState, Notice } from "@/components/ui/feedback";
+import { EmptyState, Loading, Notice } from "@/components/ui/feedback";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { TabButton } from "@/components/ui/tabs";
 import {
@@ -538,10 +538,7 @@ export function MyCollectionsScreen() {
   let body: React.ReactNode;
   if (status === "loading") {
     body = (
-      <div role="status" className="oa-label flex items-center justify-center gap-2.5 py-16">
-        <LoaderCircle aria-hidden className="size-4 animate-spin" />
-        Loading collections
-      </div>
+<Loading label="Loading collections" className="justify-center py-16" />
     );
   } else if (status === "error") {
     body = (

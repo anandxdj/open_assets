@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { ChevronsUpDown, Folder, LogOut, Moon, Settings, ShieldCheck, Sun } from "lucide-react";
+import { BookOpen, ChevronsUpDown, Folder, LogOut, Moon, Settings, ShieldCheck, Sun, Tag } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
@@ -88,6 +88,19 @@ export function UserMenu({ variant = "row" }: { variant?: "row" | "compact" }) {
             </Link>
           </MenuItem>
         )}
+        <MenuSeparator />
+        <MenuItem asChild>
+          <Link href="/docs">
+            <BookOpen aria-hidden />
+            Docs
+          </Link>
+        </MenuItem>
+        <MenuItem asChild>
+          <Link href="/pricing">
+            <Tag aria-hidden />
+            Pricing
+          </Link>
+        </MenuItem>
         <MenuItem onSelect={() => setTheme(isDark ? "light" : "dark")}>
           {isDark ? <Sun aria-hidden /> : <Moon aria-hidden />}
           {isDark ? "Light theme" : "Dark theme"}

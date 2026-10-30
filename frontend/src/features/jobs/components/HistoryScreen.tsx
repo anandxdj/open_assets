@@ -6,7 +6,7 @@ import { History, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Crumbs, PageBody, PageTitle, Topbar } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
-import { EmptyState, Notice } from "@/components/ui/feedback";
+import { EmptyState, Loading, Notice } from "@/components/ui/feedback";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { ClearHistoryDialog } from "@/features/jobs/components/ClearHistoryDialog";
 import { RecentJobsTable } from "@/features/jobs/components/RecentJobsTable";
@@ -44,10 +44,7 @@ export function HistoryScreen() {
           description="Sheets you extracted. The server keeps each job for 24 hours after its last change."
         />
         {list.kind === "loading" ? (
-          <p role="status" className="flex items-center gap-2 text-xs leading-[18px] text-ink-2">
-            <LoaderCircle aria-hidden className="size-3.5 animate-spin" />
-            Loading your history
-          </p>
+          <Loading label="Loading your history" />
         ) : list.kind === "error" ? (
           <Notice tone="warning">
             <span className="flex flex-wrap items-center justify-between gap-2">

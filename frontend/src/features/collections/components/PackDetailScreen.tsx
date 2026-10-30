@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Download, FolderPlus, Heart, Link2, LoaderCircle, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
-import { Crumbs, PageBody, Topbar } from "@/components/layout/AppShell";
+import { Crumbs, PageBody, Topbar, useActiveNav } from "@/components/layout/AppShell";
 import { Avatar } from "@/components/layout/UserMenu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState, Notice } from "@/components/ui/feedback";
+import { EmptyState, Loading, Notice } from "@/components/ui/feedback";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import {
   collectionDownloadUrl,
@@ -300,6 +300,7 @@ export function PackDetailScreen({ id }: { id: string }) {
 
   // The owner and their team reach a pack through My collections; everyone else through the community.
   const own = collection !== null && collection.access.via !== "public";
+  useActiveNav(own ? "/dashboard/collections" : null);
   const crumbs = [
     own ? { label: "My collections", href: "/dashboard/collections" } : { label: "Community", href: "/collections" },
     { label: collection?.name ?? "Collection" },
@@ -308,10 +309,7 @@ export function PackDetailScreen({ id }: { id: string }) {
   let body: React.ReactNode;
   if (!current) {
     body = (
-      <div role="status" className="oa-label flex items-center justify-center gap-2.5 py-16">
-        <LoaderCircle aria-hidden className="size-4 animate-spin" />
-        Loading collection
-      </div>
+<Loading label="Loading collection" className="justify-center py-16" />
     );
   } else if (current.status === "error") {
     body = (

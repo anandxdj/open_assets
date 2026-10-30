@@ -12,7 +12,7 @@ export default function EnhancePage() {
     <>
       <EnhanceTopbar />
       <PageBody>
-        <PageTitle title="Enhance" description="Improve artwork you already have." />
+        <PageTitle title="Enhance" description="Improve images you already have." />
 
         <ul aria-label="Enhance tools" className="mt-6 grid gap-4 md:grid-cols-2">
           <li className="flex flex-col gap-4 border-[1.5px] border-line-strong bg-surface p-5">
@@ -49,8 +49,8 @@ export default function EnhancePage() {
               </p>
             </div>
             <p className="text-xs leading-[18px] text-ink-3">
-              Runs on the server&apos;s storage provider (Cloudinary or ImageKit), so it needs
-              that configured.
+              2× on Free, 4× on Pro. It runs on the server&apos;s image storage, so it can be
+              unavailable.
             </p>
             <Button asChild variant="secondary" className="mt-auto self-start">
               <Link href="/enhance/ai">
