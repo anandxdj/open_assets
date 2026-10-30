@@ -48,13 +48,13 @@ export function Timeline({ clips, clip, frameCount, currentFrame, playing, fps, 
           <span className="text-ink">{pad(currentFrame + 1)}</span>
           <span className="text-ink-3"> / {pad(frameCount)}</span>
         </span>
-        <span aria-hidden className="oa-vsep" />
+        <span aria-hidden className="oa-vsep max-sm:hidden" />
         <span aria-hidden className="oa-label">FPS</span>
         <Segmented ariaLabel="Frames per second" value={String(fps)} options={FPS_SEGMENTS} onChange={(value) => onFps(Number(value) as Fps)} />
         <span className="flex-1" />
-        <Button variant="secondary" size="sm" disabled={!clip} onClick={onKey}>
+        <Button variant="secondary" size="sm" disabled={!clip} onClick={onKey} title="Key this frame">
           <KeyRound aria-hidden />
-          Key this frame
+          <span className="max-sm:sr-only">Key this frame</span>
         </Button>
       </div>
 

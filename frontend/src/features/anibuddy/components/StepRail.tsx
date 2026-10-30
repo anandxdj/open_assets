@@ -75,9 +75,9 @@ export function StepRail({ project, activeStep, onSelect }: StepRailProps) {
   return (
     <nav
       aria-label="AniBuddy steps"
-      className="flex flex-none flex-col border-b-[1.5px] border-line bg-surface md:col-span-2 xl:col-span-1 xl:w-[212px] xl:border-b-0 xl:border-r-[1.5px]"
+      className="flex flex-none flex-col border-b-[1.5px] border-line bg-surface lg:col-span-2 xl:col-span-1 xl:w-[212px] xl:border-b-0 xl:border-r-[1.5px]"
     >
-      <ol className="flex gap-0.5 overflow-x-auto p-2 [scrollbar-width:none] xl:flex-col xl:overflow-y-auto xl:px-2 xl:py-2.5 [&::-webkit-scrollbar]:hidden">
+      <ol className="relative flex gap-0.5 overflow-x-auto p-2 [scrollbar-width:none] xl:flex-col xl:overflow-y-auto xl:px-2 xl:py-2.5 [&::-webkit-scrollbar]:hidden">
         {STEP_ORDER.map((step, index) => {
           const meta = STEP_META[step];
           const lockReason = stepLockReason(project, step);

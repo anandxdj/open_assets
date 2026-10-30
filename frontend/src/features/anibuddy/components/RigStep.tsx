@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { CircleAlert, Droplet, Grid3x3, LoaderCircle, Plus, RotateCcw, Scissors, Sparkles, Spline, Trash2 } from "lucide-react";
 
 import {
@@ -19,7 +19,7 @@ import { type Raster, loadRaster } from "@/features/anibuddy/lib/raster";
 import { buildMesh, buildWeights } from "@/features/anibuddy/lib/mesh";
 import { buildRig, rebindWeights } from "@/features/anibuddy/lib/skeleton";
 import { requestRigAnalysis, AniBuddyApiError } from "@/features/anibuddy/api/anibuddyClient";
-import type { RigTool } from "@/features/anibuddy/components/RigCanvas";
+import { MAX_STAGE_EDGE, type RigTool } from "@/features/anibuddy/components/RigCanvas";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/feedback";
@@ -77,6 +77,24 @@ export function RigStep({ prepared, rig, onRig, onContinue }: RigStepProps) {
   const [selectedJointId, setSelectedJointId] = useState<string | null>(null);
   const [selectedCutId, setSelectedCutId] = useState<string | null>(null);
   const [showMesh, setShowMesh] = useState(false);
+
+  // The canvas draws at up to MAX_STAGE_EDGE, but the stacked layout (phones,
+  // tablets) gives the stage as little as 420px. Fit what fits, minus the
+  // stage padding and the floating tool bar.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [maxEdge, setMaxEdge] = useState(MAX_STAGE_EDGE);
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const fit = () => {
+      const room = Math.min(el.clientHeight - 16 - 80 - 4, el.clientWidth - 32 - 4);
+      setMaxEdge(Math.max(160, Math.min(MAX_STAGE_EDGE, Math.floor(room))));
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -229,13 +247,13 @@ export function RigStep({ prepared, rig, onRig, onContinue }: RigStepProps) {
         <p role="status" aria-live="polite" className="sr-only">
           {busy ? "Analysing the rig…" : ""}
         </p>
-        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 pb-20 md:p-8 md:pb-20">
+        <div ref={stageRef} className="relative flex min-h-0 flex-1 overflow-auto p-4 pb-20">
           {rig ? (
-            <div className="oa-checker flex-none border border-line" onPointerUp={tool === "joints" ? rebind : undefined}>
-              <RigCanvas prepared={prepared} rig={rig} tool={tool} selectedBone={selectedBone} selectedJointId={activeSelectedJointId} selectedCutId={activeSelectedCutId} showMesh={showMesh} brushRadius={0.08} brushStrength={0.35} onJointDrag={moveJoint} onJointSelect={setSelectedJointId} onAddJoint={addJoint} onWeights={(weights) => onRig({ ...rig, weights, source: "edited" })} onAddCut={addCut} onCutSelect={setSelectedCutId} />
+            <div className="oa-checker m-auto flex-none border border-line" onPointerUp={tool === "joints" ? rebind : undefined}>
+              <RigCanvas prepared={prepared} rig={rig} tool={tool} selectedBone={selectedBone} selectedJointId={activeSelectedJointId} selectedCutId={activeSelectedCutId} showMesh={showMesh} brushRadius={0.08} brushStrength={0.35} maxEdge={maxEdge} onJointDrag={moveJoint} onJointSelect={setSelectedJointId} onAddJoint={addJoint} onWeights={(weights) => onRig({ ...rig, weights, source: "edited" })} onAddCut={addCut} onCutSelect={setSelectedCutId} />
             </div>
           ) : (
-            <div className="oa-checker relative h-full min-h-[300px] w-full max-w-[520px] border border-line">
+            <div className="oa-checker relative m-auto h-full min-h-[300px] w-full max-w-[520px] border border-line">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={prepared.dataUrl} alt="Prepared artwork, not rigged yet" className="absolute inset-0 size-full object-contain p-6" />
               {busy && (

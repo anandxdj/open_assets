@@ -68,11 +68,11 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Topbar className="gap-3 md:gap-5">
-        <span className="hidden md:block">
+      <Topbar className="gap-3 lg:gap-5">
+        <span className="hidden lg:block">
           <Crumbs items={[{ label: "Studio" }]} />
         </span>
-        <div ref={tabsRef} className="flex min-w-0 flex-1 self-stretch md:flex-none">
+        <div ref={tabsRef} className="flex min-w-0 flex-1 self-stretch lg:flex-none">
           <Tabs
             label="Studio tools"
             className="min-w-0 flex-1 border-b-0 [scrollbar-width:none] md:gap-1 [&::-webkit-scrollbar]:hidden"
@@ -89,7 +89,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             ))}
           </Tabs>
         </div>
-        <span className="hidden flex-1 md:block" />
+        <span className="hidden flex-1 lg:block" />
         <StudioCredits />
         <Button
           variant="ghost"

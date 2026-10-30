@@ -48,7 +48,7 @@ export function AniBuddyWorkspace() {
         <span className="text-xs leading-[18px] text-ink-2">AniBuddy can&apos;t use your own key.</span>
       </CreditsNotice>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sunken pb-14 md:grid md:grid-cols-[minmax(0,1fr)_288px] md:grid-rows-[auto_minmax(0,1fr)] md:overflow-hidden md:pb-0 xl:flex xl:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sunken pb-14 md:pb-0 lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden xl:flex xl:flex-row">
         <StepRail project={state} activeStep={activeStep} onSelect={setSelected} />
         {activeStep === "concept" && (
           <ConceptStep
