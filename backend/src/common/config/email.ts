@@ -61,7 +61,8 @@ export const sendVerificationEmail = async (email: string, token: string) => {
         </div>
       </div>
     </div>
-    `
+    `,
+    `Verification link for ${email}: ${url}`,
   );
 };
 
@@ -98,7 +99,8 @@ export const sendResetPasswordEmail = async (email: string, token: string) => {
         </div>
       </div>
     </div>
-    `
+    `,
+    `Password reset link for ${email}: ${url}`,
   );
 };
 

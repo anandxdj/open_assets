@@ -383,7 +383,11 @@ export function AiEnhanceWorkspace() {
                 className="flex-1 justify-center"
                 icon={<Sparkles aria-hidden className="size-5" />}
                 title="AI enhance isn't available here"
-                description={`${caps.message ?? "Storage isn't configured on this server."} Ask whoever runs this server to add storage credentials. Cleanup works without them.`}
+                description={
+                  caps.reason === STORAGE_UNSUPPORTED
+                    ? `${caps.message ?? "This server's storage can't run AI enhance."} Cleanup works without it.`
+                    : `${caps.message ?? "Storage isn't configured on this server."} Ask whoever runs this server to add storage credentials. Cleanup works without them.`
+                }
                 actions={
                   <Button asChild variant="primary">
                     <Link href="/enhance/excalibur">Go to cleanup</Link>
