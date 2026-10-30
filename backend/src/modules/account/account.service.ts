@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { UserModel } from '../auth/auth.model';
+import { ExtensionAuthService } from '../auth/extensionAuth.service';
 import { ExtensionSessionModel } from '../auth/extensionSession.model';
 import { ExtensionAuthorizationModel } from '../auth/extensionAuthorization.model';
 import { CollectionModel } from '../collections/collection.model';
@@ -66,21 +67,16 @@ export async function updateProfile(userId: string, input: { name: string }) {
  * ------------------------------------------------------------------ */
 
 /** Marks every live extension device session of a user as revoked. */
-async function revokeAllExtensionSessions(userId: string): Promise<number> {
-  const result = await ExtensionSessionModel.updateMany(
-    { user: userId, revokedAt: { $exists: false } },
-    { $set: { revokedAt: new Date() } },
-  );
-  return result.modifiedCount;
-}
+const revokeAllExtensionSessions = (userId: string) => ExtensionAuthService.revokeAllForUser(userId);
 
 /**
  * Change the password, or set the first one on a Google-only account.
  *
- * Every other session is signed out: the single stored refresh token is
- * replaced (a new one is returned for the caller's own browser) and extension
- * device sessions are revoked. Access tokens already issued stay valid until
- * they expire (15 minutes by default).
+ * Every other session is signed out at once: the single stored refresh token
+ * is replaced (a new one is returned for the caller's own browser), extension
+ * device sessions are revoked, and `tokensValidAfter` kills every access token
+ * issued before this moment. The caller's new access token is stamped with that
+ * same instant, so their own session carries on.
  */
 export async function changePassword(userId: string, input: ChangePasswordInput) {
   const user = await UserModel.findById(userId).select(
@@ -101,18 +97,23 @@ export async function changePassword(userId: string, input: ChangePasswordInput)
     }
   }
 
-  const accessToken = generateAccessToken({
-    id: user._id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-  });
+  const now = new Date();
+  const accessToken = generateAccessToken(
+    {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    },
+    now,
+  );
   // `jti` keeps the rotated token distinct even when issued in the same second.
   const refreshToken = generateRefreshToken({ id: user._id, jti: randomUUID() });
 
   const hadPassword = Boolean(user.password);
   user.password = input.newPassword; // hashed by the model's pre-save hook
   user.refreshToken = hashToken(refreshToken);
+  user.tokensValidAfter = now;
   // An outstanding reset link must not outlive a password change.
   user.resetPasswordToken = undefined;
   user.resetPasswordExpires = undefined;
@@ -122,9 +123,12 @@ export async function changePassword(userId: string, input: ChangePasswordInput)
   return { accessToken, refreshToken, passwordWasSet: !hadPassword, extensionSessionsRevoked };
 }
 
-/** Invalidates the user's refresh token and every extension device session. */
+/**
+ * Invalidates the user's refresh token, every extension device session and every
+ * access token issued so far (`tokensValidAfter`), the caller's own included.
+ */
 export async function logoutEverywhere(userId: string) {
-  await UserModel.updateOne({ _id: userId }, { $unset: { refreshToken: 1 } });
+  await UserModel.updateOne({ _id: userId }, { $set: { tokensValidAfter: new Date() }, $unset: { refreshToken: 1 } });
   const extensionSessionsRevoked = await revokeAllExtensionSessions(userId);
   return { extensionSessionsRevoked };
 }

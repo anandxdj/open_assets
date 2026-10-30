@@ -361,7 +361,7 @@ export function SecurityContent({ account, onPasswordChanged }: { account: Accou
 
       <SubSection
         title="Devices"
-        description="Sign out everywhere if you lost a device or used a shared computer. Other devices lose access within about 15 minutes."
+        description="Sign out everywhere if you lost a device or used a shared computer. Every other device loses access immediately."
       >
         <SignOutEverywhere />
       </SubSection>

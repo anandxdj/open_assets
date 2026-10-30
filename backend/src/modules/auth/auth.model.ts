@@ -12,6 +12,12 @@ export interface IUser extends Document {
   isVerified: boolean;
   verificationToken?: string;
   refreshToken?: string;
+  /**
+   * Access tokens issued before this instant are rejected by authenticate().
+   * Set by "sign out everywhere" and by password changes and resets, so those
+   * take effect at once instead of when the 15-minute token expires.
+   */
+  tokensValidAfter?: Date;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
   lastLogin: Date;
@@ -42,6 +48,7 @@ const UserSchema = new Schema<IUser>({
   isVerified: { type: Boolean, default: false },
   verificationToken: { type: String, select: false },
   refreshToken: { type: String, select: false },
+  tokensValidAfter: { type: Date },
   resetPasswordToken: { type: String, select: false },
   resetPasswordExpires: { type: Date, select: false },
   lastLogin: { type: Date, default: Date.now },

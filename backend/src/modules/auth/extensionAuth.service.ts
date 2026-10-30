@@ -63,6 +63,15 @@ export class ExtensionAuthService {
     return { accessToken: generateAccessToken({ id: user._id, email: user.email, name: user.name, role: user.role }), deviceToken: nextToken, user: publicUser(user) };
   }
 
+  /** Revokes every live extension device session of a user. Returns how many. */
+  static async revokeAllForUser(userId: string): Promise<number> {
+    const result = await ExtensionSessionModel.updateMany(
+      { user: userId, revokedAt: { $exists: false } },
+      { $set: { revokedAt: new Date() } },
+    );
+    return result.modifiedCount;
+  }
+
   static async revoke(deviceToken?: string) {
     if (!deviceToken) return;
     await ExtensionSessionModel.updateOne({ tokenHash: hashToken(deviceToken) }, { $set: { revokedAt: new Date() } });

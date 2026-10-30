@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { ApiError } from '../../common/utils/ApiError';
-import { verifyAccessToken } from '../../common/utils/jwt.utils';
+import { isAccessTokenRevoked, verifyAccessToken } from '../../common/utils/jwt.utils';
 import { UserModel } from './auth.model';
 import type { IUser } from './auth.model';
 
@@ -37,6 +37,11 @@ export const authenticate = (optional = false) => async (req: AuthRequest, res: 
     if (!user) {
       if (optional) return next();
       throw ApiError.unauthorized('User no longer exists');
+    }
+
+    // Signed out everywhere / password changed since this token was issued.
+    if (isAccessTokenRevoked(decoded, user.tokensValidAfter)) {
+      throw ApiError.unauthorized('Session was revoked');
     }
 
     req.user = {

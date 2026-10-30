@@ -11,6 +11,7 @@ import {
 } from '../../common/utils/jwt.utils';
 
 import { sendVerificationEmail, sendResetPasswordEmail } from '../../common/config/email';
+import { ExtensionAuthService } from './extensionAuth.service';
 
 export class AuthService {
   static async register(userData: Partial<IUser>) {
@@ -194,7 +195,7 @@ export class AuthService {
     const user = await UserModel.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpires: { $gt: new Date() },
-    }).select('+resetPasswordToken +resetPasswordExpires');
+    }).select('+resetPasswordToken +resetPasswordExpires +refreshToken');
 
     if (!user) {
       throw ApiError.badRequest('Invalid or expired reset token');
@@ -203,7 +204,12 @@ export class AuthService {
     user.password = newPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+    // A reset is a password change: whoever held the old password (or a stolen
+    // session) is signed out at once, in every browser and the extension.
+    user.refreshToken = undefined;
+    user.tokensValidAfter = new Date();
     await user.save();
+    await ExtensionAuthService.revokeAllForUser(String(user._id));
   }
 
   static async getMe(userId: string) {

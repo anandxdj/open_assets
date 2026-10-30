@@ -340,10 +340,14 @@ describe('account API (MongoDB)', { skip: needsMongo }, () => {
     assert.equal(res.body.message, 'Password set');
     const fresh = await UserModel.findById(u.id).select('+password');
     assert.equal(await fresh?.comparePassword('First-password1'), true);
+    // Setting a password revokes every earlier access token at once (the old `u.token` is dead);
+    // the caller carries on with the fresh one from the response.
+    assert.equal((await call(server.url, 'GET', '/api/account', { token: u.token })).status, 401);
+    const token: string = res.body.data.accessToken;
     // Once set, the account behaves like any other: the current password is now required.
-    const again = await call(server.url, 'PUT', '/api/account/password', { token: u.token, body: { newPassword: 'Another-pass2' } });
+    const again = await call(server.url, 'PUT', '/api/account/password', { token, body: { newPassword: 'Another-pass2' } });
     assert.equal(again.status, 400);
-    assert.equal((await call(server.url, 'GET', '/api/account', { token: u.token })).body.data.hasPassword, true);
+    assert.equal((await call(server.url, 'GET', '/api/account', { token })).body.data.hasPassword, true);
   });
 
   test('PUT /api/account/password is rate limited per user after 10 failed attempts', async () => {
