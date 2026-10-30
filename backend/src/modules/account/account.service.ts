@@ -9,6 +9,7 @@ import { ImageModel } from '../collections/image.model';
 import { CollectionLikeModel } from '../collections/collectionLike.model';
 import { UsageEventModel } from '../usage/usage.model';
 import { SheetUsageModel } from '../plans/sheetUsage.model';
+import { deleteUserApiKeys } from '../apikeys/apiKey.service';
 import { purgeUserRedisData } from './account.purge';
 import { storage } from '../../lib/storage';
 import { ApiError } from '../../common/utils/ApiError';
@@ -175,8 +176,8 @@ export interface DeleteAccountResult {
 
 /**
  * Permanently remove the account and everything it owns: collections (with
- * folders, images and likes), usage events, monthly sheet counters, extension
- * sessions, the extraction history and AI enhance jobs held in Redis (with
+ * folders, images and likes), usage events, monthly sheet counters, API keys,
+ * extension sessions, the extraction history and AI enhance jobs held in Redis (with
  * their stored images), and the user.
  *
  * Stored image files are deleted through the storage adapter on a best-effort
@@ -235,6 +236,7 @@ export async function deleteAccount(userId: string, confirmation: string): Promi
   await SheetUsageModel.deleteMany({ userId });
   await ExtensionSessionModel.deleteMany({ user: userId });
   await ExtensionAuthorizationModel.deleteMany({ user: userId });
+  await deleteUserApiKeys(userId);
 
   // 5. Extraction history and AI enhance jobs in Redis, with their stored images
   //    (best effort, never throws).

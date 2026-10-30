@@ -12,6 +12,9 @@ import { collectionRouter } from './modules/collections/collection.routes';
 import { usageRouter } from './modules/usage/usage.routes';
 import { enhanceRouter } from './modules/enhance/enhance.routes';
 import { planRouter, adminRouter } from './modules/plans/plans.routes';
+import { apiKeyRouter } from './modules/apikeys/apiKey.routes';
+import { v1Router } from './modules/publicapi/v1.routes';
+import { v1ErrorCodes } from './modules/publicapi/v1.errors';
 import mongoose from 'mongoose';
 import { errorHandler } from './common/middlewares/errorHandler';
 import { apiLimiter } from './common/middlewares/rateLimit';
@@ -73,11 +76,19 @@ export function createApp(options: AppOptions = {}) {
     res.redirect(`${frontendUrl}/callback#token=${encodeURIComponent(token)}`);
   });
 
+  // Public API (API keys, Pro). Mounted before the per-IP backstop below on purpose:
+  // it is limited per key (and per IP for failed key attempts) in publicapi/v1.limits.ts,
+  // so integrations sharing one address are not throttled together. v1ErrorCodes adds the
+  // documented `code` to every error it answers.
+  app.use('/api/v1', v1Router);
+  app.use('/api/v1', v1ErrorCodes);
+
   // SECURITY (#5): loose global backstop on the whole API surface.
   app.use('/api', apiLimiter);
 
   app.use('/api/auth', authRouter);
   app.use('/api/account', accountRouter);
+  app.use('/api/api-keys', apiKeyRouter);
   app.use('/api', uploadRouter);
   app.use('/api', jobRouter);
   app.use('/api', cropRouter);

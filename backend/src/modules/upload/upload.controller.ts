@@ -13,7 +13,19 @@ const ALLOWED_FORMATS = ['png', 'jpg', 'jpeg', 'webp'];
 const MIN_DIMENSION = 64;
 const MAX_DIMENSION = 12000;
 
-export async function uploadImage(req: Request, res: Response): Promise<void> {
+/** What a successful upload produced. */
+export interface UploadedSheet {
+  jobId: string;
+  cloudinaryUrl: string;
+  status: 'queued';
+}
+
+/**
+ * Stores the uploaded sheet, creates its job and queues detection. Shared by
+ * the web upload (`uploadImage`) and the public API, which answer in their own
+ * shapes. Spends the sheet slot reserved by enforceSheetLimit once the job exists.
+ */
+export async function createJobFromUpload(req: Request, res: Response): Promise<UploadedSheet> {
   const authReq = req as AuthRequest;
 
   if (!req.file) {
@@ -45,6 +57,7 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
     throw ApiError.badRequest(
       `Invalid image (format=${format ?? 'unknown'}, size=${width ?? 0}x${height ?? 0}). ` +
         `Allowed formats: ${ALLOWED_FORMATS.join(', ')}. Min ${MIN_DIMENSION}px, max ${MAX_DIMENSION}px per side.`,
+      'INVALID_IMAGE',
     );
   }
 
@@ -72,9 +85,9 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
 
   await updateJob(jobId, { status: 'queued' });
 
-  ApiResponse.created(res, 'Upload successful', {
-    jobId,
-    cloudinaryUrl: uploadResult.url,
-    status: 'queued',
-  });
+  return { jobId, cloudinaryUrl: uploadResult.url, status: 'queued' };
+}
+
+export async function uploadImage(req: Request, res: Response): Promise<void> {
+  ApiResponse.created(res, 'Upload successful', await createJobFromUpload(req, res));
 }
