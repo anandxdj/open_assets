@@ -118,6 +118,49 @@ def _candidate_masks(
     return [(name, _clean_mask(mask)) for name, mask in candidates]
 
 
+# Parts of one item that sit a hair apart (a head above its shoulders, the dot of an "i")
+# are one asset. Two boxes merge when the gap between them is at most this share of the
+# sheet's shorter side (never under 3 px) and they overlap this much on the other axis.
+PART_GAP_SHARE = 0.01
+PART_MIN_GAP = 3
+PART_MIN_OVERLAP = 0.6
+
+
+def _span_overlap(a_start: int, a_len: int, b_start: int, b_len: int) -> float:
+    """Overlap of two 1-D spans as a share of the shorter one."""
+    overlap = min(a_start + a_len, b_start + b_len) - max(a_start, b_start)
+    return max(0, overlap) / max(1, min(a_len, b_len))
+
+
+def _merge_detached_parts(
+    boxes: list[tuple[int, int, int, int]], short_side: int
+) -> list[tuple[int, int, int, int]]:
+    gap_limit = max(PART_MIN_GAP, short_side * PART_GAP_SHARE)
+    boxes = list(boxes)
+    merged = True
+    while merged:
+        merged = False
+        for i in range(len(boxes)):
+            for j in range(i + 1, len(boxes)):
+                ax, ay, aw, ah = boxes[i]
+                bx, by, bw, bh = boxes[j]
+                gap_x = max(bx - (ax + aw), ax - (bx + bw), 0)
+                gap_y = max(by - (ay + ah), ay - (by + bh), 0)
+                stacked = gap_y <= gap_limit and _span_overlap(ax, aw, bx, bw) >= PART_MIN_OVERLAP
+                side_by_side = gap_x <= gap_limit and _span_overlap(ay, ah, by, bh) >= PART_MIN_OVERLAP
+                if not (stacked or side_by_side):
+                    continue
+                x0, y0 = min(ax, bx), min(ay, by)
+                x1, y1 = max(ax + aw, bx + bw), max(ay + ah, by + bh)
+                boxes[i] = (x0, y0, x1 - x0, y1 - y0)
+                del boxes[j]
+                merged = True
+                break
+            if merged:
+                break
+    return boxes
+
+
 def _boxes_from_mask(mask: np.ndarray) -> list[tuple[int, int, int, int]]:
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     boxes: list[tuple[int, int, int, int]] = []
@@ -129,7 +172,7 @@ def _boxes_from_mask(mask: np.ndarray) -> list[tuple[int, int, int, int]]:
             and width * height >= settings.MIN_BOX_AREA
         ):
             boxes.append((x, y, width, height))
-    return boxes
+    return _merge_detached_parts(boxes, min(mask.shape[:2]))
 
 
 def _score_candidate(mask: np.ndarray, boxes: list[tuple[int, int, int, int]]) -> float:

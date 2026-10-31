@@ -11,6 +11,8 @@ export function MenuContent({
   className,
   align = "end",
   sideOffset = 6,
+  // Keep clear of the viewport edge so the 6px hard shadow is never cut off, notably on phones.
+  collisionPadding = 8,
   ...props
 }: React.ComponentProps<typeof DropdownMenu.Content>) {
   return (
@@ -18,6 +20,7 @@ export function MenuContent({
       <DropdownMenu.Content
         align={align}
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
         className={cn("oa-menu", className)}
         {...props}
       />
