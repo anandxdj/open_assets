@@ -325,6 +325,8 @@
   /* badges + status */
   .oa-badge { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 6px; border: 1px solid currentColor; border-radius: 0; background: transparent; color: var(--oa-ink-2); font-size: 10.5px; line-height: 1; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
   .oa-badge svg { width: 11px; height: 11px; stroke-width: 2.5; }
+  /* Pro marker: ink outline and ink text, no fill. Orange stays for the primary action and selected objects. */
+  .oa-badge-pro { border-width: var(--oa-bw); border-color: var(--oa-ink); background: transparent; color: var(--oa-ink); }
   .oa-badge-accent { background: var(--oa-accent); border-color: var(--oa-accent); color: var(--oa-accent-fg); }
   .oa-badge-success { background: var(--oa-success-soft); color: var(--oa-success); }
   .oa-badge-warning { background: var(--oa-warning-soft); color: var(--oa-warning); }

@@ -183,7 +183,7 @@ function UsersTable({ users, onEdit }: { users: AdminUserRow[]; onEdit: (user: A
                 </td>
                 <td>
                   <span className="flex flex-col items-start gap-1">
-                    <Badge tone={plan.label === "Pro" ? "accent" : "neutral"}>{plan.label}</Badge>
+                    <Badge tone={plan.label === "Pro" ? "pro" : "neutral"}>{plan.label}</Badge>
                     {plan.note && <span className="text-[11px] leading-4 normal-case text-ink-2">{plan.note}</span>}
                   </span>
                 </td>

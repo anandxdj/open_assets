@@ -446,7 +446,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                 </div>
 
                 <Toolbar
-                  className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2"
+                  className="absolute bottom-4 left-4 z-10 sm:left-1/2 sm:-translate-x-1/2"
                   activeTool={activeTool}
                   onToolChange={setActiveTool}
                 />

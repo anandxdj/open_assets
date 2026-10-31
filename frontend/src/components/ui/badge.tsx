@@ -9,6 +9,7 @@ export const badgeVariants = cva("oa-badge", {
     tone: {
       neutral: "",
       accent: "oa-badge-accent",
+      pro: "oa-badge-pro",
       success: "oa-badge-success",
       warning: "oa-badge-warning",
       danger: "oa-badge-danger",

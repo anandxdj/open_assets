@@ -94,7 +94,7 @@ export function PlanOverview() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <span className="oa-label">Current plan</span>
-          <Badge tone={isPro ? "accent" : "neutral"}>{isPro ? "Pro" : "Free"}</Badge>
+          <Badge tone={isPro ? "pro" : "neutral"}>{isPro ? "Pro" : "Free"}</Badge>
           {note && <span className="text-xs text-ink-2">{note}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
