@@ -111,3 +111,23 @@ button, so no `notifications` permission is needed.
 | `pnpm zip` | Build and zip for the store |
 | `pnpm typecheck` | `wxt prepare` and `tsc --noEmit` |
 | `pnpm test` | Vitest (URL and permission logic) |
+| `pnpm harness` | Dev-only preview of the popup and side panel in a normal tab (see below) |
+
+## UI harness
+
+`pnpm harness` serves the popup and side panel in an ordinary browser tab with a stubbed `chrome.*`
+(runtime messages, storage, tabs, sidePanel, identity, commands). No API, ChatGPT or extension install
+is needed. It listens on `http://localhost:5174`; pass another port with `pnpm harness --port 3104`,
+and `--host ::` is already set so `*.localhost` names work.
+
+- `/` shows both surfaces next to each other, with menus for the state (signed out, connecting,
+  working, results, empty library, errors, plan limit, long content and more), the theme and the panel width.
+- `/frame.html?surface=sidepanel&state=working&theme=dark` is one surface on its own, for a screenshot at an
+  exact viewport size. `surface` is `sidepanel` or `popup`; `theme` is `auto` (follows the browser, like the
+  extension), `light` or `dark`.
+- Fixtures live in `harness/src/fixtures.ts`; the stub answers the same worker messages as
+  `entrypoints/background.ts`, so adding, removing, running and pausing prompts works.
+
+The harness lives in `harness/`, outside `entrypoints/`, so WXT never bundles it and `.output` does not
+contain it. Its Vite config only appends light/dark token copies keyed on `data-oa-theme` to `oa.css` in memory.
+
