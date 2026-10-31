@@ -84,6 +84,8 @@ export interface PlanStatus {
   capabilities: {
     /** The export's upscale is AI (Cloudinary, ImageKit). False on local storage: a plain resize. */
     aiUpscale: boolean;
+    /** The crop can also remove enclosed background (local storage only). False: hide the switch. */
+    enclosedBackground: boolean;
   };
 }
 

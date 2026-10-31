@@ -32,6 +32,12 @@ export default function DocsOverviewPage() {
               before the assets are cut.
             </p>
             <p>
+              With local storage, removal clears the flat background that touches the edge of the sheet. Background inside an asset, such as the hole of a ring or the inside of
+              a letter, stays unless you turn on <strong>Also remove enclosed background</strong> in the editor.
+              It removes every pocket that matches the background colour, so leave it off if your art has that colour
+              on purpose. Cloudinary and ImageKit cut the subject out with AI and have no such option.
+            </p>
+            <p>
               Around extraction sit three more tools. <strong>Enhance</strong> cleans up and upscales an image,{" "}
               <strong>Studio</strong> generates sprites, tiles, props and parallax layers, and{" "}
               <strong>AniBuddy</strong> rigs and animates a character. Studio and AniBuddy spend AI credits;
