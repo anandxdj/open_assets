@@ -145,7 +145,7 @@ export async function startTrial(userId: string, now: Date = new Date()): Promis
     if (getEffectivePlan(user, now) === 'pro') {
       throw new ApiError(409, 'You already have Pro.', 'ALREADY_PRO');
     }
-    throw new ApiError(409, 'The free trial has already been used on this account.', 'TRIAL_USED');
+    throw new ApiError(409, 'The Pro trial has already been used on this account.', 'TRIAL_USED');
   }
   return getPlanStatus(userId, now);
 }

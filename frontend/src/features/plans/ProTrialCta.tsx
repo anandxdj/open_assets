@@ -104,7 +104,7 @@ export function ProTrialCta() {
         <Button asChild variant="primary" size="lg" block>
           <a href={UPGRADE_MAILTO}>Contact us to upgrade</a>
         </Button>
-        <p className="text-xs leading-[18px] text-ink-2">Your free trial has already been used.</p>
+        <p className="text-xs leading-[18px] text-ink-2">Your Pro trial has already been used.</p>
       </div>
     );
   }
