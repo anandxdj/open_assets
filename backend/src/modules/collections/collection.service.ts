@@ -61,13 +61,15 @@ export interface ListParams {
 }
 
 const DEFAULT_FOLDER = 'Assets';
-const UNTITLED_NAME = 'Untitled pack';
+export const UNTITLED_NAME = 'Untitled collection';
+/** Placeholder written before the word "pack" was retired; stored data may still carry it. */
+const LEGACY_UNTITLED_NAME = 'Untitled pack';
 const MAX_COVERS = 4;
 
-/** A pack is "unnamed" if it is blank or still the auto-scaffold placeholder. */
+/** A collection is "unnamed" if it is blank or still the auto-scaffold placeholder (current or legacy). */
 export function isUntitled(name?: string): boolean {
   const n = (name ?? '').trim().toLowerCase();
-  return n === '' || n === UNTITLED_NAME.toLowerCase();
+  return n === '' || n === UNTITLED_NAME.toLowerCase() || n === LEGACY_UNTITLED_NAME.toLowerCase();
 }
 
 /* ------------------------------------------------------------------ *
@@ -290,7 +292,7 @@ export async function updateCollection(
   if (input.description !== undefined) collection.description = input.description;
   if (input.tags !== undefined) collection.tags = dedupe(input.tags);
   if (input.isPublic !== undefined) {
-    // Cannot publish an unnamed/placeholder pack — name it first.
+    // Cannot publish an unnamed/placeholder collection — name it first.
     if (input.isPublic === true && isUntitled(collection.name)) {
       throw ApiError.badRequest('Name your collection before publishing it');
     }
