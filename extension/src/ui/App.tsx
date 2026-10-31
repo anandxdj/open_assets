@@ -100,6 +100,9 @@ export function App() {
       .catch(() => undefined);
   }, []);
 
+  const doneCount = useMemo(() => app?.queue.filter((item) => item.status === 'completed').length ?? 0, [app]);
+  // "Run queue" only has work when something is waiting; failures have their own retry button.
+  const runnableCount = useMemo(() => app?.queue.filter((item) => item.status === 'draft' || item.status === 'queued' || item.status === 'paused').length ?? 0, [app]);
   const failedCount = useMemo(() => app?.queue.filter((item) => item.status === 'failed').length ?? 0, [app]);
   const promptCount = useMemo(() => parsePrompts(promptText, splitMode).length, [promptText, splitMode]);
   const progress = useMemo(() => app ? queueProgress(app) : null, [app]);
@@ -111,9 +114,23 @@ export function App() {
 
   const send = async (request: Parameters<typeof callWorker>[0]) => {
     const result = await callWorker(request);
-    if (!result.ok) setError(result.error);
+    // A later success replaces an earlier failure instead of leaving it on screen.
+    setError(result.ok ? null : result.error);
     await refresh();
     return result;
+  };
+  const clearDone = async () => {
+    // One at a time: the worker rewrites the whole queue for every removal.
+    for (const item of app?.queue ?? []) {
+      if (item.status !== 'completed') continue;
+      const result = await callWorker({ type: 'REMOVE_QUEUE_ITEM', itemId: item.id });
+      if (!result.ok) { setError(result.error); break; }
+    }
+    await refresh();
+  };
+  const selectTab = (next: Tab) => {
+    setError(null);
+    setTab(next);
   };
   const addPrompts = async () => {
     const prompts = parsePrompts(promptText, splitMode);
@@ -141,7 +158,7 @@ export function App() {
     const target = tabs[next];
     if (!target) return;
     event.preventDefault();
-    setTab(target.id);
+    selectTab(target.id);
     tabRefs.current[target.id]?.focus();
   };
 
@@ -156,6 +173,7 @@ export function App() {
   if (!app) {
     return (
       <main className="ext-shell">
+        <h1 className="oa-sr-only">OpenAssets</h1>
         <header className="ext-header"><Brand /></header>
         <div className="ext-center ext-loading" role="status"><Spinner /><span>Opening OpenAssets…</span></div>
       </main>
@@ -173,7 +191,7 @@ export function App() {
             <p>Sign in once to queue ChatGPT generations, extract images and keep them in your library.</p>
           </div>
           {notice}
-          <button type="button" className="oa-btn oa-btn-primary oa-btn-lg oa-btn-block" disabled={connecting} onClick={() => void connect()}>
+          <button type="button" className="oa-btn oa-btn-primary oa-btn-lg oa-btn-block" disabled={connecting} aria-busy={connecting} onClick={() => void connect()}>
             {connecting ? <Spinner /> : <LogIn aria-hidden="true" />}
             {connecting ? 'Waiting for sign-in…' : 'Connect account'}
           </button>
@@ -190,6 +208,7 @@ export function App() {
 
   return (
     <main className="ext-shell">
+      <h1 className="oa-sr-only">OpenAssets</h1>
       <header className="ext-header">
         <Brand />
         <a className="oa-btn oa-btn-ghost oa-btn-sm oa-btn-icon" href={frontendUrl} target="_blank" rel="noreferrer" aria-label="Open web app" title="Open web app">
@@ -211,7 +230,7 @@ export function App() {
               aria-controls={`panel-${item.id}`}
               tabIndex={tab === item.id ? 0 : -1}
               className="oa-seg-item"
-              onClick={() => setTab(item.id)}
+              onClick={() => selectTab(item.id)}
               onKeyDown={onTabKeyDown}
             >
               {item.label}
@@ -266,6 +285,7 @@ export function App() {
             <div className="ext-queue">
               <div className="ext-queue-head">
                 <h2 className="oa-label">Queue · {plural(app.queue.length, 'item')}</h2>
+                {doneCount > 0 && <button type="button" className="oa-btn oa-btn-ghost oa-btn-sm" onClick={() => void clearDone()}>Clear done</button>}
               </div>
               {app.queue.length === 0
                 ? <EmptyState icon={<Sparkles aria-hidden="true" />} title="Start with a prompt">Paste one or more prompts above. Nothing is sent until you run the queue.</EmptyState>
@@ -284,7 +304,7 @@ export function App() {
             <div className="ext-footer-actions">
               {app.isRunning
                 ? <button type="button" className="oa-btn oa-btn-secondary ext-grow" onClick={() => void send({ type: 'PAUSE_QUEUE', reason: 'Paused by you.' })}><Pause aria-hidden="true" />Pause queue</button>
-                : <button type="button" className="oa-btn oa-btn-primary ext-grow" disabled={app.queue.length === 0} onClick={() => void send({ type: 'RUN_QUEUE' })}><Play aria-hidden="true" />Run queue</button>}
+                : <button type="button" className="oa-btn oa-btn-primary ext-grow" disabled={runnableCount === 0} onClick={() => void send({ type: 'RUN_QUEUE' })}><Play aria-hidden="true" />Run queue</button>}
               {failedCount > 0 && <button type="button" className="oa-btn oa-btn-ghost" onClick={() => void send({ type: 'RETRY_FAILED' })}>Retry {failedCount} failed</button>}
             </div>
           </footer>

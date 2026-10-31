@@ -198,8 +198,8 @@ export function AccountMenu({ account, onSignOut }: { account: Account; onSignOu
       {open && (
         <div className="oa-menu ext-account-menu">
           <div className="ext-account-id" id={identityId}>
-            <span className="ext-account-name">{account.name}</span>
-            <span className="ext-account-email">{account.email}</span>
+            <span className="ext-account-name" title={account.name}>{account.name}</span>
+            <span className="ext-account-email" title={account.email}>{account.email}</span>
           </div>
           <div className="oa-menu-sep" aria-hidden="true" />
           <div ref={menuRef} id={menuId} role="menu" aria-label="Account" aria-describedby={identityId}>
