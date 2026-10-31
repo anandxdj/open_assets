@@ -178,7 +178,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   const [upscaleOn, setUpscaleOn] = useState(false);
   // 2× for everyone; 4× is a Pro entitlement (the server enforces it too).
   const [upscaleScale, setUpscaleScale] = useState<2 | 4>(2);
-  const { refresh: refreshPlan } = usePlan();
+  const { refresh: refreshPlan, plan } = usePlan();
   const { value: maxUpscale, ready: planReady } = useEntitlement("maxUpscale");
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [upscaleTotal, setUpscaleTotal] = useState<number | null>(null);
@@ -474,6 +474,11 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
     badge = <StatusBadge status={status} />;
   }
 
+  // "with AI" only when the server's storage provider runs an AI upscaler; local storage resizes.
+  // Plain until the plan has loaded, so the label never claims more than the server does.
+  const upscaleLabel = `Upscale ${upscaleDone ? (job.upscaleScale ?? upscaleScale) : upscaleScale}×${
+    plan?.capabilities?.aiUpscale ? " with AI" : ""
+  }`;
   let upscaleHelp = `Runs once per sheet. Tiles show ${upscaleScale}× as they finish.`;
   if (upscaleDone) upscaleHelp = "Done. Your upscaled assets are ready.";
   else if (cropInProgress) upscaleHelp = "Available when cropping finishes.";
@@ -694,7 +699,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="text-xs font-medium">
-                      {upscaleDone ? (job.upscaleScale ?? upscaleScale) : upscaleScale}× with AI
+                      {upscaleLabel}
                     </span>
                     <span id="upscale-help" className="text-[11px] leading-4 text-ink-2">
                       {upscaleHelp}
@@ -704,7 +709,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                     checked={upscaleChecked}
                     onCheckedChange={setUpscaleOn}
                     disabled={!canUpscale}
-                    aria-label={`Upscale ${upscaleDone ? (job.upscaleScale ?? upscaleScale) : upscaleScale}× with AI`}
+                    aria-label={upscaleLabel}
                     aria-describedby="upscale-help"
                   />
                 </div>

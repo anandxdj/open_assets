@@ -21,6 +21,7 @@ import { nextResetDate, periodKey } from '../modules/plans/sheetUsage.service';
 import { buildPlanStatus } from '../modules/plans/plans.service';
 import { parseAdminGrantArgs, parsePlanSetArgs } from '../modules/plans/cli';
 import { croppedWidth } from '../modules/plans/upscale';
+import { getStorageStatus } from '../lib/storage/status';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-03-15T12:00:00Z');
@@ -261,6 +262,29 @@ test('plan status: admin Pro with no end date is not a trial and has no end', ()
   assert.equal(s.trial.active, false);
   assert.equal(s.trial.eligible, false);
   assert.equal(s.proEndsAt, null);
+});
+
+// ── Plan status: export upscale capability ─────────────────────────────────
+
+test('plan status: AI upscale is reported for Cloudinary and ImageKit, a plain resize for local storage', () => {
+  const cases: Array<[string, boolean]> = [
+    ['cloudinary', true],
+    ['imagekit', true],
+    ['local', false],
+  ];
+  for (const [provider, aiUpscale] of cases) {
+    const storage = getStorageStatus({ STORAGE_PROVIDER: provider } as NodeJS.ProcessEnv);
+    assert.deepEqual(buildPlanStatus(FREE, 0, NOW, storage).capabilities, { aiUpscale }, provider);
+  }
+  // The default provider is Cloudinary.
+  assert.equal(buildPlanStatus(FREE, 0, NOW, getStorageStatus({} as NodeJS.ProcessEnv)).capabilities.aiUpscale, true);
+});
+
+test('plan status: the upscale capability does not depend on the plan', () => {
+  const local = getStorageStatus({ STORAGE_PROVIDER: 'local' } as NodeJS.ProcessEnv);
+  assert.equal(buildPlanStatus(PRO, 0, NOW, local).capabilities.aiUpscale, false);
+  const cloud = getStorageStatus({ STORAGE_PROVIDER: 'cloudinary' } as NodeJS.ProcessEnv);
+  assert.equal(buildPlanStatus(FREE, 0, NOW, cloud).capabilities.aiUpscale, true);
 });
 
 // ── Export upscale: source width ────────────────────────────────────────────

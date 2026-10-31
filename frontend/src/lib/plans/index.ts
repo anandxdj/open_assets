@@ -80,6 +80,11 @@ export interface PlanStatus {
   };
   /** End of any time-limited Pro period (trial or timed admin grant), else null. */
   proEndsAt: string | null;
+  /** What the server's storage provider can do, the same for every account. */
+  capabilities: {
+    /** The export's upscale is AI (Cloudinary, ImageKit). False on local storage: a plain resize. */
+    aiUpscale: boolean;
+  };
 }
 
 /** Codes the API puts in `code` on plan errors. */
