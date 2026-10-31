@@ -63,7 +63,7 @@ export default function PricingPage() {
                 bigger limits and custom terms: contact sales.
               </p>
               <Link href="#startups" className="oa-link text-xs">
-                Startup program: 50% off Pro for a year
+                Startup program: one-on-one onboarding
               </Link>
             </div>
           </div>
@@ -136,7 +136,7 @@ export default function PricingPage() {
             <div className="flex flex-col gap-3.5">
               <span className="oa-eyebrow">Startup program</span>
               <h2 id="startups-title" className="oa-h1 max-md:text-[30px] max-md:leading-[32px]">
-                Half off Pro for your first year
+                One-on-one help to get set up
               </h2>
               <p className="max-w-[460px] text-xs leading-[18px] opacity-75">{STARTUP_PROGRAM.eligibility}</p>
             </div>

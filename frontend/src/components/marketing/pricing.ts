@@ -132,10 +132,7 @@ export const COMPARISON: ComparisonGroup[] = [
 export const STARTUP_PROGRAM = {
   eligibility:
     "For registered startups founded in the last two years with under $2M in funding, early-stage studios and game-jam teams.",
-  benefits: [
-    "50% off Pro for the first 12 months",
-    "One-on-one onboarding and integration help",
-  ],
+  benefits: ["One-on-one onboarding", "Integration help"],
   apply: { label: "Apply by DM on X", href: SOCIAL.x },
 };
 
@@ -156,7 +153,7 @@ export const PRICING_FAQ: FaqItem[] = [
   },
   {
     question: "Who qualifies for the startup program?",
-    answer: STARTUP_PROGRAM.eligibility,
+    answer: `${STARTUP_PROGRAM.eligibility} Qualifying teams get one-on-one onboarding and integration help. Apply by DM on X.`,
   },
   {
     question: "How do I buy Enterprise?",
