@@ -4,8 +4,9 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Mail } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
+import { emailError, useFieldErrors } from "@/features/auth/lib/validation";
 import { Button } from "@/components/ui/button";
-import { Field } from "@/components/ui/field";
+import { Field, describedBy } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/feedback";
 import { AuthIntro } from "@/components/auth/AuthParts";
@@ -16,10 +17,14 @@ export function ForgotPasswordForm() {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const fields = useFieldErrors({ email: emailError(email) }, ["email"]);
+  const emailMessage = fields.shown("email");
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (loading) return;
     setError(null);
+    if (!fields.check()) return;
     setSentTo(null);
     setLoading(true);
     try {
@@ -38,14 +43,14 @@ export function ForgotPasswordForm() {
         Enter the email you signed up with and we will send you a reset link.
       </AuthIntro>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         {error && (
           <Notice tone="danger" role="alert">
             {error}
           </Notice>
         )}
 
-        <Field label="Email" htmlFor="email">
+        <Field label="Email" htmlFor="email" error={emailMessage}>
           <Input
             id="email"
             type="email"
@@ -53,6 +58,9 @@ export function ForgotPasswordForm() {
             autoComplete="email"
             placeholder="you@studio.com"
             required
+            invalid={Boolean(emailMessage)}
+            aria-describedby={describedBy("email", Boolean(emailMessage))}
+            {...fields.bind("email")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />

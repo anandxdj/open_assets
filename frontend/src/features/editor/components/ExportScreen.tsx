@@ -823,7 +823,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
               />
             ) : (
               <Button
-                variant="primary"
+                variant={cropDone && selectedCount > 0 && !namingBlocked ? "primary" : "secondary"}
                 size="lg"
                 block
                 disabled={!cropDone || selectedCount === 0 || localDownloading || namingBlocked}

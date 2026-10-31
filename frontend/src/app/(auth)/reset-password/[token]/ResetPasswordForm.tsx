@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Circle } from "lucide-react";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { newPasswordError, useFieldErrors } from "@/features/auth/lib/validation";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/feedback";
 import { AuthIntro } from "@/components/auth/AuthParts";
@@ -22,39 +23,28 @@ const RULES = [
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
-  const passwordRef = useRef<HTMLInputElement>(null);
-  const confirmRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [confirmBlurred, setConfirmBlurred] = useState(false);
-  const [attempted, setAttempted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; fromServer: boolean } | null>(null);
 
   const rules = RULES.map((rule) => ({ ...rule, ok: rule.test(password) }));
-  const strong = rules.every((rule) => rule.ok);
-  const mismatch = confirmPassword !== password;
-  // Show the mismatch once the second entry is complete enough to judge.
-  const showMismatch =
-    mismatch &&
-    confirmPassword.length > 0 &&
-    (attempted || confirmBlurred || confirmPassword.length >= password.length);
+  const confirmError = !confirmPassword
+    ? "Confirm your new password."
+    : confirmPassword !== password
+      ? "Passwords do not match."
+      : undefined;
+  const fields = useFieldErrors({ password: newPasswordError(password), confirm: confirmError }, ["password", "confirm"]);
+  const passwordMessage = fields.shown("password");
+  // A mismatch shows as soon as the second entry is as long as the first, not only after it is left.
+  const liveMismatch = Boolean(confirmPassword) && confirmPassword !== password && confirmPassword.length >= password.length;
+  const confirmMessage = fields.shown("confirm") ?? (liveMismatch ? confirmError : undefined);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (loading) return;
-    setAttempted(true);
     setError(null);
-
-    if (!strong) {
-      setError({ message: "Your new password needs 8+ characters, an uppercase letter and a digit.", fromServer: false });
-      passwordRef.current?.focus();
-      return;
-    }
-    if (mismatch) {
-      confirmRef.current?.focus();
-      return;
-    }
+    if (!fields.check()) return;
 
     setLoading(true);
     try {
@@ -75,7 +65,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
     <>
       <AuthIntro title="Choose a new password">Pick a password you do not use anywhere else.</AuthIntro>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         {error && (
           <Notice tone="danger" role="alert">
             <span className="block">{error.message}</span>
@@ -87,59 +77,50 @@ export function ResetPasswordForm({ token }: { token: string }) {
           </Notice>
         )}
 
-        <Field
-          label="New password"
-          htmlFor="password"
-          help={
-            <span className="flex flex-wrap gap-x-3 gap-y-1">
-              {rules.map((rule) => (
-                <span
-                  key={rule.id}
-                  className={cn("flex items-center gap-1", rule.ok ? "text-success" : "text-ink-3")}
-                >
-                  {rule.ok ? (
-                    <Check aria-hidden className="size-3.5 flex-none" />
-                  ) : (
-                    <Circle aria-hidden className="size-3 flex-none" />
-                  )}
-                  <span className="sr-only">{rule.ok ? "Done:" : "Needed:"} </span>
-                  {rule.label}
-                </span>
-              ))}
-            </span>
-          }
-        >
+        <Field label="New password" htmlFor="password" error={passwordMessage}>
           <Input
-            ref={passwordRef}
             id="password"
             type="password"
             size="lg"
             autoComplete="new-password"
             required
-            invalid={attempted && !strong}
-            aria-describedby="password-note"
+            invalid={Boolean(passwordMessage)}
+            aria-describedby={passwordMessage ? "password-note password-rules" : "password-rules"}
+            {...fields.bind("password")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <span id="password-rules" className="oa-field-help flex flex-wrap gap-x-3 gap-y-1">
+            {rules.map((rule) => (
+              <span key={rule.id} className={cn("flex items-center gap-1", rule.ok ? "text-success" : "text-ink-3")}>
+                {rule.ok ? (
+                  <Check aria-hidden className="size-3.5 flex-none" />
+                ) : (
+                  <Circle aria-hidden className="size-3 flex-none" />
+                )}
+                <span className="sr-only">{rule.ok ? "Done:" : "Needed:"} </span>
+                {rule.label}
+              </span>
+            ))}
+          </span>
         </Field>
 
         <Field
           label="Confirm password"
           htmlFor="confirm-password"
-          error={showMismatch ? "Passwords do not match." : undefined}
+          error={confirmMessage}
         >
           <Input
-            ref={confirmRef}
             id="confirm-password"
             type="password"
             size="lg"
             autoComplete="new-password"
             required
-            invalid={showMismatch}
-            aria-describedby={showMismatch ? "confirm-password-note" : undefined}
+            invalid={Boolean(confirmMessage)}
+            aria-describedby={confirmMessage ? "confirm-password-note" : undefined}
+            {...fields.bind("confirm")}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            onBlur={() => setConfirmBlurred(true)}
           />
         </Field>
 

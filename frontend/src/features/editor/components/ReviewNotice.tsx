@@ -48,7 +48,7 @@ export function ReviewNotice({
             onColourChange={detection.onColourChange}
             disabled={detection.redetecting}
           />
-          <Button variant="primary" size="sm" disabled={detection.redetecting} onClick={detection.onRedetect}>
+          <Button variant="secondary" size="sm" disabled={detection.redetecting} onClick={detection.onRedetect}>
             {detection.redetecting && <LoaderCircle aria-hidden className="animate-spin" />}
             {detection.redetecting ? "Detecting" : "Detect again"}
           </Button>
