@@ -61,6 +61,8 @@ jobs:
           python-version: "3.11"
       - run: pip install -r requirements.txt
       - run: python -c "import compileall, sys; sys.exit(0 if compileall.compile_dir('app', quiet=1) else 1)"
+      - run: pip install pytest
+      - run: python -m pytest -q
       - run: pip install pip-audit && pip-audit
         continue-on-error: true
 
