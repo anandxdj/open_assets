@@ -210,6 +210,11 @@
   --oa-shadow-ink: #EDECE8;
 }
 
+/* While the session is still being restored, elements marked data-auth show the variant the browser had last
+   time (html[data-session], set before first paint by lib/session-hint.ts), so nothing jumps when it resolves. */
+html:not([data-session="1"]) [data-auth="in"],
+html[data-session="1"] [data-auth="out"] { display: none; }
+
 @layer base {
   * {
     @apply border-border;

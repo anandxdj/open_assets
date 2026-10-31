@@ -27,6 +27,23 @@ function NavAnchor({ link, current }: { link: MarketingLink; current: boolean })
   );
 }
 
+const SIGNED_IN_ACTIONS = (
+  <Button asChild>
+    <Link href="/upload">Open app</Link>
+  </Button>
+);
+
+const SIGNED_OUT_ACTIONS = (
+  <>
+    <Button asChild variant="ghost" className="hidden md:inline-flex">
+      <Link href="/login">Sign in</Link>
+    </Button>
+    <Button asChild>
+      <Link href="/register">Get started</Link>
+    </Button>
+  </>
+);
+
 /** Sticky header for the public pages: logo, section links, auth actions. */
 export function MarketingHeader() {
   const pathname = usePathname();
@@ -83,25 +100,24 @@ export function MarketingHeader() {
             </MenuContent>
           </Menu>
 
+          {/* Same widths before and after the session is restored, so the buttons do not move. */}
           {loading ? (
-            // Holds the space of the auth actions while the session restores.
-            <span aria-hidden className="block h-8 w-[112px]" />
+            <>
+              <span data-auth="in" className="contents">
+                {SIGNED_IN_ACTIONS}
+                <span aria-hidden className="block h-8 w-[34px]" />
+              </span>
+              <span data-auth="out" className="contents">
+                {SIGNED_OUT_ACTIONS}
+              </span>
+            </>
           ) : user ? (
             <>
-              <Button asChild>
-                <Link href="/upload">Open app</Link>
-              </Button>
+              {SIGNED_IN_ACTIONS}
               <UserMenu variant="compact" />
             </>
           ) : (
-            <>
-              <Button asChild variant="ghost" className="hidden md:inline-flex">
-                <Link href="/login">Sign in</Link>
-              </Button>
-              <Button asChild>
-                <Link href="/register">Get started</Link>
-              </Button>
-            </>
+            SIGNED_OUT_ACTIONS
           )}
         </div>
       </nav>
