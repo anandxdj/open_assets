@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Ban, Check, ChevronDown, CircleAlert, Clock, Download, Hourglass, Image as ImageIcon, LoaderCircle, LogOut, Pause, PencilLine, Send, Upload, type LucideIcon } from 'lucide-react';
-import type { Account, QueueStatus } from '../shared/contracts';
+import type { Account, AppNotice, QueueStatus, SentStatus } from '../shared/contracts';
+import { frontendUrl } from '../shared/config';
+import { isPlanLimitCode, pricingUrl } from '../shared/errors';
+import { sentStatusLabels } from '../shared/sent';
 
 /** The OA monogram drawn as a vector so it follows the text colour (same mark as the web app). */
 export function LogoMark() {
@@ -72,6 +75,50 @@ export function StatusBadge({ status }: { status: QueueStatus }) {
       <Icon className={spin ? 'oa-spin' : undefined} aria-hidden="true" />
       {statusLabels[status]}
     </span>
+  );
+}
+
+const sentLook: Record<SentStatus, { tone: Tone; icon: LucideIcon; spin?: boolean }> = {
+  queued: { tone: 'neutral', icon: Clock },
+  detecting: { tone: 'info', icon: LoaderCircle, spin: true },
+  ready: { tone: 'success', icon: Check },
+  failed: { tone: 'danger', icon: CircleAlert },
+  expired: { tone: 'neutral', icon: Ban },
+};
+
+/** Status of an image sent from this browser: icon, words and colour. */
+export function SentBadge({ status }: { status: SentStatus }) {
+  const { tone, icon: Icon, spin } = sentLook[status];
+  return (
+    <span className={tone === 'neutral' ? 'oa-badge' : `oa-badge oa-badge-${tone}`}>
+      <Icon className={spin ? 'oa-spin' : undefined} aria-hidden="true" />
+      {sentStatusLabels[status]}
+    </span>
+  );
+}
+
+/**
+ * A failure message. A plan limit (the API's SHEET_LIMIT, PLAN_LIMIT or
+ * PLAN_REQUIRED code) adds a "See plans" link to the web app's pricing page,
+ * in a new tab; every other failure shows its message as it is.
+ */
+export function Notice({ notice, onDismiss }: { notice: AppNotice; onDismiss: () => void }) {
+  return (
+    <div className="oa-notice oa-notice-danger" role="alert">
+      <CircleAlert aria-hidden="true" />
+      <span>
+        {notice.message}
+        {isPlanLimitCode(notice.code) && (
+          <>
+            {' '}
+            <a className="oa-link ext-plans-link" href={pricingUrl(frontendUrl)} target="_blank" rel="noreferrer">
+              See plans<span className="oa-sr-only"> (opens in a new tab)</span>
+            </a>
+          </>
+        )}
+      </span>
+      <button type="button" className="oa-btn oa-btn-ghost oa-btn-sm" onClick={onDismiss}>Dismiss</button>
+    </div>
   );
 }
 
@@ -186,13 +233,13 @@ export function AccountMenu({ account, onSignOut }: { account: Account; onSignOu
         ref={triggerRef}
         type="button"
         className="oa-btn oa-btn-ghost oa-btn-sm ext-account-btn"
-        aria-label={`Account menu, ${account.name}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((value) => !value)}
       >
         <span className="oa-avatar oa-avatar-sm" aria-hidden="true">{initials(account.name)}</span>
+        <span className="oa-sr-only">Account menu, {account.name}</span>
         <ChevronDown aria-hidden="true" />
       </button>
       {open && (

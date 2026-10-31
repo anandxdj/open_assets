@@ -2,6 +2,8 @@ import type { Account, AuthSnapshot } from './contracts';
 import { clearAuth, getAuth, saveAuth } from './storage';
 import { browser } from 'wxt/browser';
 import { apiUrl, frontendUrl } from './config';
+import { fetchWithAuth, isSessionRejected, singleFlight } from './api';
+import { failureFromResponse } from './errors';
 
 type TokenPayload = { accessToken: string; deviceToken: string; user: Account };
 
@@ -21,7 +23,7 @@ async function request(path: string, init: RequestInit = {}) {
     headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
   });
   const payload = await response.json().catch(() => null) as { data?: TokenPayload; message?: string } | null;
-  if (!response.ok || !payload?.data) throw new Error(payload?.message || 'Could not verify your OpenAssets session.');
+  if (!response.ok || !payload?.data) throw failureFromResponse(response.status, payload, 'Could not verify your OpenAssets session.');
   return payload.data;
 }
 
@@ -44,25 +46,58 @@ export async function connectAccount(): Promise<Account> {
   return data.user;
 }
 
-export async function refreshAccount(): Promise<AuthSnapshot> {
+const signedOutAuth = (): AuthSnapshot => ({ account: null, accessToken: null, deviceToken: null });
+
+/**
+ * Trades the device token for a new access token. Shared between callers (the
+ * device token rotates on every refresh, so two at once would sign the user
+ * out). The session is dropped only when the server rejects it; offline or a
+ * server error leaves the user signed in and throws.
+ */
+export const refreshAccount = singleFlight(async (): Promise<AuthSnapshot> => {
   const current = await getAuth();
   if (!current.deviceToken) return current;
-  if (current.accessToken) return current;
   try {
     const data = await request('/api/auth/extension/refresh', { method: 'POST', body: JSON.stringify({ deviceToken: current.deviceToken }) });
     const next = { account: data.user, accessToken: data.accessToken, deviceToken: data.deviceToken };
     await saveAuth(next);
     return next;
-  } catch {
+  } catch (error) {
+    if (!isSessionRejected(error)) throw error;
     await clearAuth();
-    return { account: null, accessToken: null, deviceToken: null };
+    return signedOutAuth();
   }
+});
+
+/** The stored session, with a fresh access token when the browser restart dropped it. */
+async function currentAuth(): Promise<AuthSnapshot> {
+  const current = await getAuth();
+  if (!current.deviceToken || current.accessToken) return current;
+  return refreshAccount();
 }
 
 export async function requireAccount(): Promise<AuthSnapshot> {
-  const auth = await refreshAccount();
+  const auth = await currentAuth();
   if (!auth.account || !auth.accessToken) throw new Error('Sign in to OpenAssets to use the extension.');
   return auth;
+}
+
+/**
+ * A call to the API with the signed-in user's access token. The token lives
+ * 15 minutes, so a 401 is retried once with a refreshed one.
+ */
+export function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  return fetchWithAuth(`${apiUrl}${path}`, init, {
+    getAccessToken: async () => (await requireAccount()).accessToken!,
+    refreshAccessToken: async (rejected) => {
+      // Another call may have refreshed while this one was in flight.
+      const latest = await getAuth();
+      if (latest.accessToken && latest.accessToken !== rejected) return latest.accessToken;
+      const next = await refreshAccount();
+      if (!next.accessToken) throw new Error('Sign in to OpenAssets to use the extension.');
+      return next.accessToken;
+    },
+  });
 }
 
 export async function signOut(): Promise<void> {

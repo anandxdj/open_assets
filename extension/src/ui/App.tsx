@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
-import { CircleAlert, ExternalLink, FolderOpen, ImagePlus, Keyboard, Lock, LogIn, MousePointer2, Pause, Play, Plus, RotateCcw, ScanSearch, Search, Sparkles, X } from 'lucide-react';
-import type { AppSnapshot, AspectRatio, QueueItem, ReferenceAsset } from '../shared/contracts';
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { ExternalLink, FolderOpen, ImagePlus, Keyboard, Lock, LogIn, MousePointer2, Pause, Play, Plus, RotateCcw, ScanSearch, Focus, Search, Sparkles, X } from 'lucide-react';
+import type { AppNotice, AppSnapshot, AspectRatio, LibraryItem, QueueItem, ReferenceAsset } from '../shared/contracts';
 import { frontendUrl } from '../shared/config';
 import { callWorker } from '../shared/worker';
 import { browser } from 'wxt/browser';
-import { AccountMenu, Brand, EmptyState, Segmented, Spinner, StatusBadge, Thumb, statusLabels, statusTone } from './components';
+import { AccountMenu, Brand, EmptyState, Notice, Segmented, Spinner, StatusBadge, Thumb, statusLabels, statusTone } from './components';
+import { SentList } from './SentList';
 
 type Tab = 'generate' | 'extract' | 'library';
 type SplitMode = 'line' | 'block';
@@ -73,7 +74,10 @@ export function App() {
   const [splitMode, setSplitMode] = useState<SplitMode>('line');
   const [ratio, setRatio] = useState<AspectRatio>('auto');
   const [references, setReferences] = useState<ReferenceAsset[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppNotice | null>(null);
+  // The Library image being sent to Extract ('<item id>:<output id>'), and the polite words about the result.
+  const [sending, setSending] = useState<string | null>(null);
+  const [sendResult, setSendResult] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [query, setQuery] = useState('');
   const [shortcut, setShortcut] = useState<string[]>(['Alt', 'Shift', 'E']);
@@ -118,16 +122,27 @@ export function App() {
   const send = async (request: Parameters<typeof callWorker>[0]) => {
     const result = await callWorker(request);
     // A later success replaces an earlier failure instead of leaving it on screen.
-    setError(result.ok ? null : result.error);
+    setError(result.ok ? null : (result.code ? { message: result.error, code: result.code } : { message: result.error }));
     await refresh();
     return result;
+  };
+  const sendToExtract = async (item: LibraryItem, output: LibraryItem['outputs'][number]) => {
+    if (sending) return;
+    setSending(`${item.id}:${output.id}`);
+    setSendResult('');
+    try {
+      const result = await send({ type: 'EXTRACT_IMAGE_URL', imageUrl: output.sourceUrl, via: 'library', ...(output.filename ? { fileName: output.filename } : {}) });
+      if (result.ok) setSendResult('Sent to Extract. Opening the editor.');
+    } finally {
+      setSending(null);
+    }
   };
   const clearDone = async () => {
     // One at a time: the worker rewrites the whole queue for every removal.
     for (const item of app?.queue ?? []) {
       if (item.status !== 'completed') continue;
       const result = await callWorker({ type: 'REMOVE_QUEUE_ITEM', itemId: item.id });
-      if (!result.ok) { setError(result.error); break; }
+      if (!result.ok) { setError({ message: result.error }); break; }
     }
     await refresh();
   };
@@ -137,7 +152,7 @@ export function App() {
   };
   const addPrompts = async () => {
     const prompts = parsePrompts(promptText, splitMode);
-    if (!prompts.length) return setError('Add at least one prompt before adding it to the queue.');
+    if (!prompts.length) return setError({ message: 'Add at least one prompt before adding it to the queue.' });
     await send({ type: 'ADD_PROMPTS', prompts, aspectRatio: ratio, references });
     setPromptText(''); setReferences([]);
   };
@@ -165,13 +180,13 @@ export function App() {
     tabRefs.current[target.id]?.focus();
   };
 
-  const notice = error && (
-    <div className="oa-notice oa-notice-danger" role="alert">
-      <CircleAlert aria-hidden="true" />
-      <span>{error}</span>
-      <button type="button" className="oa-btn oa-btn-ghost oa-btn-sm" onClick={() => setError(null)}>Dismiss</button>
-    </div>
-  );
+  // A failure from this window, or one kept by the worker for a send that had no window open (context menu, shortcut).
+  const shown = error ?? app?.notice ?? null;
+  const dismissNotice = () => {
+    if (error) setError(null);
+    else void callWorker({ type: 'DISMISS_NOTICE' }).then(() => refresh());
+  };
+  const notice = shown && <Notice notice={shown} onDismiss={dismissNotice} />;
 
   if (!app) {
     return (
@@ -341,6 +356,7 @@ export function App() {
                 )}
                 <li><Lock aria-hidden="true" /><span>You will be asked for page access only when needed.</span></li>
               </ul>
+              <SentList items={app.sent} refresh={() => callWorker({ type: 'SENT_REFRESH' })} onClear={() => void send({ type: 'CLEAR_SENT' })} />
             </div>
           </div>
         </section>
@@ -362,20 +378,13 @@ export function App() {
                 : libraryItems.length === 0
                   ? <EmptyState icon={<Search aria-hidden="true" />} title="No matches">No prompts match “{query.trim()}”.</EmptyState>
                   : (
-                    <ul aria-label="Library">
-                      {libraryItems.map((item) => (
-                        <li className="ext-lib-item" key={item.id}>
-                          <Thumb src={item.thumbnailUrl ?? item.outputs[0]?.sourceUrl} size="lg" />
-                          <div className="ext-lib-main">
-                            <p className="ext-lib-prompt" id={`lib-${item.id}`} title={item.prompt}>{item.prompt}</p>
-                            <div className="ext-lib-meta">
-                              <span>{plural(item.outputs.length, 'image')}</span>
-                              {item.sourceConversationUrl && <a className="oa-link" href={item.sourceConversationUrl} target="_blank" rel="noreferrer" aria-describedby={`lib-${item.id}`}>Open conversation</a>}
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                    <>
+                      <p className="ext-hint ext-lib-hint">Send to Extract uploads that image to your account.</p>
+                      <ul aria-label="Library">
+                        {libraryItems.map((item) => <LibraryRow key={item.id} item={item} sending={sending} onSend={(output) => void sendToExtract(item, output)} />)}
+                      </ul>
+                      <p className="oa-sr-only" role="status">{sendResult}</p>
+                    </>
                   )}
             </div>
           </div>
@@ -402,6 +411,62 @@ function QueueRow({ item, onDelete }: { item: QueueItem; onDelete: () => void })
       </div>
       <button type="button" className="oa-btn oa-btn-ghost oa-btn-sm oa-btn-icon" aria-label={`Remove from queue: ${truncate(item.prompt)}`} title="Remove from queue" onClick={onDelete}>
         <X aria-hidden="true" />
+      </button>
+    </li>
+  );
+}
+
+function LibraryRow({ item, sending, onSend }: { item: LibraryItem; sending: string | null; onSend: (output: LibraryItem['outputs'][number]) => void }) {
+  const [choosing, setChoosing] = useState(false);
+  const chooserId = useId();
+  const outputs = item.outputs;
+  const several = outputs.length > 1;
+  const busy = outputs.some((output) => sending === `${item.id}:${output.id}`);
+  const name = `Send to Extract: ${truncate(item.prompt)}`;
+  return (
+    <li className="ext-lib-item" onKeyDown={(event) => { if (event.key === 'Escape' && choosing) { event.stopPropagation(); setChoosing(false); } }}>
+      <Thumb src={item.thumbnailUrl ?? outputs[0]?.sourceUrl} size="lg" />
+      <div className="ext-lib-main">
+        <p className="ext-lib-prompt" id={`lib-${item.id}`} title={item.prompt}>{item.prompt}</p>
+        <div className="ext-lib-meta">
+          <span>{plural(outputs.length, 'image')}</span>
+          {item.sourceConversationUrl && <a className="oa-link" href={item.sourceConversationUrl} target="_blank" rel="noreferrer" aria-describedby={`lib-${item.id}`}>Open conversation</a>}
+        </div>
+        {several && choosing && (
+          <ul className="ext-chooser" id={chooserId} aria-label="Choose an image to send to Extract">
+            {outputs.map((output, index) => {
+              const key = `${item.id}:${output.id}`;
+              return (
+                <li key={output.id}>
+                  <button
+                    type="button"
+                    className="ext-chooser-btn oa-checker"
+                    disabled={!!sending}
+                    aria-busy={sending === key}
+                    aria-label={`Send image ${index + 1} of ${outputs.length} to Extract`}
+                    title={`Send image ${index + 1} to Extract`}
+                    onClick={() => { setChoosing(false); onSend(output); }}
+                  >
+                    <img src={output.sourceUrl} alt="" referrerPolicy="no-referrer" />
+                    <span className="ext-chooser-n" aria-hidden="true">{index + 1}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+      <button
+        type="button"
+        className="oa-btn oa-btn-ghost oa-btn-sm oa-btn-icon ext-send"
+        aria-label={name}
+        title="Send to Extract"
+        disabled={!!sending || outputs.length === 0}
+        aria-busy={busy}
+        {...(several ? { 'aria-expanded': choosing, 'aria-controls': choosing ? chooserId : undefined } : {})}
+        onClick={() => { if (several) setChoosing((value) => !value); else if (outputs[0]) onSend(outputs[0]); }}
+      >
+        {busy ? <Spinner /> : <Focus aria-hidden="true" />}
       </button>
     </li>
   );

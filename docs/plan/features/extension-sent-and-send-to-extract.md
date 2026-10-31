@@ -120,7 +120,7 @@ row in progress, and nothing once all rows have settled.
 |---|---|
 | Signed out | Nothing: the whole panel is the Connect screen. The list is gone (see privacy). |
 | Empty | Empty state: "Nothing sent yet. Images you extract from a page or send from the Library show up here for 24 hours." |
-| Loading | Rows show their last known status at once from storage; a polite "Updating…" note while a refresh is in flight (`aria-busy` on the list). No skeleton, no layout shift. |
+| Loading | Rows show their last known status at once from storage, with `aria-busy` on the list while a refresh is in flight. No skeleton, no layout shift, and no "Updating" text that would blink on every poll; a row in progress carries a spinning Detecting badge. |
 | Error | A refresh failure keeps the last known rows and shows a warning line under the list: "Could not update statuses. <reason>" with **Try again**. Polling backs off. |
 | Row failed / expired | Failed: danger badge and the job's error text. Expired: neutral badge, no link, hint that the original is no longer stored. |
 | Plan limit | Not a list state: a refused send never creates a row. The notice from Task 1 explains it, with **See plans**. |
