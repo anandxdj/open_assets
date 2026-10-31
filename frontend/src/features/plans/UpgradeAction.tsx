@@ -23,7 +23,7 @@ export function toastTrialStarted() {
 /** Small "Pro" marker for a locked control. */
 export function ProBadge({ className }: { className?: string }) {
   return (
-    <Badge className={className}>
+    <Badge tone="pro" className={className}>
       <Lock aria-hidden />
       Pro
     </Badge>

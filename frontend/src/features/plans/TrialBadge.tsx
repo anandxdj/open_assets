@@ -24,7 +24,7 @@ export function TrialBadge({ className }: { className?: string }) {
       href="/pricing"
       aria-label={`Pro trial, ${text}. See plans.`}
       className={cn(
-        "flex items-center justify-between gap-2 border-[1.5px] border-line bg-surface px-2.5 py-2 text-[11px] leading-4 hover:bg-hover",
+        "flex items-center justify-between gap-2 border-[1.5px] border-line-strong bg-surface px-2.5 py-2 text-[11px] leading-4 hover:bg-hover",
         className
       )}
     >
