@@ -3,7 +3,7 @@
 > The notes below describe the Cloudinary provider. `STORAGE_PROVIDER` can also be `imagekit`, or
 > `local` (files under `LOCAL_STORAGE_DIR`, served by the API at `/storage/<key>`; for development
 > and self-hosting without cloud keys). See "Local storage" in the root README for what the local
-> provider can and cannot do (flat-background keying, resize instead of AI upscale, no AI enhance).
+> provider can and cannot do (flat-background keying, with an opt-in `removeEnclosedBackground` for pockets the border cannot reach, resize instead of AI upscale, no AI enhance).
 > With `local`, py_backend's `/crop` is called with `inline: true` and returns the PNGs, which the
 > backend stores under `crops/<jobId>/` (`backend/src/lib/cropStore.ts`).
 

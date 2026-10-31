@@ -5,7 +5,7 @@ import { LoaderCircle, Trash2 } from "lucide-react";
 import type { BoundingBox } from "@/types";
 import type { DetectionMode } from "@/features/upload/services/uploadApi";
 import { Button } from "@/components/ui/button";
-import { Range } from "@/components/ui/controls";
+import { Checkbox, Range } from "@/components/ui/controls";
 import { ProGate } from "@/features/plans/ProGate";
 import { DETECTION_LIMITS } from "@/lib/plans";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,15 @@ export interface DetectionControls {
   };
 }
 
+/** Options for the background removal that "Name and export" runs. */
+export interface RemovalControls {
+  /** False when the server's storage cannot do it (Cloudinary, ImageKit) or the plan has not loaded: the switch is hidden. */
+  available: boolean;
+  enclosed: boolean;
+  onEnclosedChange: (next: boolean) => void;
+  disabled?: boolean;
+}
+
 interface Props {
   loading: boolean;
   fileName: string;
@@ -48,6 +57,7 @@ interface Props {
   onDeleteBox: (id: string) => void;
   onDeleteSelected: () => void;
   detection: DetectionControls;
+  removal: RemovalControls;
   className?: string;
 }
 
@@ -261,6 +271,7 @@ export function PropertiesPanel({
   onDeleteBox,
   onDeleteSelected,
   detection,
+  removal,
   className,
 }: Props) {
   const selected = boxes.filter((b) => selectedIds.has(b.id));
@@ -351,6 +362,30 @@ export function PropertiesPanel({
           </>
         )}
       </div>
+      {!loading && removal.available && <RemovalOptions removal={removal} />}
     </aside>
+  );
+}
+
+/** Docked under the scrolling list so it stays in view whatever is selected. */
+function RemovalOptions({ removal }: { removal: RemovalControls }) {
+  const hintId = useId();
+  return (
+    <div className="oa-panel-sec flex-none border-b-0 border-t-[1.5px] border-line">
+      <h3 className="oa-panel-title">Background removal</h3>
+      <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[18px]">
+        <Checkbox
+          checked={removal.enclosed}
+          disabled={removal.disabled}
+          aria-describedby={hintId}
+          onChange={(event) => removal.onEnclosedChange(event.target.checked)}
+          className="mt-px"
+        />
+        <span>Also remove enclosed background</span>
+      </label>
+      <p id={hintId} className="text-[11px] leading-4 text-ink-3">
+        For letters, rings and key holes. Art in the background colour goes too.
+      </p>
+    </div>
   );
 }

@@ -13,6 +13,8 @@ import type { ScaffoldImage } from '../collections/collection.service';
 interface CropJobData {
   jobId: string;
   isRaw?: boolean;
+  /** Also remove background pockets the sheet border cannot reach. Absent on jobs queued before the option existed. */
+  removeEnclosedBackground?: boolean;
 }
 
 /**
@@ -64,7 +66,7 @@ export function startCropWorker(): Worker<CropJobData> {
   const worker = new Worker<CropJobData>(
     'crop',
     async (job) => {
-      const { jobId, isRaw } = job.data;
+      const { jobId, isRaw, removeEnclosedBackground } = job.data;
 
       const jobData = await getJob(jobId);
       if (!jobData) throw new Error(`Job ${jobId} not found in Redis`);
@@ -96,7 +98,7 @@ export function startCropWorker(): Worker<CropJobData> {
         // 1. Make the whole image transparent. Cut as soon as it's ready —
         //    don't block on Gemini, which keeps running in the background.
         try {
-          workingUrl = await storage.applyBackgroundRemoval(jobData.publicId);
+          workingUrl = await storage.applyBackgroundRemoval(jobData.publicId, { removeEnclosed: removeEnclosedBackground === true });
         } catch (err) {
           throw new Error(`Background removal failed: ${extractError(err)}`);
         }

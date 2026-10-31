@@ -380,7 +380,7 @@ add-ons are not available on your machine:
 
 | Step | Cloudinary / ImageKit | Local storage |
 |---|---|---|
-| Background removal (extract) | AI | Only a **flat, single-colour** background (white, black, a solid colour) is keyed out, from the image border inwards. A sheet that is already transparent is used as it is. Any other background fails the job with a message saying so |
+| Background removal (extract) | AI | Only a **flat, single-colour** background (white, black, a solid colour) is keyed out, from the image border inwards, and a chroma-key colour (magenta, green) is removed everywhere. Background enclosed by the art (a ring's hole, the inside of a letter) stays unless `removeEnclosedBackground` is sent on the crop (the editor's "Also remove enclosed background" switch, off by default). A sheet that is already transparent is used as it is. Any other background fails the job with a message saying so |
 | Export upscale (2x / 4x) | AI upscale | A plain Lanczos **resize** to the same size. Sharp edges, no invented detail |
 | AI enhance | AI upscale / background removal | **Not available**: the page and `GET /api/enhance/capabilities` report `STORAGE_UNSUPPORTED` |
 

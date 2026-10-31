@@ -11,11 +11,16 @@ export async function startExport(
   jobId: string,
   boxes: BoundingBox[],
   isRaw?: boolean,
+  options: {
+    /** Also remove background pockets the sheet border cannot reach. Sent only when true: a server without the option ignores it. */
+    removeEnclosedBackground?: boolean;
+  } = {},
 ): Promise<{ jobId: string }> {
   const envelope = await apiClient.post<ApiEnvelope<{ jobId: string }>>("/api/crop", {
     jobId,
     boxes,
     isRaw,
+    ...(options.removeEnclosedBackground ? { removeEnclosedBackground: true } : {}),
   });
   return envelope.data;
 }

@@ -23,7 +23,7 @@ import { isDialogOpen, isEditableTarget } from "../lib/keyboard";
 import { fileNameFromUrl } from "../lib/names";
 import { SmartDetectionCanvas } from "./SmartDetectionCanvas";
 import { DetectionsPanel } from "./DetectionsPanel";
-import { PropertiesPanel, type DetectionControls } from "./PropertiesPanel";
+import { PropertiesPanel, type DetectionControls, type RemovalControls } from "./PropertiesPanel";
 import { DetectionStatusCard } from "./DetectionStatusCard";
 import { ReviewNotice } from "./ReviewNotice";
 import { Toolbar } from "./Toolbar";
@@ -64,12 +64,14 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   const [threshold, setThreshold] = useState<number>(DETECTION_LIMITS.threshold.default);
   const [padding, setPadding] = useState<number>(DETECTION_LIMITS.padding.default);
   const { allowed: tuningAllowed, ready: planReady } = useEntitlement("paddingThresholdControls");
-  const { refresh: refreshPlan } = usePlan();
+  const { refresh: refreshPlan, plan } = usePlan();
   // Result of the last re-detect in this session; null until the user re-detects.
   const [redetected, setRedetected] = useState<{ warning?: string } | null>(null);
   const [reviewDismissed, setReviewDismissed] = useState(false);
   const [exporting, setExporting] = useState<"raw" | "smart" | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // Off by default. Used by "Name and export", which removes the background.
+  const [removeEnclosed, setRemoveEnclosed] = useState(false);
 
   const status = job?.status;
 
@@ -162,7 +164,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     if (boxes.length === 0 || exporting) return;
     setExporting("smart");
     try {
-      await startExport(jobId, boxes, false);
+      await startExport(jobId, boxes, false, { removeEnclosedBackground: enclosedAvailable && removeEnclosed });
       router.push(`/editor/${jobId}/export`);
     } catch (err) {
       toast.error("Could not start the export", { description: errorMessage(err, "Try again in a moment.") });
@@ -246,6 +248,8 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     boxes.length === 1 &&
     boxes[0].width >= imageWidth * 0.9 &&
     boxes[0].height >= imageHeight * 0.9;
+  // Only local storage can do it. Until the plan has loaded the switch stays hidden, so it never flashes in and out.
+  const enclosedAvailable = plan?.capabilities?.enclosedBackground === true;
   const warning = redetected ? redetected.warning : job?.detectionWarning;
   const needsReview = detected && (Boolean(warning) || wholeSheet);
 
@@ -264,6 +268,13 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       padding,
       onPaddingChange: setPadding,
     },
+  };
+
+  const removal: RemovalControls = {
+    available: enclosedAvailable,
+    enclosed: removeEnclosed,
+    onEnclosedChange: setRemoveEnclosed,
+    disabled: exporting !== null,
   };
 
   let badge: React.ReactNode;
@@ -508,6 +519,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
             onDeleteBox={deleteBox}
             onDeleteSelected={deleteSelected}
             detection={detection}
+            removal={removal}
           />
         </div>
       )}

@@ -34,10 +34,18 @@ export interface EnhanceTransform {
   removeBackground?: boolean;
 }
 
+export interface BackgroundRemovalOptions {
+  /**
+   * Also remove background-coloured pockets the sheet border cannot reach (the hole of a ring, the inside of a
+   * letter). Only the local provider acts on it: Cloudinary and ImageKit cut the subject out with AI and ignore it.
+   */
+  removeEnclosed?: boolean;
+}
+
 export interface StorageAdapter {
   upload(buffer: Buffer, options: UploadOptions): Promise<UploadResult>;
   delete(publicId: string, resourceType?: ResourceType): Promise<void>;
-  applyBackgroundRemoval(publicId: string): Promise<string>;
+  applyBackgroundRemoval(publicId: string, options?: BackgroundRemovalOptions): Promise<string>;
   /**
    * AI upscale chained with background removal (the extract export). The
    * providers upscale by a fixed 4x, so when `sourceWidth` is known the result
