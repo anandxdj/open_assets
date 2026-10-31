@@ -46,8 +46,8 @@ const SECTIONS: LegalSectionData[] = [
         <p>
           OpenAssets finds the individual assets in one large image, such as a sprite sheet, icon grid or UI mockup,
           names them, crops them to transparent PNGs and exports them as a ZIP. It can remove backgrounds and upscale
-          2×. You can keep assets in collections and publish them for others. The Service also includes a browser
-          extension and AI tools for Studio, Enhance and AniBuddy. Some of these tools may be marked “coming soon”.
+          the result. You can keep assets in collections and publish them for others. The Service also includes a browser
+          extension and the Enhance, Studio and AniBuddy tools, which use AI.
         </p>
         <p>The things you should know before you rely on it:</p>
         <Bullets>
@@ -292,8 +292,8 @@ const SECTIONS: LegalSectionData[] = [
     body: (
       <>
         <p>
-          You can stop using the Service at any time. You can delete your collections yourself. To close your account,
-          email <SupportMail />.
+          You can stop using the Service at any time. You can delete your collections, and your whole account, yourself in
+          Settings. If you cannot, email <SupportMail />.
         </p>
         <p>
           We may suspend or close an account if you break these terms, put the Service or others at risk, or the law

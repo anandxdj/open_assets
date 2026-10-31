@@ -42,7 +42,7 @@ export const PRIVACY_EMAIL = "privacy@openassets.dev";
  * The Terms and Privacy pages are drafts until the owner and legal counsel
  * sign them off. Bump the date whenever either text changes.
  */
-export const LEGAL_UPDATED = { iso: "2026-10-30", label: "30 October 2026" } as const;
+export const LEGAL_UPDATED = { iso: "2026-10-31", label: "31 October 2026" } as const;
 
 /** Legal pages linked from the footer and the register form. */
 export const LEGAL_LINKS: MarketingLink[] = [

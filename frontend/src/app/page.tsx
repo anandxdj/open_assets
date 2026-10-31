@@ -5,7 +5,6 @@ import { HeroSection } from "@/components/landing/HeroSection";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { ToolsSection } from "@/components/landing/ToolsSection";
-import { UsedBy } from "@/components/landing/UsedBy";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingHeader } from "@/components/marketing/MarketingHeader";
 
@@ -22,7 +21,6 @@ export default function LandingPage() {
       <MarketingHeader />
       <main className="flex-1">
         <HeroSection />
-        <UsedBy />
         <HowItWorks />
         <ToolsSection />
         <GallerySection />
