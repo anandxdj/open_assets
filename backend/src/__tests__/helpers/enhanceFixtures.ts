@@ -86,9 +86,11 @@ export class MockStorage implements StorageAdapter {
   /** What `upload` reports back for the stored image; defaults to echoing nothing. */
   uploadResult: Partial<UploadResult> = {};
   enhanceError: Error | null = null;
+  uploadError: Error | null = null;
   resultUrl = 'https://res.example.test/enhanced.png';
 
   async upload(buffer: Buffer, options: UploadOptions): Promise<UploadResult> {
+    if (this.uploadError) throw this.uploadError;
     this.uploads.push({ size: buffer.length, options });
     return {
       url: `https://res.example.test/${options.publicId}`,
