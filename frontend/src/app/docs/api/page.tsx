@@ -341,7 +341,7 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
             <Endpoint method="POST" path="/api/v1/jobs/{jobId}/crop" />
             <p>
               Cut the assets out and name them. This removes backgrounds and asks an AI model for names, and like the
-              web app it leaves a private draft collection in your library. The job must be <Ic>detected</Ic>. Send{" "}
+              web app it leaves a private draft collection in My collections. The job must be <Ic>detected</Ic>. Send{" "}
               <Ic>boxes</Ic> to correct what detection found, or nothing to crop the detected boxes as they are.
             </p>
             <LegalTable
