@@ -9,6 +9,14 @@ export const SECTION_TITLE = "oa-h1 max-md:text-[30px] max-md:leading-[32px]";
 /** The docs live in this app: overview, getting started and the API reference (see docs.config.ts). */
 export const DOCS_URL = "/docs";
 
+/**
+ * Where "Chrome extension" points, on the marketing site and in the app shell:
+ * the extension section of the landing page. There is no store listing yet.
+ * When one exists, change this to its URL and mark the links `external` (the
+ * app shell and the footer already open external links in a new tab for that).
+ */
+export const EXTENSION_HREF = "/#extension";
+
 export const SALES_EMAIL = "sales@openassets.dev";
 
 export const SOCIAL = {

@@ -13,6 +13,7 @@ import {
   LogOut,
   Moon,
   PersonStanding,
+  Puzzle,
   ScanSearch,
   Settings,
   ShieldCheck,
@@ -32,6 +33,7 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { TrialBadge } from "@/features/plans/TrialBadge";
 import { usePlan } from "@/features/plans/PlanContext";
+import { EXTENSION_HREF } from "@/components/marketing/site";
 import { cn } from "@/lib/utils";
 
 type NavEntry = {
@@ -127,6 +129,10 @@ function Sidebar() {
       ))}
       <span className="flex-1" />
       <TrialBadge className="mx-2 mb-1" />
+      <Link href={EXTENSION_HREF} className="oa-nav-item">
+        <Puzzle aria-hidden />
+        Chrome extension
+      </Link>
       <div className="flex items-center justify-between px-2 py-2">
         <span className="oa-label text-ink-3">Theme</span>
         <ThemeToggle />
@@ -278,6 +284,12 @@ function MobileAccount({ path }: { path: string }) {
         <Link href="/pricing">
           <Tag aria-hidden />
           Pricing
+        </Link>
+      </MenuItem>
+      <MenuItem asChild>
+        <Link href={EXTENSION_HREF}>
+          <Puzzle aria-hidden />
+          Chrome extension
         </Link>
       </MenuItem>
       <MenuItem onSelect={() => setTheme(isDark ? "light" : "dark")}>

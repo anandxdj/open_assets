@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Logo } from "@/components/layout/Logo";
-import { DOCS_URL, LEGAL_LINKS, SALES_EMAIL, SOCIAL, SUPPORT_EMAIL, WRAP, type MarketingLink } from "./site";
+import { DOCS_URL, EXTENSION_HREF, LEGAL_LINKS, SALES_EMAIL, SOCIAL, SUPPORT_EMAIL, WRAP, type MarketingLink } from "./site";
 
 const COLUMNS: { title: string; links: MarketingLink[] }[] = [
   {
@@ -9,7 +9,7 @@ const COLUMNS: { title: string; links: MarketingLink[] }[] = [
     links: [
       { label: "How it works", href: "/#how" },
       { label: "Pricing", href: "/pricing" },
-      { label: "Extension", href: "/#extension" },
+      { label: "Extension", href: EXTENSION_HREF },
       { label: "Community", href: "/collections" },
     ],
   },
