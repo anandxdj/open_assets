@@ -349,7 +349,8 @@ export function PropertiesPanel({
                 variant="secondary"
                 size="sm"
                 className="self-start"
-                disabled={detection.redetecting}
+                aria-disabled={detection.redetecting || undefined}
+                aria-busy={detection.redetecting || undefined}
                 onClick={detection.onRedetect}
               >
                 {detection.redetecting && <LoaderCircle aria-hidden className="animate-spin" />}

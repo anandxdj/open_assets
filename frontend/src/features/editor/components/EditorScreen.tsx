@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -342,6 +342,18 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   const enclosedAvailable = plan?.capabilities?.enclosedBackground === true;
   const warning = redetected ? redetected.warning : job?.detectionWarning;
   const needsReview = detected && (Boolean(warning) || wholeSheet);
+  const noticeShown = needsReview && !reviewDismissed;
+
+  // Dismissing the review notice, or a re-detect that clears it, removes the button that had
+  // focus. Hand focus to the canvas instead of dropping it on <body>.
+  const hadNotice = useRef(false);
+  useLayoutEffect(() => {
+    const gone = hadNotice.current && !noticeShown;
+    hadNotice.current = noticeShown;
+    if (!gone) return;
+    const active = document.activeElement;
+    if (!active || active === document.body || !active.isConnected) stageRef.current?.focus();
+  }, [noticeShown]);
 
   const detection: DetectionControls = {
     mode: detectMode,
@@ -393,7 +405,8 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     badge = <StatusBadge status={status} />;
   }
 
-  const canExport = detected && boxes.length > 0 && exporting === null;
+  const hasBoxes = detected && boxes.length > 0;
+  const canExport = hasBoxes && exporting === null;
 
   return (
     <>
@@ -428,9 +441,12 @@ export function EditorScreen({ jobId }: { jobId: string }) {
           </Button>
         </div>
         <span aria-hidden className="oa-vsep hidden sm:block" />
+        {/* While an export runs the buttons stay focusable (aria-disabled, and the handlers ignore the press): a native disabled would drop keyboard focus on <body> and never give it back. */}
         <Button
           variant="secondary"
-          disabled={!canExport}
+          disabled={!hasBoxes}
+          aria-disabled={exporting !== null || undefined}
+          aria-busy={exporting === "raw" || undefined}
           aria-describedby="raw-export-note"
           title="Cut in your browser and download a ZIP"
           onClick={() => void handleRawExport()}
@@ -441,7 +457,9 @@ export function EditorScreen({ jobId }: { jobId: string }) {
         {/* Orange only while it can be pressed: a disabled primary would be a second one next to Upload again or Detect again. */}
         <Button
           variant={canExport ? "primary" : "secondary"}
-          disabled={!canExport}
+          disabled={!hasBoxes}
+          aria-disabled={exporting !== null || undefined}
+          aria-busy={exporting === "smart" || undefined}
           aria-describedby="smart-export-note"
           title="Remove the background, name each asset with AI, then export"
           onClick={() => void handleSmartExport()}
@@ -538,7 +556,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                   onSaveHistory={saveHistory}
                 />
 
-                {needsReview && !reviewDismissed && (
+                {noticeShown && (
                   <ReviewNotice
                     className="absolute left-1/2 top-4 z-10 -translate-x-1/2"
                     wholeSheet={wholeSheet}

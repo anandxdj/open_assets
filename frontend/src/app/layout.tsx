@@ -5,6 +5,7 @@ import { PlanProvider } from "@/features/plans/PlanContext";
 import { SESSION_HINT_SCRIPT } from "@/lib/session-hint";
 import { BRAND, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { ThemeProvider } from "@/components/theme-provider";
+import { RouteFocus } from "@/components/layout/RouteFocus";
 import { SkipLink } from "@/components/layout/SkipLink";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -59,6 +60,7 @@ export default function RootLayout({
           <AuthProvider>
             <PlanProvider>
               <SkipLink />
+              <RouteFocus />
               {children}
               <Toaster />
             </PlanProvider>

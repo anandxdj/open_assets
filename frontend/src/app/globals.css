@@ -259,9 +259,9 @@ html[data-session="1"] [data-auth="out"] { display: none; }
     text-transform: uppercase;
     text-decoration: none;
   }
-  .oa-skip-link:focus-visible { transform: none; }
+  .oa-skip-link:focus { transform: none; }
   /* The target takes focus from the skip link; it needs no ring of its own. */
-  main[tabindex="-1"]:focus { outline: none; }
+  main[tabindex="-1"]:focus, h1[tabindex="-1"]:focus { outline: none; }
   /* Lucide icons get square caps for the hard look */
   .lucide {
     stroke-linecap: square;

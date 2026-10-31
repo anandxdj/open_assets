@@ -1,9 +1,10 @@
 # End-to-end: visual regression and accessibility
 
-Playwright drives the real web app against the real API with seeded data.
+Playwright drives the real web app against the real API with seeded data. Unit tests for logic that needs no browser (the upload state machine) run with `pnpm test` in `frontend/`.
 
 - `visual.spec.ts`: viewport screenshots of each key route, light and dark, at 1280 and 375 wide, plus a few plan-state screens.
 - `a11y.spec.ts`: axe (`wcag2a`, `wcag2aa`, `wcag21aa`, `wcag22aa`) on the same routes and on the other plan states. Serious and critical violations fail; no rule is disabled.
+- `keyboard.spec.ts`: keyboard-only walkthroughs (skip link, the editor's keyboard equivalents of move, resize, add, duplicate, zoom and delete, the shortcuts dialog, and cancelling an upload). Behaviour only, no screenshots.
 - `routes.ts`: the route table (path, who is signed in). `auth.setup.ts` signs each seeded account in through `POST /api/auth/login` and stores the session cookie, so tests start signed in.
 
 ## Run it

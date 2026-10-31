@@ -75,6 +75,7 @@ export function ProfileSection({ account, onSaved }: { account: Account; onSaved
     if (busy || !dirty) return;
     if (trimmed.length < 2) {
       setError("Use at least 2 characters.");
+      document.getElementById(nameId)?.focus();
       return;
     }
     setBusy(true);
@@ -110,7 +111,7 @@ export function ProfileSection({ account, onSaved }: { account: Account; onSaved
           />
         </Field>
         <div>
-          <Button type="submit" disabled={!dirty || busy} aria-busy={busy || undefined}>
+          <Button type="submit" aria-disabled={!dirty || busy || undefined} aria-busy={busy || undefined}>
             {busy && <LoaderCircle aria-hidden className="animate-spin" />}
             {busy ? "Saving…" : "Save name"}
           </Button>
