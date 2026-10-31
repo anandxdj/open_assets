@@ -9,7 +9,8 @@
     "start": "tsx index.ts",
     "plan:set": "tsx scripts/plan-set.ts",
     "admin:grant": "tsx scripts/admin-grant.ts",
-    "e2e:seed": "tsx scripts/e2e-seed.ts"
+    "e2e:seed": "tsx scripts/e2e-seed.ts",
+    "collections:normalize-tags": "tsx scripts/collection-tags-normalize.ts"
   },
   "dependencies": {
     "@imagekit/nodejs": "^7.6.3",
