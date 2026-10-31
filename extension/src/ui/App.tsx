@@ -419,12 +419,15 @@ function QueueRow({ item, onDelete }: { item: QueueItem; onDelete: () => void })
 function LibraryRow({ item, sending, onSend }: { item: LibraryItem; sending: string | null; onSend: (output: LibraryItem['outputs'][number]) => void }) {
   const [choosing, setChoosing] = useState(false);
   const chooserId = useId();
+  const sendRef = useRef<HTMLButtonElement>(null);
+  // The chooser's buttons disappear when it closes, so focus goes back to the button that opened it.
+  const closeChooser = () => { setChoosing(false); sendRef.current?.focus(); };
   const outputs = item.outputs;
   const several = outputs.length > 1;
   const busy = outputs.some((output) => sending === `${item.id}:${output.id}`);
   const name = `Send to Extract: ${truncate(item.prompt)}`;
   return (
-    <li className="ext-lib-item" onKeyDown={(event) => { if (event.key === 'Escape' && choosing) { event.stopPropagation(); setChoosing(false); } }}>
+    <li className="ext-lib-item" onKeyDown={(event) => { if (event.key === 'Escape' && choosing) { event.stopPropagation(); closeChooser(); } }}>
       <Thumb src={item.thumbnailUrl ?? outputs[0]?.sourceUrl} size="lg" />
       <div className="ext-lib-main">
         <p className="ext-lib-prompt" id={`lib-${item.id}`} title={item.prompt}>{item.prompt}</p>
@@ -432,42 +435,44 @@ function LibraryRow({ item, sending, onSend }: { item: LibraryItem; sending: str
           <span>{plural(outputs.length, 'image')}</span>
           {item.sourceConversationUrl && <a className="oa-link" href={item.sourceConversationUrl} target="_blank" rel="noreferrer" aria-describedby={`lib-${item.id}`}>Open conversation</a>}
         </div>
-        {several && choosing && (
-          <ul className="ext-chooser" id={chooserId} aria-label="Choose an image to send to Extract">
-            {outputs.map((output, index) => {
-              const key = `${item.id}:${output.id}`;
-              return (
-                <li key={output.id}>
-                  <button
-                    type="button"
-                    className="ext-chooser-btn oa-checker"
-                    disabled={!!sending}
-                    aria-busy={sending === key}
-                    aria-label={`Send image ${index + 1} of ${outputs.length} to Extract`}
-                    title={`Send image ${index + 1} to Extract`}
-                    onClick={() => { setChoosing(false); onSend(output); }}
-                  >
-                    <img src={output.sourceUrl} alt="" referrerPolicy="no-referrer" />
-                    <span className="ext-chooser-n" aria-hidden="true">{index + 1}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
       </div>
       <button
+        ref={sendRef}
         type="button"
         className="oa-btn oa-btn-ghost oa-btn-sm oa-btn-icon ext-send"
         aria-label={name}
         title="Send to Extract"
-        disabled={!!sending || outputs.length === 0}
+        disabled={outputs.length === 0}
+        aria-disabled={sending ? true : undefined}
         aria-busy={busy}
         {...(several ? { 'aria-expanded': choosing, 'aria-controls': choosing ? chooserId : undefined } : {})}
         onClick={() => { if (several) setChoosing((value) => !value); else if (outputs[0]) onSend(outputs[0]); }}
       >
         {busy ? <Spinner /> : <Focus aria-hidden="true" />}
       </button>
+      {several && choosing && (
+        <ul className="ext-chooser" id={chooserId} aria-label="Choose an image to send to Extract">
+          {outputs.map((output, index) => {
+            const key = `${item.id}:${output.id}`;
+            return (
+              <li key={output.id}>
+                <button
+                  type="button"
+                  className="ext-chooser-btn oa-checker"
+                  aria-disabled={sending ? true : undefined}
+                  aria-busy={sending === key}
+                  aria-label={`Send image ${index + 1} of ${outputs.length} to Extract`}
+                  title={`Send image ${index + 1} to Extract`}
+                  onClick={() => { closeChooser(); onSend(output); }}
+                >
+                  <img src={output.sourceUrl} alt="" referrerPolicy="no-referrer" />
+                  <span className="ext-chooser-n" aria-hidden="true">{index + 1}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </li>
   );
 }
