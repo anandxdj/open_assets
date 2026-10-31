@@ -58,6 +58,11 @@ export interface PlanStatus {
      * Lanczos resize, so the UI must not call it AI.
      */
     aiUpscale: boolean;
+    /**
+     * True when the crop can also remove background pockets the sheet border cannot reach (local storage's
+     * keying). False for Cloudinary and ImageKit: their AI cut-out has no such option, so the editor hides the switch.
+     */
+    enclosedBackground: boolean;
   };
 }
 
@@ -102,7 +107,8 @@ export function buildPlanStatus(
       daysLeft: trialActive && endsAt ? Math.max(1, Math.ceil((endsAt.getTime() - now.getTime()) / DAY_MS)) : null,
     },
     proEndsAt: iso(proEndsAt),
-    capabilities: { aiUpscale: storage.supportsAi },
+    // supportsAi is false exactly when the provider is local, the only one that keys the background itself.
+    capabilities: { aiUpscale: storage.supportsAi, enclosedBackground: !storage.supportsAi },
   };
 }
 

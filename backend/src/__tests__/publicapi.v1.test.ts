@@ -732,6 +732,74 @@ test('crop: validation (400 VALIDATION_ERROR) and state (409 INVALID_JOB_STATE) 
   assert.equal(ctx.queued.length, before, 'nothing was queued');
 });
 
+test('crop: removeEnclosedBackground is optional, off by default, and queued only when true', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const { key } = await ctx.makeKey(user.id);
+  const queuedFor = async (body: unknown) => {
+    const jobId = await ctx.seedJob(user.id, 'detected', { boxes: JSON.stringify(BOXES) });
+    const before = ctx.queued.length;
+    const res = await send('POST', `/api/v1/jobs/${jobId}/crop`, { key, body });
+    return { res, jobId, queued: ctx.queued.slice(before) };
+  };
+
+  const on = await queuedFor({ removeEnclosedBackground: true });
+  assert.equal(on.res.status, 201, JSON.stringify(on.res.json));
+  assert.deepEqual(on.queued, [{ queue: 'crop', data: { jobId: on.jobId, isRaw: undefined, removeEnclosedBackground: true } }]);
+
+  const off = await queuedFor({ removeEnclosedBackground: false });
+  assert.equal(off.res.status, 201);
+  assert.deepEqual(off.queued, [{ queue: 'crop', data: { jobId: off.jobId, isRaw: undefined } }], 'false queues the same job as no field');
+
+  const withBoxes = await queuedFor({ boxes: [{ id: 'box_1', x: 0, y: 0, width: 10, height: 10 }], removeEnclosedBackground: true });
+  assert.equal(withBoxes.res.status, 201);
+  assert.equal((withBoxes.queued[0]?.data as { removeEnclosedBackground?: boolean }).removeEnclosedBackground, true);
+});
+
+test('crop: removeEnclosedBackground must be a boolean (400 VALIDATION_ERROR), and nothing is queued', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const { key } = await ctx.makeKey(user.id);
+  const jobId = await ctx.seedJob(user.id, 'detected', { boxes: JSON.stringify(BOXES) });
+  const before = ctx.queued.length;
+  for (const value of ['true', 'yes', 1, 0, null, {}, []]) {
+    const res = await send('POST', `/api/v1/jobs/${jobId}/crop`, { key, body: { removeEnclosedBackground: value } });
+    assert.equal(res.status, 400, JSON.stringify(value));
+    assert.equal(res.json.code, 'VALIDATION_ERROR');
+    assert.match(res.json.message, /removeEnclosedBackground/);
+  }
+  assert.equal(ctx.queued.length, before);
+});
+
+test('POST /api/crop (the web route): removeEnclosedBackground is optional, a boolean when sent, and reaches the queue', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const post = async (body: Record<string, unknown>) => {
+    const jobId = await ctx.seedJob(user.id, 'detected', { boxes: JSON.stringify(BOXES) });
+    const before = ctx.queued.length;
+    const res = await send('POST', '/api/crop', { key: user.sessionToken, body: { jobId, boxes: BOXES, ...body } });
+    return { res, jobId, queued: ctx.queued.slice(before) };
+  };
+
+  // A request from before the field existed behaves as today.
+  const old = await post({});
+  assert.equal(old.res.status, 201, JSON.stringify(old.res.json));
+  assert.deepEqual(old.queued, [{ queue: 'crop', data: { jobId: old.jobId, isRaw: undefined } }]);
+
+  const on = await post({ removeEnclosedBackground: true });
+  assert.equal(on.res.status, 201);
+  assert.deepEqual(on.queued, [{ queue: 'crop', data: { jobId: on.jobId, isRaw: undefined, removeEnclosedBackground: true } }]);
+
+  const off = await post({ removeEnclosedBackground: false });
+  assert.equal(off.res.status, 201);
+  assert.deepEqual(off.queued, [{ queue: 'crop', data: { jobId: off.jobId, isRaw: undefined } }]);
+
+  for (const value of ['true', 1, null, {}]) {
+    const bad = await post({ removeEnclosedBackground: value });
+    assert.equal(bad.res.status, 400, JSON.stringify(value));
+    assert.match(bad.res.json.message, /removeEnclosedBackground must be true or false/);
+    assert.equal(bad.queued.length, 0, 'nothing is queued');
+    assert.equal((await ctx.getJob(bad.jobId))?.status, 'detected', 'the job is untouched');
+  }
+});
+
 /* ------------------------------------------------------------------ *
  * POST /jobs/:id/export
  * ------------------------------------------------------------------ */

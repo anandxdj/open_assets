@@ -19,6 +19,11 @@ const boxSchema = z.object({
 /** POST /jobs/:jobId/crop. Without `boxes` the boxes detection found are used. */
 export const cropBodySchema = z.object({
   boxes: z.array(boxSchema).min(1).max(1000).optional(),
+  /**
+   * Also remove background-coloured pockets the sheet border cannot reach (the hole of a ring, the inside of a
+   * letter). Default false. Only used when the server's storage is local; Cloudinary and ImageKit ignore it.
+   */
+  removeEnclosedBackground: z.boolean().optional(),
 });
 export type CropBody = z.infer<typeof cropBodySchema>;
 
