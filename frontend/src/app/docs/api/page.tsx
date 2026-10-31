@@ -355,6 +355,15 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
                     original sheet. <Ic>id</Ic> is a string you choose. It replaces the detected boxes.
                   </>,
                 ],
+                [
+                  <Ic key="e">removeEnclosedBackground</Ic>,
+                  <>
+                    Optional boolean, default <Ic>false</Ic>. <Ic>true</Ic> also removes background inside an asset,
+                    such as the hole of a ring or a letter. Only the server&apos;s local storage acts on it, and it
+                    removes every pocket that matches the background colour. Other values answer{" "}
+                    <Ic>400 VALIDATION_ERROR</Ic>.
+                  </>,
+                ],
               ]}
             />
             <Label>Request</Label>

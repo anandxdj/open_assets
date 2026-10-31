@@ -8,10 +8,20 @@ import type { AuthRequest } from '../auth/auth.middleware';
 import type { BoundingBox } from '../jobs/job.types';
 
 export async function startCrop(req: AuthRequest, res: Response): Promise<void> {
-  const { jobId, boxes, isRaw } = req.body as { jobId: string; boxes: BoundingBox[]; isRaw?: boolean };
+  const { jobId, boxes, isRaw, removeEnclosedBackground } = req.body as {
+    jobId: string;
+    boxes: BoundingBox[];
+    isRaw?: boolean;
+    /** Also remove background pockets the sheet border cannot reach. Default false. */
+    removeEnclosedBackground?: unknown;
+  };
 
   if (!jobId) throw ApiError.badRequest('jobId required');
   if (!Array.isArray(boxes) || boxes.length === 0) throw ApiError.badRequest('boxes required');
+  // Optional, so a request from before this field existed keeps working. When sent it must be a real boolean.
+  if (removeEnclosedBackground !== undefined && typeof removeEnclosedBackground !== 'boolean') {
+    throw ApiError.badRequest('removeEnclosedBackground must be true or false');
+  }
 
   const jobData = await getJob(jobId);
   if (!jobData) throw ApiError.notFound('Job not found');
@@ -23,7 +33,7 @@ export async function startCrop(req: AuthRequest, res: Response): Promise<void> 
   // Persist the user's confirmed (possibly edited) boxes.
   await updateJob(jobId, { boxes: JSON.stringify(boxes) });
 
-  await cropQueue.add('crop', { jobId, isRaw });
+  await cropQueue.add('crop', { jobId, isRaw, ...(removeEnclosedBackground ? { removeEnclosedBackground: true } : {}) });
 
   ApiResponse.created(res, 'Crop started', { jobId });
 }

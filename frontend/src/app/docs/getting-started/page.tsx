@@ -43,7 +43,9 @@ export default function GettingStartedPage() {
                 change how sensitive detection is and add padding around every box.
               </Step>
               <Step n={3}>
-                Confirm the boxes to crop. Backgrounds are removed and every asset gets a name.
+                Confirm the boxes to crop. Backgrounds are removed and every asset gets a name. With local storage,
+                turn on <strong>Also remove enclosed background</strong> first if your art has holes to clear, such as
+                letters, rings and key holes.
               </Step>
               <Step n={4}>
                 On the export screen choose the assets you want. Turn on upscaling for 2× (or 4× on Pro) and download the
