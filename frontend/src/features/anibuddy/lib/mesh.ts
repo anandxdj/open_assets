@@ -31,10 +31,43 @@ const TOP_K = 4;
 /** Falloff exponent. 4 keeps limbs independent instead of dragging the torso. */
 const FALLOFF = 4;
 const EPSILON = 1e-6;
+/** Outline simplification as a fraction of the longest side, coarse to fine. */
+const SIMPLIFY_FRACTIONS = [0.004, 0.0025, 0.0015, 0.0008, 0.0004];
 
 export interface Point {
   x: number;
   y: number;
+}
+
+/** True when any two outline edges (of one ring or of two) properly cross each other. */
+export function ringsCross(rings: number[][][]): boolean {
+  const edges: number[][] = [];
+  rings.forEach((ring, r) => {
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i];
+      const b = ring[(i + 1) % ring.length];
+      edges.push([a[0], a[1], b[0], b[1], r, i, ring.length]);
+    }
+  });
+  const side = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number) => (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i];
+    for (let j = i + 1; j < edges.length; j++) {
+      const f = edges[j];
+      if (e[4] === f[4]) {
+        const gap = Math.abs(e[5] - f[5]);
+        if (gap === 1 || gap === e[6] - 1) continue; // neighbours share an endpoint
+      }
+      if (Math.max(e[0], e[2]) < Math.min(f[0], f[2]) || Math.max(f[0], f[2]) < Math.min(e[0], e[2])) continue;
+      if (Math.max(e[1], e[3]) < Math.min(f[1], f[3]) || Math.max(f[1], f[3]) < Math.min(e[1], e[3])) continue;
+      const d1 = side(e[0], e[1], e[2], e[3], f[0], f[1]);
+      const d2 = side(e[0], e[1], e[2], e[3], f[2], f[3]);
+      const d3 = side(f[0], f[1], f[2], f[3], e[0], e[1]);
+      const d4 = side(f[0], f[1], f[2], f[3], e[2], e[3]);
+      if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+    }
+  }
+  return false;
 }
 
 function polygonArea(ring: number[][]): number {
@@ -46,13 +79,20 @@ function polygonArea(ring: number[][]): number {
 /** Build an artwork-following constrained Delaunay mesh in normalized space. */
 export function buildMesh(alpha: Uint8ClampedArray, width: number, height: number, cuts: CutLine[] = []): Mesh {
   if (width <= 0 || height <= 0) return { verts: new Float32Array(), tris: new Uint32Array() };
-  const minRingArea = Math.pow(Math.max(width, height) * 0.01, 2);
-  const rings = traceContours(alpha, width, height)
-    .map((ring) => simplify(ring, Math.max(width, height) * 0.004))
-    // Tiny holes and specks (a gap between fingers, a stray pixel cluster) cannot hold a joint's
-    // influence, and their simplified outlines can cross the outer ring's, which makes the
-    // constrained triangulation drop most of the figure. Leave them out of the mesh.
-    .filter((ring) => ring.length >= 3 && polygonArea(ring) >= minRingArea);
+  const longest = Math.max(width, height);
+  const minRingArea = Math.pow(longest * 0.01, 2);
+  const traced = traceContours(alpha, width, height);
+  // Simplify as coarsely as the outline allows. On thin features (a blade, strands of hair) a coarse
+  // simplification makes edges cross, and a triangulation of crossing edges silently drops most of the
+  // figure, so tighten the tolerance until nothing crosses.
+  let rings: number[][][] = [];
+  for (const fraction of SIMPLIFY_FRACTIONS) {
+    rings = traced
+      .map((ring) => simplify(ring, longest * fraction))
+      // Tiny holes and specks cannot hold a joint's influence; leave them out of the mesh.
+      .filter((ring) => ring.length >= 3 && polygonArea(ring) >= minRingArea);
+    if (!ringsCross(rings)) break;
+  }
   if (rings.length === 0) return { verts: new Float32Array(), tris: new Uint32Array() };
 
   const dist = distanceTransform(alpha, width, height);
