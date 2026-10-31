@@ -9,16 +9,18 @@ import { PricingTiers } from "@/components/marketing/PricingTiers";
 import { SectionHeader } from "@/components/marketing/SectionHeader";
 import {
   COMPARISON,
+  FREE_SHEETS_PER_MONTH,
   PLANS,
   PRICING_FAQ,
   STARTUP_PROGRAM,
   type ComparisonValue,
 } from "@/components/marketing/pricing";
 import { WRAP } from "@/components/marketing/site";
+import { TRIAL_DAYS } from "@/lib/plans";
 
 export const metadata: Metadata = {
   title: "Pricing · OpenAssets",
-  description: "Start free with 5 sheets a month. Pro adds unlimited sheets, finer controls, 4× upscale and API keys.",
+  description: `Start free with ${FREE_SHEETS_PER_MONTH} sheets a month. Pro adds unlimited sheets, finer controls, 4× upscale and API keys.`,
   alternates: { canonical: "/pricing" },
 };
 
@@ -69,7 +71,7 @@ export default function PricingPage() {
           </div>
 
           <PricingTiers headingLevel="h2" />
-          <p className="text-xs leading-[18px] text-ink-2">Pro starts with a 14-day trial, no card needed. Billing is not switched on yet.</p>
+          <p className="text-xs leading-[18px] text-ink-2">Pro starts with a {TRIAL_DAYS}-day trial, no card needed. Billing is not switched on yet.</p>
         </section>
 
         <section

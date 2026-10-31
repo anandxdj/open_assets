@@ -141,7 +141,7 @@ export type FaqItem = { question: string; answer: string };
 export const PRICING_FAQ: FaqItem[] = [
   {
     question: "What counts as a sheet?",
-    answer: "One image you upload and run through detection, however many assets it holds. Free accounts get 5 a month; the count resets on the 1st (UTC).",
+    answer: `One image you upload and run through detection, however many assets it holds. Free accounts get ${FREE_SHEETS_PER_MONTH} a month; the count resets on the 1st (UTC).`,
   },
   {
     question: "How do I pay for Pro?",
