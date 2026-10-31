@@ -26,6 +26,7 @@ import {
 } from "@/features/collections/api";
 import { AssetPreviewDialog } from "@/features/collections/components/AssetPreviewDialog";
 import { NameDialog } from "@/features/collections/components/CollectionDialogs";
+import { TagChips } from "@/features/collections/components/TagChip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { creatorName, creatorPicture } from "@/features/collections/format";
 import { cn } from "@/lib/utils";
@@ -355,15 +356,19 @@ export function PackDetailScreen({ id }: { id: string }) {
             </Notice>
           )}
           {c.description && <p className="text-xs leading-[18px] text-ink-2">{c.description}</p>}
-          {c.tags.length > 0 && (
-            <ul className="flex flex-wrap gap-1.5" aria-label="Tags">
-              {c.tags.map((t) => (
-                <li key={t}>
-                  <Badge>{t}</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
+          {c.tags.length > 0 &&
+            (c.isPublic ? (
+              // Published: each tag opens the community page filtered by it.
+              <TagChips tags={c.tags} activeTag={null} />
+            ) : (
+              <ul className="flex flex-wrap gap-1.5" aria-label="Tags">
+                {c.tags.map((t) => (
+                  <li key={t}>
+                    <Badge>{t}</Badge>
+                  </li>
+                ))}
+              </ul>
+            ))}
           <dl className="grid grid-cols-3 gap-2 border-y-[1.5px] border-line py-3.5">
             <Stat label="Assets" value={totalAssets} />
             <Stat label="Likes" value={likes ?? c.likesCount} />

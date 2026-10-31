@@ -46,7 +46,7 @@ for (const route of SHOT) {
 }
 
 /** A few plan-state screens whose look (not just their markup) depends on the plan. Light, desktop only. */
-const STATE_SHOTS = new Set(["settings-free", "settings-trial", "settings-lapsed", "settings-member", "collections-member", "pack-team-readonly"]);
+const STATE_SHOTS = new Set(["settings-free", "settings-trial", "settings-lapsed", "settings-member", "collections-member", "pack-team-readonly", "community-tag", "community-tag-empty"]);
 for (const route of STATE_ROUTES.filter((r) => STATE_SHOTS.has(r.id))) {
   test.describe(`state ${route.id}`, () => {
     test.use({ storageState: storageStatePath(route.persona) ?? { cookies: [], origins: [] } });

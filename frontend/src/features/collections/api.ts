@@ -33,7 +33,10 @@ export interface CollectionSummary {
   status: "draft" | "published";
   likesCount: number;
   downloadCount: number;
+  /** Up to 5 lowercase tags; empty for a collection that has none. */
   tags: string[];
+  /** How many assets it holds, across all folders. 0 when empty. */
+  assetCount: number;
   coverImageUrls: string[];
   creator: CollectionCreator | string;
   /** Set while the collection is shared with its owner's team. */
