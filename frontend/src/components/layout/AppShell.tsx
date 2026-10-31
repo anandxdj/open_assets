@@ -31,6 +31,7 @@ import { Logo } from "@/components/layout/Logo";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { TrialBadge } from "@/features/plans/TrialBadge";
+import { usePlan } from "@/features/plans/PlanContext";
 import { cn } from "@/lib/utils";
 
 type NavEntry = {
@@ -219,6 +220,8 @@ function MobileAccount({ path }: { path: string }) {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const { plan } = usePlan();
+  const daysLeft = plan?.trial.active ? plan.trial.daysLeft : null;
   const active = SETTINGS.match(path) || path.startsWith("/admin");
 
   return (
@@ -231,6 +234,14 @@ function MobileAccount({ path }: { path: string }) {
           </MenuLabel>
           <MenuSeparator />
           <MobileMenuLink entry={SETTINGS} path={path} />
+          {daysLeft !== null && daysLeft !== undefined && (
+            <MenuItem asChild>
+              <Link href="/pricing">
+                <Tag aria-hidden />
+                Pro trial · {daysLeft} day{daysLeft === 1 ? "" : "s"} left
+              </Link>
+            </MenuItem>
+          )}
           {user.role === "admin" && (
             <MenuItem asChild>
               <Link href="/admin" aria-current={path.startsWith("/admin") ? "page" : undefined}>

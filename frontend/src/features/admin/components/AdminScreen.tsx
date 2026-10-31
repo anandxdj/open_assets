@@ -152,7 +152,9 @@ function UsersTable({ users, onEdit }: { users: AdminUserRow[]; onEdit: (user: A
         <thead>
           <tr>
             <th scope="col">User</th>
-            <th scope="col">Plan</th>
+            <th scope="col" className="hidden sm:table-cell">
+              Plan
+            </th>
             <th scope="col" className="hidden sm:table-cell">
               Sheets this month
             </th>
@@ -171,19 +173,24 @@ function UsersTable({ users, onEdit }: { users: AdminUserRow[]; onEdit: (user: A
               <tr key={user.id}>
                 <td>
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="oa-value max-w-[280px] truncate text-[13px]" title={user.email}>
+                    <span className="oa-value max-w-[150px] truncate text-[13px] sm:max-w-[280px]" title={user.email}>
                       {user.email}
                     </span>
                     <span className="flex items-center gap-2 text-[11px] leading-4 text-ink-3">
-                      <span className="max-w-[200px] truncate normal-case">{user.name}</span>
+                      <span className="max-w-[110px] truncate normal-case sm:max-w-[200px]">{user.name}</span>
                       {user.role === "admin" && <Badge>Admin</Badge>}
                       {!user.isVerified && <Badge tone="warning">Unverified</Badge>}
                     </span>
+                    {/* Phones have no room for a Plan column, so the plan sits under the name. */}
+                    <span className="mt-1 flex flex-col items-start gap-1 sm:hidden">
+                      <Badge tone={plan.label === "Pro" ? "pro" : "neutral"}>{plan.label}</Badge>
+                      {plan.note && <span className="text-[11px] leading-4 normal-case text-ink-2">{plan.note}</span>}
+                    </span>
                   </span>
                 </td>
-                <td>
+                <td className="hidden sm:table-cell">
                   <span className="flex flex-col items-start gap-1">
-                    <Badge tone={plan.label === "Pro" ? "accent" : "neutral"}>{plan.label}</Badge>
+                    <Badge tone={plan.label === "Pro" ? "pro" : "neutral"}>{plan.label}</Badge>
                     {plan.note && <span className="text-[11px] leading-4 normal-case text-ink-2">{plan.note}</span>}
                   </span>
                 </td>

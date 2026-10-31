@@ -55,8 +55,12 @@ export function RecentJobsTable({
         <thead>
           <tr>
             <th scope="col">Sheet</th>
-            <th scope="col">Assets</th>
-            <th scope="col">Status</th>
+            <th scope="col" className="hidden sm:table-cell">
+              Assets
+            </th>
+            <th scope="col" className="hidden sm:table-cell">
+              Status
+            </th>
             <th scope="col" className="hidden sm:table-cell">
               Created
             </th>
@@ -82,13 +86,20 @@ export function RecentJobsTable({
                         <ImageOff aria-hidden className="size-4 text-ink-3" />
                       )}
                     </span>
-                    <span className="oa-value max-w-[240px] truncate text-[13px]" title={name}>
-                      {name}
+                    <span className="flex min-w-0 flex-col gap-1.5">
+                      <span className="oa-value max-w-[104px] truncate text-[13px] sm:max-w-[240px]" title={name}>
+                        {name}
+                      </span>
+                      {/* Phones have no room for the Assets and Status columns, so they sit under the name. */}
+                      <span className="flex flex-col items-start gap-1 sm:hidden">
+                        <StatusBadge status={job.status} />
+                        {job.assetCount > 0 && <span className="text-[11px] leading-4 text-ink-3">{job.assetCount} {job.assetCount === 1 ? "asset" : "assets"}</span>}
+                      </span>
                     </span>
                   </span>
                 </td>
-                <td className="text-ink-2">{job.assetCount > 0 ? job.assetCount : "—"}</td>
-                <td>
+                <td className="hidden text-ink-2 sm:table-cell">{job.assetCount > 0 ? job.assetCount : "—"}</td>
+                <td className="hidden sm:table-cell">
                   <span title={job.status === "failed" ? job.error : undefined}>
                     <StatusBadge status={job.status} />
                   </span>

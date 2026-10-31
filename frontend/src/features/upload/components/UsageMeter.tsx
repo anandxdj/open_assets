@@ -53,6 +53,11 @@ export function UsageMeter() {
           <p className="text-[11px] leading-4 text-ink-2">Resets {reset}</p>
         </div>
         <Progress value={pct} label="Sheets used this month" />
+        {!reached && (
+          <Link href="/pricing" className="oa-link self-start text-[11px] leading-4">
+            Upgrade for unlimited
+          </Link>
+        )}
       </div>
       {reached && (
         <Notice tone="warning" role="status">
