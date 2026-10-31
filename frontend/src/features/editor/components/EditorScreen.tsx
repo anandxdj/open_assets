@@ -49,7 +49,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     selectedIds, setSelectedIds,
     drawingBox, setDrawingBox,
     toggleId, clearSelection,
-    updateBoxSilently, moveBoxes, deleteBox, deleteSelected, addBox, initBoxes,
+    updateBoxSilently, moveBoxes, resizeBoxes, duplicateBoxes, deleteBox, deleteSelected, addBox, initBoxes,
     fitToScreen,
     saveHistory, undo, redo, canUndo, canRedo,
   } = useCanvasEditor();
@@ -70,6 +70,8 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   const [reviewDismissed, setReviewDismissed] = useState(false);
   const [exporting, setExporting] = useState<"raw" | "smart" | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // What the last keyboard action did, read out by a polite live region.
+  const [announcement, setAnnouncement] = useState("");
   // Off by default. Used by "Name and export", which removes the background.
   const [removeEnclosed, setRemoveEnclosed] = useState(false);
 
@@ -114,6 +116,49 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     const clamped = Math.max(0.05, Math.min(10, newZoom));
     setCamera({ zoom: clamped, x: cx - wx * clamped, y: cy - wy * clamped });
   }, [camera, setCamera]);
+
+  const announce = useCallback((message: string) => {
+    // A repeated message must still be read out again.
+    setAnnouncement((previous) => (previous === message ? `${message}\u00a0` : message));
+  }, []);
+
+  // Keyboard path for drawing a box: a small box in the middle of the view,
+  // selected, to be moved and resized with the arrow keys.
+  const addBoxAtCentre = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage || !imageWidth || !imageHeight) return;
+    const size = Math.max(4, Math.min(64, imageWidth, imageHeight));
+    const cx = (stage.offsetWidth / 2 - camera.x) / camera.zoom;
+    const cy = (stage.offsetHeight / 2 - camera.y) / camera.zoom;
+    const x = Math.round(Math.max(0, Math.min(imageWidth - size, cx - size / 2)));
+    const y = Math.round(Math.max(0, Math.min(imageHeight - size, cy - size / 2)));
+    const id = `box_${Date.now()}_n`;
+    addBox({ id, x, y, width: size, height: size });
+    setSelectedIds(new Set([id]));
+    setActiveTool("select");
+    announce(`Added a ${size} by ${size} box at ${x}, ${y}. Arrow keys move it, Alt plus arrow keys resize it.`);
+  }, [addBox, announce, camera, imageHeight, imageWidth, setActiveTool, setSelectedIds]);
+
+  // Selecting from a list scrolls the canvas to the box when it is out of view.
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || selectedIds.size === 0 || !document.activeElement?.closest("aside")) return;
+    const picked = boxes.filter((b) => selectedIds.has(b.id));
+    if (picked.length === 0) return;
+    const left = Math.min(...picked.map((b) => b.x)) * camera.zoom + camera.x;
+    const top = Math.min(...picked.map((b) => b.y)) * camera.zoom + camera.y;
+    const right = Math.max(...picked.map((b) => b.x + b.width)) * camera.zoom + camera.x;
+    const bottom = Math.max(...picked.map((b) => b.y + b.height)) * camera.zoom + camera.y;
+    const inside = left >= 0 && top >= 0 && right <= stage.offsetWidth && bottom <= stage.offsetHeight;
+    if (inside) return;
+    setCamera({
+      zoom: camera.zoom,
+      x: stage.offsetWidth / 2 - ((left + right) / 2 - camera.x),
+      y: stage.offsetHeight / 2 - ((top + bottom) / 2 - camera.y),
+    });
+    // Only a changed selection should move the view, never a camera change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds]);
 
   async function handleRedetect() {
     if (redetecting) return;
@@ -190,6 +235,17 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       if (key === "h") setActiveTool("hand");
       if (key === "v") setActiveTool("select");
       if (key === "r") setActiveTool("draw");
+      if (key === "n") {
+        e.preventDefault();
+        addBoxAtCentre();
+      }
+      // Zoom without the wheel. Ctrl and Cmd with + and - stay with the browser.
+      if (e.key === "+" || e.key === "=" || e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        const next = e.key === "-" || e.key === "_" ? camera.zoom * 0.8 : camera.zoom * 1.25;
+        handleZoom(next);
+        announce(`Zoom ${Math.round(Math.max(0.05, Math.min(10, next)) * 100)}%`);
+      }
     }
 
     if (e.key === "Escape") {
@@ -199,12 +255,24 @@ export function EditorScreen({ jobId }: { jobId: string }) {
 
     if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.size > 0) {
       e.preventDefault();
+      const count = selectedIds.size;
       deleteSelected();
+      announce(`Deleted ${count} box${count === 1 ? "" : "es"}. Ctrl+Z undoes it.`);
+    }
+
+    if (mod && key === "d" && selectedIds.size > 0) {
+      e.preventDefault();
+      const copies = duplicateBoxes(selectedIds);
+      if (copies.length > 0) {
+        setSelectedIds(new Set(copies));
+        announce(`Duplicated ${copies.length} box${copies.length === 1 ? "" : "es"}, offset 10 px.`);
+      }
     }
 
     if (mod && e.key === "0") {
       e.preventDefault();
       handleFitToScreen();
+      announce("Fit to screen");
     }
 
     if (mod && key === "a") {
@@ -216,19 +284,41 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       e.preventDefault();
       if (e.shiftKey) redo();
       else undo();
+      announce(e.shiftKey ? "Redo" : "Undo");
     }
 
     if (mod && key === "y") {
       e.preventDefault();
       redo();
+      announce("Redo");
     }
 
-    if (e.key.startsWith("Arrow") && selectedIds.size > 0) {
-      e.preventDefault();
+    if (e.key.startsWith("Arrow") && !mod) {
       const amount = e.shiftKey ? 10 : 1;
       const dx = e.key === "ArrowLeft" ? -amount : e.key === "ArrowRight" ? amount : 0;
       const dy = e.key === "ArrowUp" ? -amount : e.key === "ArrowDown" ? amount : 0;
-      moveBoxes(selectedIds, dx, dy);
+      const count = selectedIds.size;
+      if (count > 0 && e.altKey) {
+        // Alt+Arrow resizes from the top left corner: Right and Down grow, Left and Up shrink.
+        e.preventDefault();
+        resizeBoxes(selectedIds, dx, dy);
+        const only = count === 1 ? boxes.find((b) => selectedIds.has(b.id)) : undefined;
+        announce(
+          only
+            ? `Resized to ${Math.max(4, Math.round(only.width + dx))} by ${Math.max(4, Math.round(only.height + dy))}`
+            : `Resized ${count} boxes`
+        );
+      } else if (count > 0) {
+        e.preventDefault();
+        moveBoxes(selectedIds, dx, dy);
+        const only = count === 1 ? boxes.find((b) => selectedIds.has(b.id)) : undefined;
+        announce(only ? `Moved to ${Math.round(only.x + dx)}, ${Math.round(only.y + dy)}` : `Moved ${count} boxes`);
+      } else if (stageRef.current && document.activeElement === stageRef.current) {
+        // Nothing selected and the canvas itself has focus: arrow keys pan the sheet.
+        e.preventDefault();
+        const step = e.shiftKey ? 160 : 40;
+        setCamera({ ...camera, x: camera.x - dx * step / amount, y: camera.y - dy * step / amount });
+      }
     }
   });
 
@@ -377,6 +467,9 @@ export function EditorScreen({ jobId }: { jobId: string }) {
         </span>
       </Topbar>
       <h1 className="sr-only">Editing {fileName}</h1>
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
 
       {failed ? (
         <main className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-sunken p-4 md:p-6">
@@ -412,11 +505,18 @@ export function EditorScreen({ jobId }: { jobId: string }) {
           <main
             ref={stageRef}
             aria-label="Canvas"
-            className="oa-stage order-1 h-[min(560px,65dvh)] min-h-[360px] flex-none lg:order-none lg:h-auto lg:min-h-0 lg:flex-1"
+            aria-describedby={detected ? "canvas-help" : undefined}
+            tabIndex={detected ? 0 : undefined}
+            className="oa-stage order-1 h-[min(560px,65dvh)] min-h-[360px] flex-none focus-visible:[outline-offset:-4px] lg:order-none lg:h-auto lg:min-h-0 lg:flex-1"
             style={detected ? { backgroundPosition: `${camera.x}px ${camera.y}px` } : undefined}
           >
             {detected && job ? (
               <>
+                <p id="canvas-help" className="sr-only">
+                  Select boxes in the Detections list. Arrow keys move the selected boxes, Alt plus arrow keys resize
+                  them, N adds a box, Control D duplicates, plus and minus zoom, and with nothing selected the arrow
+                  keys pan. Press question mark for every shortcut.
+                </p>
                 <SmartDetectionCanvas
                   imageUrl={job.cloudinaryUrl}
                   imageWidth={job.imageWidth}

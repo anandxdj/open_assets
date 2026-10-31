@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Check, ChevronLeft, CircleAlert, CircleCheck, Download, ImageOff, Lock, LoaderCircle, Plus } from "lucide-react";
@@ -465,6 +465,15 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   else if (upscaleDone || lastDownload) announcement = "Download started";
   else if (localDownloading) announcement = "Building the ZIP";
 
+  // Pressing Download swaps that button for a progress or "Download started" view.
+  // When that leaves focus on nothing, put it on the download area, so a keyboard
+  // user stays where the result is announced and one Tab reaches "Download again".
+  const downloadAreaRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const active = document.activeElement;
+    if (!autoRaw && announcement && (!active || active === document.body || !active.isConnected)) downloadAreaRef.current?.focus();
+  }, [announcement, autoRaw]);
+
   let badge: React.ReactNode = null;
   if (failed) {
     badge = <StatusBadge status="failed" />;
@@ -759,7 +768,13 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
             </div>
           </div>
 
-          <div className="sticky bottom-0 flex flex-none flex-col gap-2 border-t-[1.5px] border-line bg-surface px-3.5 py-3">
+          <div
+            ref={downloadAreaRef}
+            role="group"
+            aria-label="Download"
+            tabIndex={-1}
+            className="sticky bottom-0 flex flex-none flex-col gap-2 border-t-[1.5px] border-line bg-surface px-3.5 py-3 focus-visible:[outline-offset:-3px]"
+          >
             <p role="status" className="sr-only">
               {announcement}
             </p>

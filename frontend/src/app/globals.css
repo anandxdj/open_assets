@@ -240,6 +240,28 @@ html[data-session="1"] [data-auth="out"] { display: none; }
     background: var(--oa-accent);
     color: #0A0A0A;
   }
+  /* Skip link: off screen until it takes keyboard focus, then the first thing on the page. */
+  .oa-skip-link {
+    position: fixed;
+    left: 8px;
+    top: 8px;
+    z-index: 100;
+    transform: translateY(-200%);
+    padding: 10px 14px;
+    border: var(--oa-bw) solid var(--oa-border-strong);
+    background: var(--oa-surface);
+    color: var(--oa-ink);
+    box-shadow: var(--oa-shadow-float);
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+  .oa-skip-link:focus-visible { transform: none; }
+  /* The target takes focus from the skip link; it needs no ring of its own. */
+  main[tabindex="-1"]:focus { outline: none; }
   /* Lucide icons get square caps for the hard look */
   .lucide {
     stroke-linecap: square;

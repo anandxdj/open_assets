@@ -245,7 +245,7 @@ function BoxProperties({
           <BoundInput axis="W" label="Width" value={box.width} min={1} onBeginEdit={onBeginEdit} onCommit={(width) => onEdit(box.id, { width })} />
           <BoundInput axis="H" label="Height" value={box.height} min={1} onBeginEdit={onBeginEdit} onCommit={(height) => onEdit(box.id, { height })} />
         </div>
-        <p className="text-[11px] leading-4 text-ink-3">Arrow keys nudge 1 px, Shift 10 px.</p>
+        <p className="text-[11px] leading-4 text-ink-3">Arrow keys nudge 1 px, Shift 10 px. Alt+Arrow resizes.</p>
       </div>
       <div className="oa-panel-sec border-b-0">
         <Button variant="danger" size="sm" className="self-start" onClick={() => onDeleteBox(box.id)}>
@@ -303,7 +303,7 @@ export function PropertiesPanel({
               <p className="text-xs">
                 <span className="tabular-nums">{selected.length}</span> boxes selected
               </p>
-              <p className="text-[11px] leading-4 text-ink-3">Arrow keys nudge them together: 1 px, Shift 10 px.</p>
+              <p className="text-[11px] leading-4 text-ink-3">Arrow keys nudge them together: 1 px, Shift 10 px. Alt+Arrow resizes them.</p>
             </div>
             <div className="oa-panel-sec border-b-0">
               <Button variant="danger" size="sm" className="self-start" onClick={onDeleteSelected}>
@@ -357,7 +357,7 @@ export function PropertiesPanel({
               </Button>
             </div>
             <div className="oa-panel-sec border-b-0">
-              <p className="text-[11px] leading-4 text-ink-2">Select a box to edit its label and bounds. Ctrl+A selects all.</p>
+              <p className="text-[11px] leading-4 text-ink-2">Select a box to edit its label and bounds. Ctrl+A selects all, N adds a box.</p>
             </div>
           </>
         )}

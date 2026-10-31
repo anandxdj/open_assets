@@ -32,6 +32,8 @@ export function useCanvasEditor() {
 
   const selectedIdsRef = useRef(selectedIds);
   useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
+  const boxesRef = useRef(boxes);
+  useEffect(() => { boxesRef.current = boxes; }, [boxes]);
 
   const saveStateToHistory = useCallback((currentBoxes: BoundingBox[]) => {
     setPast((prev) => [...prev, currentBoxes]);
@@ -99,6 +101,21 @@ export function useCanvasEditor() {
     });
   }, [saveStateToHistory]);
 
+  /**
+   * Resize several boxes at once as a single undo step (Alt+Arrow). The top left
+   * corner stays put, so Right and Down grow and Left and Up shrink. A box
+   * never gets smaller than `min` px.
+   */
+  const resizeBoxes = useCallback((ids: Set<string>, dw: number, dh: number, min = 4) => {
+    if (ids.size === 0) return;
+    setBoxes((prev) => {
+      saveStateToHistory(prev);
+      return prev.map((b) =>
+        ids.has(b.id) ? { ...b, width: Math.max(min, b.width + dw), height: Math.max(min, b.height + dh) } : b
+      );
+    });
+  }, [saveStateToHistory]);
+
   const deleteBox = useCallback((id: string) => {
     setBoxes((prev) => {
       saveStateToHistory(prev);
@@ -129,6 +146,22 @@ export function useCanvasEditor() {
     });
   }, [saveStateToHistory]);
 
+  /** Copies the given boxes, offset by `offset` px, as one undo step. Returns the new ids. */
+  const duplicateBoxes = useCallback((ids: Set<string>, offset = 10): string[] => {
+    const sources = boxesRef.current.filter((b) => ids.has(b.id));
+    if (sources.length === 0) return [];
+    const stamp = Date.now();
+    const copies: BoundingBox[] = [];
+    const next = [...boxesRef.current];
+    sources.forEach((src, i) => {
+      copies.push({ ...src, id: `box_${stamp}_${i}`, x: src.x + offset, y: src.y + offset, label: nextAssetLabel(next) });
+      next.push(copies[i]);
+    });
+    saveStateToHistory(boxesRef.current);
+    setBoxes(next);
+    return copies.map((c) => c.id);
+  }, [saveStateToHistory]);
+
   const initBoxes = useCallback((initial: BoundingBox[]) => {
     setBoxes(initial);
     setPast([]);
@@ -142,7 +175,7 @@ export function useCanvasEditor() {
     selectedIds, setSelectedIds,
     drawingBox, setDrawingBox,
     toggleId, clearSelection,
-    updateBox, updateBoxSilently, moveBoxes, deleteBox, deleteSelected, addBox, initBoxes,
+    updateBox, updateBoxSilently, moveBoxes, resizeBoxes, duplicateBoxes, deleteBox, deleteSelected, addBox, initBoxes,
     fitToScreen,
     saveHistory, undo, redo,
     canUndo: past.length > 0,

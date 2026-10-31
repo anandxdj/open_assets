@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import type { BoundingBox } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,25 @@ export function DetectionsPanel({
   className,
 }: Props) {
   const selectedCount = boxes.filter((b) => selectedIds.has(b.id)).length;
+  const panelRef = useRef<HTMLElement>(null);
+  const drawRef = useRef<HTMLButtonElement>(null);
+  // Row of the box last picked or focused, and how many boxes there were.
+  const lastRow = useRef(0);
+  const lastCount = useRef(boxes.length);
+
+  // Deleting the focused row (or the Delete box button in Properties) removes the
+  // element that had focus. Hand focus to the row that took its place, or to the
+  // "Draw a new box" button when the list is empty, instead of dropping it on <body>.
+  useLayoutEffect(() => {
+    const shrank = boxes.length < lastCount.current;
+    lastCount.current = boxes.length;
+    if (!shrank) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active.isConnected) return;
+    const rows = panelRef.current?.querySelectorAll<HTMLButtonElement>("li button");
+    const target = rows && rows.length > 0 ? rows[Math.min(lastRow.current, rows.length - 1)] : drawRef.current;
+    target?.focus();
+  }, [boxes.length]);
   const allSelected = boxes.length > 0 && selectedCount === boxes.length;
 
   function toggleAll() {
@@ -52,7 +72,7 @@ export function DetectionsPanel({
   }
 
   return (
-    <aside aria-label="Detections" className={cn("flex min-h-0 flex-col bg-surface", className)}>
+    <aside ref={panelRef} aria-label="Detections" className={cn("flex min-h-0 flex-col bg-surface", className)}>
       <div className="oa-panel-head">
         <Checkbox
           aria-label="Select all detections"
@@ -63,7 +83,7 @@ export function DetectionsPanel({
         />
         <h2 className="flex-1">Detections</h2>
         {!loading && <span className="oa-count">{boxes.length}</span>}
-        <Button variant="ghost" size="sm" icon aria-label="Draw a new box (R)" title="Draw a new box (R)" disabled={loading} onClick={onDrawBox}>
+        <Button ref={drawRef} variant="ghost" size="sm" icon aria-label="Draw a new box (R)" title="Draw a new box (R). N adds one without the mouse." disabled={loading} onClick={onDrawBox}>
           <Plus aria-hidden />
         </Button>
       </div>
@@ -80,19 +100,29 @@ export function DetectionsPanel({
           </ul>
         ) : boxes.length === 0 ? (
           <p className="px-2.5 py-8 text-center text-xs leading-[18px] text-ink-2">
-            No boxes yet. Draw one with <Kbd>R</Kbd>.
+            No boxes yet. Draw one with <Kbd>R</Kbd>, or add one with <Kbd>N</Kbd>.
           </p>
         ) : (
           <ul className="flex flex-col">
-            {boxes.map((box) => {
+            {boxes.map((box, index) => {
               const selected = selectedIds.has(box.id);
               const name = boxName(box);
               return (
                 <li key={box.id} className="oa-layer" data-selected={selected || undefined}>
-                  <Checkbox aria-label={`Select ${name}`} checked={selected} onChange={() => onToggle(box.id)} />
+                  <Checkbox
+                    aria-label={`Select ${name}`}
+                    checked={selected}
+                    onFocus={() => {
+                      lastRow.current = index;
+                    }}
+                    onChange={() => onToggle(box.id)}
+                  />
                   <button
                     type="button"
                     className="flex h-full min-w-0 flex-1 items-center gap-2 text-left"
+                    onFocus={() => {
+                      lastRow.current = index;
+                    }}
                     onClick={(e) => selectRow(e, box.id)}
                   >
                     <CropThumb

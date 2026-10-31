@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -22,6 +22,7 @@ const LOSSES = [
 
 function DeleteAccount({ email }: { email: string }) {
   const id = useId();
+  const typedRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -64,6 +65,11 @@ function DeleteAccount({ email }: { email: string }) {
       <DialogContent
         title="Delete your account?"
         description="This permanently deletes your account and everything in it. It cannot be undone."
+        // The one thing to do here is type the email: start in that field, not on the close button.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          typedRef.current?.focus();
+        }}
       >
         <form onSubmit={handleSubmit} noValidate className="contents">
           <DialogBody>
@@ -83,6 +89,7 @@ function DeleteAccount({ email }: { email: string }) {
               }
             >
               <Input
+                ref={typedRef}
                 id={id}
                 type="text"
                 autoComplete="off"
