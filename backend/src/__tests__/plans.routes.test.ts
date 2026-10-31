@@ -211,7 +211,7 @@ test('GET /api/plans/me says whether the export upscale is AI, from the storage 
       process.env['STORAGE_PROVIDER'] = provider;
       const { status, json } = await call('GET', '/api/plans/me', user.token);
       assert.equal(status, 200);
-      assert.deepEqual(json.data.capabilities, { aiUpscale }, provider);
+      assert.deepEqual(json.data.capabilities, { aiUpscale, enclosedBackground: !aiUpscale }, provider);
     }
   } finally {
     if (before === undefined) delete process.env['STORAGE_PROVIDER'];
