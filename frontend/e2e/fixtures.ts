@@ -1,13 +1,16 @@
 import path from "node:path";
 import {
   E2E_INVITE_TOKEN,
+  PUBLIC_PACK_ID,
+  READ_ONLY_TEAM_PACK_ID,
+  TEAM_PACK_ID,
   E2E_PASSWORD,
   PERSONAS,
   jobId,
   type PersonaKey,
 } from "../../backend/scripts/e2e/fixtures";
 
-export { E2E_INVITE_TOKEN, E2E_PASSWORD, PERSONAS, jobId };
+export { E2E_INVITE_TOKEN, E2E_PASSWORD, PERSONAS, PUBLIC_PACK_ID, READ_ONLY_TEAM_PACK_ID, TEAM_PACK_ID, jobId };
 export type { PersonaKey };
 
 /** Who a test is signed in as. `anon` has no session at all. */

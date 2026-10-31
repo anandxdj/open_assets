@@ -10,7 +10,8 @@
 export const E2E_PASSWORD = 'E2e-Passw0rd!';
 
 /** The pending invite the /team/invite/<token> screen is shot with. Only its SHA-256 is stored. */
-export const E2E_INVITE_TOKEN = 'e2e-invite-token-0000000000000000000000000';
+/** Invite tokens are 43 characters (32 random bytes, base64url); anything else is refused before a lookup. */
+export const E2E_INVITE_TOKEN = `e2e-invite-token-${'0'.repeat(26)}`;
 export const E2E_INVITEE_EMAIL = 'invitee@openassets.test';
 
 export type PersonaKey = 'admin' | 'free' | 'pro' | 'trial' | 'lapsed' | 'member' | 'creator';
@@ -54,3 +55,16 @@ export function jobId(owner: PersonaKey, state: JobState): string {
 }
 
 export const SHEET_KEY = 'originals/e2e-sheet.png';
+
+/**
+ * Fixed ObjectId (as 24 hex digits) of the n-th document of a kind. Kinds: 1 user, 2 team, 3 team member,
+ * 4 invite, 5 collection, 6 folder, 7 image, 8 like, 9 sheet usage.
+ */
+export function seededId(kind: number, n: number): string {
+  return `65e2e0${kind.toString(16).padStart(2, '0')}${n.toString(16).padStart(16, '0')}`;
+}
+
+/** Collection 1: Priya's published "Dungeon starter kit". Collection 6: the lapsed owner's team set, which Mina can only read. */
+export const PUBLIC_PACK_ID = seededId(5, 1);
+export const TEAM_PACK_ID = seededId(5, 2);
+export const READ_ONLY_TEAM_PACK_ID = seededId(5, 6);

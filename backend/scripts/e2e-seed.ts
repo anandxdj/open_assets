@@ -53,6 +53,7 @@ import {
   PERSONAS,
   SHEET_KEY,
   jobId,
+  seededId,
   type JobState,
   type PersonaKey,
   type PersonaSpec,
@@ -66,8 +67,7 @@ const now = new Date();
 const days = (n: number) => new Date(now.getTime() + n * DAY_MS);
 
 function oid(kind: number, n: number): Types.ObjectId {
-  // 65e2e0 | kind (2 hex) | n (4 hex) padded to 24 hex digits, so ids never change between runs.
-  return new Types.ObjectId(`65e2e0${kind.toString(16).padStart(2, '0')}${n.toString(16).padStart(16, '0')}`);
+  return new Types.ObjectId(seededId(kind, n));
 }
 
 const ID = {

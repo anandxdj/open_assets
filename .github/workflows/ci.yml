@@ -63,3 +63,87 @@ jobs:
       - run: python -c "import compileall, sys; sys.exit(0 if compileall.compile_dir('app', quiet=1) else 1)"
       - run: pip install pip-audit && pip-audit
         continue-on-error: true
+
+  # Visual regression and accessibility (axe) suites, frontend/e2e. Runs inside the
+  # official Playwright image so fonts and rendering match the committed baselines,
+  # which are generated in the same image (frontend/e2e/docker.sh). Keep the image
+  # tag equal to the pinned @playwright/test version in frontend/package.json.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+    services:
+      mongo:
+        image: mongo:7
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      CI: "true"
+      # The services above are reached by their service names from inside the job container.
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB_NAME: oa_e2e
+      REDIS_URL: redis://redis:6379/0
+      # Throwaway values for a throwaway stack: nothing here is a secret.
+      NODE_ENV: development
+      PORT: "4000"
+      STORAGE_PROVIDER: local
+      LOCAL_STORAGE_BASE_URL: http://localhost:4000
+      FRONTEND_URL: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000
+      COOKIE_SECURE: "false"
+      JWT_ACCESS_SECRET: ci-access-secret
+      JWT_REFRESH_SECRET: ci-refresh-secret
+      INTERNAL_SERVICE_TOKEN: ci-internal-service-token
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      EXPRESS_INTERNAL_URL: http://localhost:4000
+      OPENROUTER_MOCK: "1"
+      E2E_BASE_URL: http://localhost:3000
+      E2E_API_URL: http://localhost:4000
+      E2E_WORKERS: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        run: npm install -g pnpm@10.33.2
+      - name: Install dependencies
+        run: |
+          pnpm --dir backend install --frozen-lockfile
+          pnpm --dir frontend install --frozen-lockfile
+      - name: Build the frontend
+        run: pnpm --dir frontend build
+      - name: Start the backend
+        run: |
+          nohup pnpm --dir backend start > backend.log 2>&1 &
+          for _ in $(seq 1 60); do curl -fsS http://localhost:4000/health && exit 0; sleep 1; done
+          echo "backend did not become healthy"; cat backend.log; exit 1
+      - name: Seed the database and the local storage folder
+        run: pnpm --dir backend e2e:seed
+      - name: Start the frontend
+        run: |
+          nohup pnpm --dir frontend exec next start -p 3000 > frontend.log 2>&1 &
+          for _ in $(seq 1 60); do curl -fsS -o /dev/null http://localhost:3000/login && exit 0; sleep 1; done
+          echo "frontend did not start"; cat frontend.log; exit 1
+      - name: Run the visual and accessibility suites
+        working-directory: frontend
+        run: pnpm exec playwright test
+      - name: Upload the report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 14
+      - name: Show server logs
+        if: failure()
+        run: |
+          echo "--- backend"; tail -n 100 backend.log || true
+          echo "--- frontend"; tail -n 100 frontend.log || true

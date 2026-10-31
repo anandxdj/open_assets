@@ -57,3 +57,9 @@ export async function settle(page: Page, theme: Theme): Promise<void> {
   // Two frames, so layout effects that run after data arrives have painted.
   await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
 }
+
+/** Scrolls a section of a long page to the top of the viewport, so the shot shows it. */
+export async function scrollSectionIntoView(page: Page, selector: string): Promise<void> {
+  await page.locator(selector).first().evaluate((el) => el.scrollIntoView({ block: "start" }));
+  await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+}

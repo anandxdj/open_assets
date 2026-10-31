@@ -129,7 +129,7 @@ export function PlanOverview() {
         </Notice>
       )}
 
-      <div className="oa-table-box max-w-[560px]">
+      <div role="region" aria-label="What your plan includes" tabIndex={0} className="oa-table-box max-w-[560px]">
         <table className="oa-table">
           <caption className="sr-only">What your plan includes</caption>
           <thead>

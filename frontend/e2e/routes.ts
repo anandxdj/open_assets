@@ -1,4 +1,4 @@
-import { E2E_INVITE_TOKEN, jobId, type Persona } from "./fixtures";
+import { E2E_INVITE_TOKEN, PUBLIC_PACK_ID, READ_ONLY_TEAM_PACK_ID, TEAM_PACK_ID, jobId, type Persona } from "./fixtures";
 
 export interface RouteSpec {
   /** Part of every test and baseline name. */
@@ -8,6 +8,8 @@ export interface RouteSpec {
   persona: Persona;
   /** False drops the route from the screenshot set (it stays in the axe set) to keep the baselines small. */
   visual?: boolean;
+  /** Selector of a section to scroll to the top of the viewport before the screenshot (long pages such as Settings). */
+  scrollTo?: string;
 }
 
 /**
@@ -29,7 +31,8 @@ export const ROUTES: RouteSpec[] = [
   { id: "export", path: `/editor/${jobId("pro", "cropped")}/export`, persona: "pro" },
   { id: "collections", path: "/dashboard/collections", persona: "pro" },
   { id: "community", path: "/collections", persona: "free" },
-  { id: "settings", path: "/settings", persona: "pro" },
+  { id: "pack", path: `/collections/${PUBLIC_PACK_ID}`, persona: "free" },
+  { id: "settings", path: "/settings", persona: "pro", scrollTo: "#team" },
   { id: "admin", path: "/admin", persona: "admin" },
   { id: "enhance", path: "/enhance", persona: "free" },
   { id: "cleanup", path: "/enhance/excalibur", persona: "free" },
@@ -44,15 +47,17 @@ export const ROUTES: RouteSpec[] = [
  * (and a few for looks, see visual.spec.ts) in addition to the main set.
  */
 export const STATE_ROUTES: RouteSpec[] = [
-  { id: "settings-free", path: "/settings", persona: "free" },
-  { id: "settings-trial", path: "/settings", persona: "trial" },
-  { id: "settings-lapsed", path: "/settings", persona: "lapsed" },
-  { id: "settings-member", path: "/settings", persona: "member" },
+  { id: "settings-free", path: "/settings", persona: "free", scrollTo: "#plan" },
+  { id: "settings-trial", path: "/settings", persona: "trial", scrollTo: "#plan" },
+  { id: "settings-lapsed", path: "/settings", persona: "lapsed", scrollTo: "#plan" },
+  { id: "settings-member", path: "/settings", persona: "member", scrollTo: "#team" },
   { id: "editor-pro", path: `/editor/${jobId("pro", "detected")}`, persona: "pro" },
   { id: "export-free", path: `/editor/${jobId("free", "cropped")}/export`, persona: "free" },
   { id: "export-ready", path: `/editor/${jobId("pro", "ready")}/export`, persona: "pro" },
   { id: "collections-member", path: "/dashboard/collections", persona: "member" },
   { id: "collections-free", path: "/dashboard/collections", persona: "free" },
+  { id: "pack-team-owner", path: `/collections/${TEAM_PACK_ID}`, persona: "pro" },
+  { id: "pack-team-readonly", path: `/collections/${READ_ONLY_TEAM_PACK_ID}`, persona: "member" },
   { id: "extract-pro", path: "/upload", persona: "pro" },
   { id: "extract-lapsed", path: "/upload", persona: "lapsed" },
 ];

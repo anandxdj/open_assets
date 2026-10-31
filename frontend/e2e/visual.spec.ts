@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ROUTES, STATE_ROUTES, type RouteSpec } from "./routes";
 import { storageStatePath } from "./fixtures";
-import { THEMES, WIDTHS, prepare, settle, type Theme, type Width } from "./support";
+import { THEMES, WIDTHS, prepare, scrollSectionIntoView, settle, type Theme, type Width } from "./support";
 
 /**
  * Viewport screenshots (not full page, to keep baselines small) of the key
@@ -37,6 +37,7 @@ for (const route of SHOT) {
           await prepare(page, theme, width);
           await page.goto(route.path);
           await settle(page, theme);
+          if (route.scrollTo) await scrollSectionIntoView(page, route.scrollTo);
           await expect(page).toHaveScreenshot(nameFor(route, theme, width), { mask: dynamicText(page) });
         });
       }
@@ -45,7 +46,7 @@ for (const route of SHOT) {
 }
 
 /** A few plan-state screens whose look (not just their markup) depends on the plan. Light, desktop only. */
-const STATE_SHOTS = new Set(["settings-free", "settings-trial", "settings-lapsed", "settings-member", "collections-member"]);
+const STATE_SHOTS = new Set(["settings-free", "settings-trial", "settings-lapsed", "settings-member", "collections-member", "pack-team-readonly"]);
 for (const route of STATE_ROUTES.filter((r) => STATE_SHOTS.has(r.id))) {
   test.describe(`state ${route.id}`, () => {
     test.use({ storageState: storageStatePath(route.persona) ?? { cookies: [], origins: [] } });
@@ -53,6 +54,7 @@ for (const route of STATE_ROUTES.filter((r) => STATE_SHOTS.has(r.id))) {
       await prepare(page, "light", 1280);
       await page.goto(route.path);
       await settle(page, "light");
+      if (route.scrollTo) await scrollSectionIntoView(page, route.scrollTo);
       await expect(page).toHaveScreenshot(nameFor(route, "light", 1280), { mask: dynamicText(page) });
     });
   });
