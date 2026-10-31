@@ -185,6 +185,11 @@ export function mockPngDataUrl(
     }
   }
 
+  return encodeRgbaPng(w, h, raw);
+}
+
+/** Encode filtered RGBA scanlines (each row prefixed with filter byte 0) as a PNG data URL. */
+export function encodeRgbaPng(w: number, h: number, raw: Buffer): string {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(w, 0);
   ihdr.writeUInt32BE(h, 4);

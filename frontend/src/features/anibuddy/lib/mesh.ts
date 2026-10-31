@@ -37,12 +37,22 @@ export interface Point {
   y: number;
 }
 
+function polygonArea(ring: number[][]): number {
+  let sum = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) sum += (ring[j][0] + ring[i][0]) * (ring[j][1] - ring[i][1]);
+  return Math.abs(sum / 2);
+}
+
 /** Build an artwork-following constrained Delaunay mesh in normalized space. */
 export function buildMesh(alpha: Uint8ClampedArray, width: number, height: number, cuts: CutLine[] = []): Mesh {
   if (width <= 0 || height <= 0) return { verts: new Float32Array(), tris: new Uint32Array() };
+  const minRingArea = Math.pow(Math.max(width, height) * 0.01, 2);
   const rings = traceContours(alpha, width, height)
     .map((ring) => simplify(ring, Math.max(width, height) * 0.004))
-    .filter((ring) => ring.length >= 3);
+    // Tiny holes and specks (a gap between fingers, a stray pixel cluster) cannot hold a joint's
+    // influence, and their simplified outlines can cross the outer ring's, which makes the
+    // constrained triangulation drop most of the figure. Leave them out of the mesh.
+    .filter((ring) => ring.length >= 3 && polygonArea(ring) >= minRingArea);
   if (rings.length === 0) return { verts: new Float32Array(), tris: new Uint32Array() };
 
   const dist = distanceTransform(alpha, width, height);

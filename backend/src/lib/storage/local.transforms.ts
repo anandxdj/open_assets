@@ -132,6 +132,55 @@ function borderBackground(image: RawImage): { colour: [number, number, number]; 
 }
 
 /**
+ * Kept pixels that are left in the background by uneven colour (JPEG-like noise a little
+ * past the tolerance) would show as faint specks. Such a pixel belongs to a small cluster
+ * of kept pixels that are all within fringe reach of the background colour and not attached
+ * to anything clearly different: noise, not artwork. A real anti-aliased edge is always
+ * connected to solid artwork, so it never matches. Clusters this small or smaller are
+ * dropped (marked removed).
+ */
+const NOISE_CLUSTER_MAX_PIXELS = 64;
+
+function dropBackgroundNoise(data: Buffer, removed: Uint8Array, colour: [number, number, number], width: number, height: number): void {
+  const total = width * height;
+  const reach = BACKGROUND_TOLERANCE * FRINGE_REACH;
+  const seen = new Uint8Array(total);
+  const stack = new Int32Array(total);
+  const cluster = new Int32Array(NOISE_CLUSTER_MAX_PIXELS);
+  for (let start = 0; start < total; start++) {
+    if (removed[start] || seen[start]) continue;
+    seen[start] = 1;
+    let top = 0;
+    stack[top++] = start;
+    let size = 0;
+    let solid = false;
+    while (top > 0) {
+      const pixel = stack[--top] as number;
+      if (size < NOISE_CLUSTER_MAX_PIXELS) cluster[size] = pixel;
+      size++;
+      if (!solid && channelDistance(data, pixel * 4, colour) > reach) solid = true;
+      const x = pixel % width;
+      const y = (pixel - x) / width;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const next = ny * width + nx;
+          if (removed[next] || seen[next]) continue;
+          seen[next] = 1;
+          stack[top++] = next;
+        }
+      }
+    }
+    if (!solid && size <= NOISE_CLUSTER_MAX_PIXELS) {
+      for (let i = 0; i < size; i++) removed[cluster[i] as number] = 1;
+    }
+  }
+}
+
+/**
  * Make a flat background transparent. Returns `{ kind: 'transparent' }` when the
  * image already is (nothing to do) and throws a `LocalTransformError` when the
  * border is not one flat colour.
@@ -182,6 +231,8 @@ export async function keyOutFlatBackground(input: Buffer): Promise<KeyResult> {
     if (pixel >= width) seed(pixel - width);
     if (pixel < total - width) seed(pixel + width);
   }
+
+  dropBackgroundNoise(data, removed, colour, width, height);
 
   let removedCount = 0;
   for (let pixel = 0; pixel < total; pixel++) {

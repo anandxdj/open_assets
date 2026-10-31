@@ -288,6 +288,11 @@ export function ExcaliburWorkspace() {
                   options={BACKGROUND_OPTIONS}
                   onChange={(background) => setRecipe({ ...recipe, background })}
                 />
+                <span className="oa-field-help">
+                  {recipe.background === "transparent"
+                    ? "Keeps the transparency your image already has. It does not remove a background."
+                    : `Fills the transparent areas of your image with ${recipe.background}.`}
+                </span>
               </div>
               <div className="oa-field">
                 <span className="oa-field-label" aria-hidden>
