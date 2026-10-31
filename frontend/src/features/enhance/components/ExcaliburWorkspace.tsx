@@ -59,6 +59,7 @@ function naturalSize(image: HTMLImageElement): Size {
 export function ExcaliburWorkspace() {
   const id = useId();
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const mainPane = useRef<HTMLElement | null>(null);
   // Object URLs are revoked when they are replaced and when the page unmounts.
   const live = useRef<{ source: string | null; result: string | null }>({ source: null, result: null });
 
@@ -110,6 +111,8 @@ export function ExcaliburWorkspace() {
   async function submit() {
     if (!source) return;
     setError(null);
+    // On a phone the comparison sits below the settings; bring it into view.
+    if (window.matchMedia("(max-width: 767px)").matches) mainPane.current?.scrollIntoView({ block: "start" });
     const form = new FormData();
     form.append("image", source.file);
     form.append("cleanup", String(recipe.cleanup));
@@ -309,7 +312,7 @@ export function ExcaliburWorkspace() {
             )}
             <Button variant={resultUrl && !busy ? "secondary" : "primary"} size="lg" block disabled={!source || busy} onClick={() => void submit()}>
               {busy && <LoaderCircle aria-hidden className="animate-spin" />}
-              {busy ? "Enhancing…" : resultUrl ? "Enhance again" : "Enhance image"}
+              {busy ? "Enhancing…" : error && source ? "Try again" : resultUrl ? "Enhance again" : "Enhance image"}
             </Button>
             <Button variant="ghost" size="sm" className="self-center" onClick={reset}>
               Reset controls
@@ -317,7 +320,7 @@ export function ExcaliburWorkspace() {
           </div>
         </aside>
 
-        <main aria-label="Comparison" className="flex min-h-[420px] flex-col bg-page md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto">
+        <main ref={mainPane} aria-label="Comparison" className="flex min-h-[420px] flex-col bg-page md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto">
           {source ? (
             <div className="grid flex-1 grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-px bg-line">
               <figure className="flex min-h-[340px] flex-col bg-page">

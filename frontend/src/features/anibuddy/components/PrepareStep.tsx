@@ -72,7 +72,7 @@ export function PrepareStep({ source, prepared, onPrepared, onContinue }: Prepar
           </figure>
 
           <figure className="flex min-h-[320px] flex-col bg-sunken">
-            <figcaption className="flex h-10 flex-none items-center justify-between gap-3 px-4">
+            <figcaption className="flex min-h-10 flex-none flex-wrap items-center justify-between gap-x-3 gap-y-0.5 px-4 py-1">
               <span className="flex items-center gap-2">
                 <span className="oa-label text-ink">Prepared</span>
                 {prepared && !busy && (
@@ -82,7 +82,7 @@ export function PrepareStep({ source, prepared, onPrepared, onContinue }: Prepar
                   </Badge>
                 )}
               </span>
-              <span className="oa-value text-ink-3">
+              <span className="oa-value whitespace-nowrap text-ink-3">
                 {prepared ? `${prepared.width} × ${prepared.height} · trimmed` : ""}
               </span>
             </figcaption>

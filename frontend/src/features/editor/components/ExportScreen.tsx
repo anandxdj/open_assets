@@ -476,7 +476,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
 
   // "with AI" only when the server's storage provider runs an AI upscaler; local storage resizes.
   // Plain until the plan has loaded, so the label never claims more than the server does.
-  const upscaleLabel = `Upscale ${upscaleDone ? (job.upscaleScale ?? upscaleScale) : upscaleScale}×${
+  const upscaleLabel = `Upscale ${upscaleDone ? (job?.upscaleScale ?? upscaleScale) : upscaleScale}×${
     plan?.capabilities?.aiUpscale ? " with AI" : ""
   }`;
   let upscaleHelp = `Runs once per sheet. Tiles show ${upscaleScale}× as they finish.`;

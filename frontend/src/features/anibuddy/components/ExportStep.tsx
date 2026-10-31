@@ -220,7 +220,7 @@ export function ExportStep({ project, prepared, rig, clip, onBackground }: Expor
         )}
 
         <PanelSection className="border-b-0">
-          <Notice tone="success">
+          <Notice tone="info">
             No image generation was used. Every exported pixel came from the artwork you supplied, moved by the rig
             you placed and rendered in this browser.
           </Notice>

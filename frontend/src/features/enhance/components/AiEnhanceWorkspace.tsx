@@ -358,7 +358,7 @@ export function AiEnhanceWorkspace() {
             )}
             <Button variant={enhance.phase === "ready" ? "secondary" : "primary"} size="lg" block disabled={!canRun} onClick={() => void submit()}>
               {busy && <LoaderCircle aria-hidden className="animate-spin" />}
-              {busy ? "Enhancing…" : enhance.phase === "ready" ? "Enhance again" : "Enhance image"}
+              {busy ? "Enhancing…" : runError ? "Try again" : enhance.phase === "ready" ? "Enhance again" : "Enhance image"}
             </Button>
             <Button variant="ghost" size="sm" className="self-center" disabled={busy} onClick={resetOptions}>
               Reset options
