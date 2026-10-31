@@ -170,7 +170,7 @@ function TagsField({
           <>
             <span>Saved as</span>
             {parsed.map((t) => (
-              <span key={t} className="oa-badge max-w-full">
+              <span key={t} className="oa-badge h-auto min-h-5 max-w-full whitespace-normal py-0.5">
                 <span className="min-w-0 break-all">{t}</span>
               </span>
             ))}
