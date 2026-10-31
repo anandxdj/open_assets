@@ -20,6 +20,9 @@ dark ("ink") are designed as equals.
   boxes, layers) and fills progress bars. Text on orange is always ink.
 - Ink inversion (ink background, paper text, or the reverse in dark) marks
   "you are here": the current nav item, tab, tool and segment.
+- Pro markers (the Pro badge, "Current plan: Pro") are an outlined badge: 1.5px
+  ink border, ink text, no fill, in light and dark (`Badge tone="pro"`). Roles
+  (Owner, Member) are plain outlined badges. Orange never marks a plan or a role.
 - Status always combines an icon, words and colour. Success green, warning
   amber, danger red, info blue are reserved for status.
 
@@ -86,7 +89,7 @@ Dialogs cannot be dismissed while their request is running.
 
 ## Locked features (Pro)
 
-One pattern everywhere, `ProGate` (`features/plans/ProGate.tsx`): a Pro badge,
+One pattern everywhere, `ProGate` (`features/plans/ProGate.tsx`): an outlined Pro badge,
 a sentence "{Feature} is part of Pro.", a "See plans" link and an
 `UpgradeAction` ("Start 14-day trial", or "Contact us to upgrade" once the trial
 is used). Locked controls stay visible, disabled, with a lock icon and an
