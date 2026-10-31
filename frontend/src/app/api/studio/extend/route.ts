@@ -2,12 +2,12 @@
 // Directional outpainting proxy. The client sends an expanded canvas with a
 // light-gray blank area; the model fills it. Hybrid key + credits via _lib.
 import { NextRequest, NextResponse } from 'next/server'
+import { mockLayer } from '../_lib/mockArt'
 import {
   DEFAULT_MODEL,
   callOpenRouter,
   extractImageFromAny,
   isMockMode,
-  mockKeyedPngDataUrl,
   mockPngDataUrl,
   refundCredits,
   resolveKeyAndCredits,
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
             ? chunkInfo.chunkHeight + chunkInfo.extensionSize
             : chunkInfo.originalHeight
       }
-      const imageUrl = isKeyed ? mockKeyedPngDataUrl(w, h) : mockPngDataUrl(w, h)
+      const imageUrl = isKeyed ? mockLayer(w, h, layerRole === 'far' ? 0 : layerRole === 'mid' ? 1 : 2) : mockPngDataUrl(w, h)
       return NextResponse.json({ imageUrl, chunkInfo })
     }
 

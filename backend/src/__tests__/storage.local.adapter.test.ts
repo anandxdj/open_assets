@@ -215,6 +215,131 @@ test('keyOutFlatBackground fades the anti-aliased edge instead of leaving a halo
   assert.ok(partial.length > 0, 'some edge pixels are partly transparent');
 });
 
+/** A uniform pseudo-random 0..1 from a seed, so the noisy sheets are the same on every run. */
+function rng(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+}
+
+/**
+ * A magenta sheet whose colour wobbles a little everywhere (as a generated image's does), with a
+ * few outliers just past the tolerance, and a blurred disc as the sprite.
+ */
+async function noisyMagentaSheet(): Promise<Buffer> {
+  const size = 160;
+  const rand = rng(7);
+  const raw = Buffer.alloc(size * size * 3);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const o = (y * size + x) * 3;
+      const outlier = rand() < 0.002;
+      raw[o] = Math.round(244 + rand() * 8 - (outlier ? 30 : 0)); // R 236..252, outliers ~ 25 below
+      raw[o + 1] = Math.round(4 + rand() * 8 + (outlier ? 24 : 0)); // G 4..12, outliers up to ~36
+      raw[o + 2] = Math.round(240 + rand() * 11); // B 240..251
+    }
+  }
+  const noisy = await sharp(raw, { raw: { width: size, height: size, channels: 3 } }).png().toBuffer();
+  const disc = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><circle cx="80" cy="80" r="40" fill="#1a8f3c"/></svg>`,
+  );
+  const sprite = await sharp(disc).blur(0.8).png().toBuffer();
+  return sharp(noisy).composite([{ input: sprite }]).png().toBuffer();
+}
+
+test('uneven background colour leaves no specks, no halo, and the sprite keeps its full alpha', async () => {
+  const result = await keyOutFlatBackground(await noisyMagentaSheet());
+  assert.equal(result.kind, 'keyed');
+  if (result.kind !== 'keyed') return;
+  const img = await pixels(result.png);
+  assert.equal(alphaAt(img, 80, 80), 255, 'sprite centre is opaque');
+  assert.equal(alphaAt(img, 60, 80), 255, 'sprite body is opaque');
+  // Everything farther than 6 px from the sprite edge (radius 40 around 80,80) is background.
+  let stray = 0;
+  for (let y = 0; y < img.height; y++) {
+    for (let x = 0; x < img.width; x++) {
+      const distance = Math.hypot(x - 80, y - 80);
+      if (distance > 47 && (alphaAt(img, x, y) as number) > 0) stray++;
+    }
+  }
+  assert.equal(stray, 0, 'no semi-visible specks in the background');
+  // The anti-aliased rim is still there and partly transparent, not eaten.
+  const rim = Array.from({ length: img.width }, (_, x) => alphaAt(img, x, 80) as number).filter((a) => a > 0 && a < 255);
+  assert.ok(rim.length > 0);
+  assert.equal(alphaAt(img, 41, 80) as number > 0, true, 'left rim of the sprite stays visible');
+});
+
+test('a tiny dark detail attached to the sprite is kept; only detached background noise goes', async () => {
+  // A white sheet with a black bar and a 2x2 grey dot touching it.
+  const svg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="48"><rect width="64" height="48" fill="#fff"/><rect x="10" y="20" width="30" height="8" fill="#000"/><rect x="40" y="22" width="2" height="2" fill="#777"/></svg>`,
+  );
+  const result = await keyOutFlatBackground(await sharp(svg).png().toBuffer());
+  assert.equal(result.kind, 'keyed');
+  if (result.kind !== 'keyed') return;
+  const img = await pixels(result.png);
+  assert.equal(alphaAt(img, 41, 23), 255, 'the attached dot is part of the sprite');
+});
+
+/** A flat colour with a little per-pixel noise, as generated sheets have (not one exact value). */
+function noisyBackground(width: number, height: number, base: [number, number, number], jitter: number): Buffer {
+  const data = Buffer.alloc(width * height * 3);
+  for (let i = 0; i < width * height; i++) {
+    for (let c = 0; c < 3; c++) {
+      const wobble = ((i * 7919 + c * 104729) % (2 * jitter + 1)) - jitter;
+      data[i * 3 + c] = Math.max(0, Math.min(255, (base[c] as number) + wobble));
+    }
+  }
+  return data;
+}
+
+async function noisySheet(base: [number, number, number], jitter: number, art: string): Promise<Buffer> {
+  const bg = await sharp(noisyBackground(96, 96, base, jitter), { raw: { width: 96, height: 96, channels: 3 } }).png().toBuffer();
+  const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96">${art}</svg>`);
+  return sharp(bg).composite([{ input: svg }]).png().toBuffer();
+}
+
+test('a near-white, slightly uneven background (253 to 255) is keyed out', async () => {
+  const sheet = await noisySheet([254, 254, 254], 1, '<rect x="30" y="30" width="36" height="36" fill="#b00020"/>');
+  const result = await keyOutFlatBackground(sheet);
+  assert.equal(result.kind, 'keyed');
+  if (result.kind !== 'keyed') return;
+  const img = await pixels(result.png);
+  for (const [x, y] of [[0, 0], [95, 0], [0, 95], [95, 95], [10, 50]] as const) assert.equal(alphaAt(img, x, y), 0);
+  assert.equal(alphaAt(img, 48, 48), 255);
+});
+
+test('a magenta key colour with uneven edges is removed everywhere, including pockets the border cannot reach', async () => {
+  // Magenta with +-14 noise per channel (like B 234 to 251, G 3 to 37). A black ring encloses a magenta pocket.
+  const art = '<circle cx="48" cy="48" r="26" fill="none" stroke="#000" stroke-width="8"/>';
+  const sheet = await noisySheet([243, 20, 242], 14, art);
+  const result = await keyOutFlatBackground(sheet);
+  assert.equal(result.kind, 'keyed');
+  if (result.kind !== 'keyed') return;
+  const img = await pixels(result.png);
+  assert.equal(alphaAt(img, 2, 2), 0);
+  assert.equal(alphaAt(img, 48, 48), 0, 'the pocket inside the ring is background too');
+  assert.equal(alphaAt(img, 48, 48 - 26), 255, 'the ring itself stays');
+});
+
+test('a keyed edge pixel loses the background tint along with its coverage', async () => {
+  const art = '<circle cx="48" cy="48" r="22" fill="#00aa00"/>';
+  const sheet = await noisySheet([243, 20, 242], 3, art);
+  const blurred = await sharp(sheet).blur(0.7).png().toBuffer();
+  const result = await keyOutFlatBackground(blurred);
+  assert.equal(result.kind, 'keyed');
+  if (result.kind !== 'keyed') return;
+  const img = await pixels(result.png);
+  // Every visible pixel is green artwork: none is left looking like the magenta background.
+  let tinted = 0;
+  for (let i = 0; i < img.data.length; i += 4) {
+    if ((img.data[i + 3] as number) > 128 && (img.data[i] as number) > 200 && (img.data[i + 2] as number) > 200) tinted++;
+  }
+  assert.equal(tinted, 0);
+});
+
 test('applyEnhance is not supported, with an error the AI enhance flow can recognise', async () => {
   await assert.rejects(adapter.applyEnhance('originals/x.png', { upscale: { scale: 2, sourceWidth: 10 } }), (error: unknown) => {
     assert.ok(error instanceof StorageTransformUnsupportedError);

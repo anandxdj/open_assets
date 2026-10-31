@@ -95,7 +95,7 @@ export function ProductShot() {
                     <Image src={b.src} alt="" width={18} height={18} />
                   </span>
                   <span className="oa-value min-w-0 flex-1 truncate">{b.name}</span>
-                  <span className="oa-value text-[11px] text-ink-3">{b.dim}</span>
+                  <span className={`oa-value text-[11px] ${b.selected ? "text-ink-2" : "text-ink-3"}`}>{b.dim}</span>
                 </div>
               ))}
             </div>

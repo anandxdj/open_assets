@@ -13,8 +13,9 @@ function Popup() {
   const [app, setApp] = useState<AppSnapshot | null>(null);
   useEffect(() => { void callWorker({ type: 'APP_SNAPSHOT' }).then((result) => 'snapshot' in result && setApp(result.snapshot)); }, []);
   return <main className="ext-popup">
+    <h1 className="oa-sr-only">OpenAssets</h1>
     <Brand />
-    <p>{app?.account ? `Connected as ${app.account.name}` : 'Sign in to unlock your image workspace.'}</p>
+    <p>{!app ? 'Checking your account…' : app.account ? `Connected as ${app.account.name}` : 'Sign in to unlock your image workspace.'}</p>
     <button type="button" className="oa-btn oa-btn-primary oa-btn-block" onClick={() => void browser.sidePanel.open({ windowId: browser.windows.WINDOW_ID_CURRENT })}><PanelRightOpen aria-hidden="true" /> Open workspace</button>
   </main>;
 }

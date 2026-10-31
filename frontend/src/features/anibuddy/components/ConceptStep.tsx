@@ -5,7 +5,7 @@ import { Copy, LoaderCircle, Sparkles } from "lucide-react";
 import type { QaTurn } from "@/features/anibuddy/types";
 import { requestPromptTurn } from "@/features/anibuddy/api/anibuddyClient";
 import { Button } from "@/components/ui/button";
-import { Notice } from "@/components/ui/feedback";
+import { Loading, Notice } from "@/components/ui/feedback";
 import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Hint, Inspector, PanelSection, StageArea } from "@/features/anibuddy/components/WorkspacePanels";
@@ -35,9 +35,11 @@ export function ConceptStep({ idea, prompt, transcript, onIdea, onPrompt, onTran
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [lastAction, setLastAction] = useState<"ask" | "write">("ask");
 
   const ask = async () => {
     if (!idea.trim()) return;
+    setLastAction("ask");
     setBusy(true);
     setError(null);
     try {
@@ -52,6 +54,7 @@ export function ConceptStep({ idea, prompt, transcript, onIdea, onPrompt, onTran
     }
   };
   const write = async () => {
+    setLastAction("write");
     setBusy(true);
     setError(null);
     try {
@@ -74,14 +77,22 @@ export function ConceptStep({ idea, prompt, transcript, onIdea, onPrompt, onTran
     window.setTimeout(() => void ask(), 0);
   };
 
-  const mainLabel = question ? "Write my prompt" : transcript.length ? "Ask next question" : "Start interview";
+  const mainLabel = error
+    ? "Try again"
+    : question
+      ? "Write my prompt"
+      : transcript.length
+        ? "Ask next question"
+        : "Start interview";
   const showWrite = transcript.length >= 2 || !question;
 
   return (
     <>
       <StageArea label="Interview" className="overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3 p-4 md:p-6">
-          {transcript.length === 0 && !question && !prompt && (
+          {busy && <Loading label={question ? "Writing your prompt" : "Thinking of a question"} />}
+
+          {transcript.length === 0 && !question && !prompt && !busy && (
             <div className="flex flex-col items-center gap-3 border-2 border-dashed border-line bg-surface px-6 py-10 text-center">
               <span className="oa-icon-box">
                 <Sparkles aria-hidden className="size-5" />
@@ -216,12 +227,12 @@ export function ConceptStep({ idea, prompt, transcript, onIdea, onPrompt, onTran
               size="sm"
               className="flex-1"
               disabled={busy || !idea.trim()}
-              onClick={() => void (question ? write() : ask())}
+              onClick={() => void (error ? (lastAction === "write" ? write() : ask()) : question ? write() : ask())}
             >
               {busy ? <LoaderCircle aria-hidden className="animate-spin" /> : <Sparkles aria-hidden />}
               {mainLabel}
             </Button>
-            {showWrite && mainLabel !== "Write my prompt" && (
+            {showWrite && mainLabel !== "Write my prompt" && mainLabel !== "Try again" && (
               <Button variant="secondary" size="sm" disabled={busy || !idea.trim()} onClick={() => void write()}>
                 Write my prompt
               </Button>

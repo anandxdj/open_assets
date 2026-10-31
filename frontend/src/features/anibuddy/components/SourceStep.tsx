@@ -168,7 +168,7 @@ export function SourceStep({
               })}
               data-over={isDragActive}
             >
-              <input {...getInputProps()} />
+              <input {...getInputProps()} aria-label="Choose a character image" />
               {busy ? (
                 <>
                   <LoaderCircle aria-hidden className="size-8 animate-spin text-ink" />

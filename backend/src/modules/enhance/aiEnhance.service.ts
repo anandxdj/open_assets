@@ -93,11 +93,20 @@ export async function submitAiEnhance(deps: AiEnhanceDeps, input: SubmitInput): 
   validateAiEnhance({ ...input.probe, bytes }, input.options, limits);
 
   const jobId = uuidv4();
-  const stored = await deps.storage.upload(input.buffer, {
-    folder: 'enhance',
-    publicId: jobId,
-    resourceType: 'image',
-  });
+  const stored = await deps
+    .storage.upload(input.buffer, {
+      folder: 'enhance',
+      publicId: jobId,
+      resourceType: 'image',
+    })
+    .catch((error: unknown) => {
+      // The provider's own text ("Forbidden", a stack trace) means nothing to the user.
+      console.error(`[enhance] storing the source failed on ${status.provider}:`, error);
+      throw ApiError.badGateway(
+        `The image could not be stored on ${providerLabel(status.provider)}. Try again in a moment.`,
+        'STORAGE_UPLOAD_FAILED',
+      );
+    });
 
   // The provider's own reading of the image is authoritative. If it disagrees
   // with our header probe, validate again with its numbers.

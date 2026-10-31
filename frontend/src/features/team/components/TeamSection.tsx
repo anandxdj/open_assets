@@ -172,7 +172,7 @@ function MemberTable({
                   </span>
                 </td>
                 <td>
-                  <Badge tone={m.role === "owner" ? "accent" : "neutral"}>{m.role === "owner" ? "Owner" : "Member"}</Badge>
+                  <Badge className={m.role === "owner" ? "text-ink" : undefined}>{m.role === "owner" ? "Owner" : "Member"}</Badge>
                 </td>
                 <td className="hidden text-ink-2 sm:table-cell">
                   <time dateTime={m.joinedAt} title={formatFullDate(ms)}>
@@ -473,7 +473,7 @@ function TeamDetails({ team, reload }: { team: Team; reload: () => void }) {
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <span className="oa-label">Your team</span>
             <span className="oa-h3 min-w-0 break-words">{team.name}</span>
-            <Badge tone={isOwner ? "accent" : "neutral"}>{isOwner ? "Owner" : "Member"}</Badge>
+            <Badge className={isOwner ? "text-ink" : undefined}>{isOwner ? "Owner" : "Member"}</Badge>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="text-xs text-ink-2" aria-label="Seats in use">

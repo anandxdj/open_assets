@@ -132,10 +132,7 @@ export const COMPARISON: ComparisonGroup[] = [
 export const STARTUP_PROGRAM = {
   eligibility:
     "For registered startups founded in the last two years with under $2M in funding, early-stage studios and game-jam teams.",
-  benefits: [
-    "50% off Pro for the first 12 months",
-    "One-on-one onboarding and integration help",
-  ],
+  benefits: ["One-on-one onboarding", "Integration help"],
   apply: { label: "Apply by DM on X", href: SOCIAL.x },
 };
 
@@ -144,7 +141,7 @@ export type FaqItem = { question: string; answer: string };
 export const PRICING_FAQ: FaqItem[] = [
   {
     question: "What counts as a sheet?",
-    answer: "One image you upload and run through detection, however many assets it holds. Free accounts get 5 a month; the count resets on the 1st (UTC).",
+    answer: `One image you upload and run through detection, however many assets it holds. Free accounts get ${FREE_SHEETS_PER_MONTH} a month; the count resets on the 1st (UTC).`,
   },
   {
     question: "How do I pay for Pro?",
@@ -156,7 +153,7 @@ export const PRICING_FAQ: FaqItem[] = [
   },
   {
     question: "Who qualifies for the startup program?",
-    answer: STARTUP_PROGRAM.eligibility,
+    answer: `${STARTUP_PROGRAM.eligibility} Qualifying teams get one-on-one onboarding and integration help. Apply by DM on X.`,
   },
   {
     question: "How do I buy Enterprise?",

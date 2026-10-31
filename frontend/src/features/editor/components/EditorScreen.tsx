@@ -337,8 +337,9 @@ export function EditorScreen({ jobId }: { jobId: string }) {
           {exporting === "raw" && <LoaderCircle aria-hidden className="animate-spin" />}
           {exporting === "raw" ? "Zipping" : "Raw ZIP"}
         </Button>
+        {/* Orange only while it can be pressed: a disabled primary would be a second one next to Upload again or Detect again. */}
         <Button
-          variant="primary"
+          variant={canExport ? "primary" : "secondary"}
           disabled={!canExport}
           aria-describedby="smart-export-note"
           title="Remove the background, name each asset with AI, then export"
@@ -375,7 +376,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
             description={error ?? job?.error ?? "We could not find assets on this sheet."}
             actions={
               <Button asChild variant="primary">
-                <Link href="/upload">Try again</Link>
+                <Link href="/upload">Upload again</Link>
               </Button>
             }
             className="w-full max-w-md"
@@ -446,7 +447,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                 </div>
 
                 <Toolbar
-                  className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2"
+                  className="absolute bottom-4 left-4 z-10 sm:left-1/2 sm:-translate-x-1/2"
                   activeTool={activeTool}
                   onToolChange={setActiveTool}
                 />

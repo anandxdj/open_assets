@@ -202,6 +202,23 @@ test('GET /api/plans/me reports the effective plan, entitlements, usage, reset d
   assert.equal(data.trial.active, false);
 });
 
+test('GET /api/plans/me says whether the export upscale is AI, from the storage provider', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const before = process.env['STORAGE_PROVIDER'];
+  try {
+    // The provider is read on every request, so it can be switched per call.
+    for (const [provider, aiUpscale] of [['local', false], ['cloudinary', true], ['imagekit', true]] as const) {
+      process.env['STORAGE_PROVIDER'] = provider;
+      const { status, json } = await call('GET', '/api/plans/me', user.token);
+      assert.equal(status, 200);
+      assert.deepEqual(json.data.capabilities, { aiUpscale }, provider);
+    }
+  } finally {
+    if (before === undefined) delete process.env['STORAGE_PROVIDER'];
+    else process.env['STORAGE_PROVIDER'] = before;
+  }
+});
+
 // ── Free sheet limit on POST /api/upload ────────────────────────────────────
 
 test('upload: a free user gets 5 sheets a month, the 6th is refused before anything is stored', { skip }, async () => {

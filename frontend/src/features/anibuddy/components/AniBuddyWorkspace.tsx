@@ -35,7 +35,7 @@ export function AniBuddyWorkspace() {
   return (
     <>
       <Topbar>
-        <Crumbs items={[{ label: "AniBuddy", href: "/anibuddy" }, { label: state.source?.name ?? "New character" }]} />
+        <Crumbs items={[{ label: "AniBuddy", href: "/anibuddy" }, { label: state.source?.name ? <span className="normal-case">{state.source.name}</span> : "New character" }]} />
         <span className="flex-1" />
         <CreditsBadge />
         <Button variant="ghost" size="sm" onClick={project.reset} title="Start a new project">

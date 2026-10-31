@@ -64,6 +64,30 @@ def _clean_mask(mask: np.ndarray) -> np.ndarray:
 
 DEFAULT_THRESHOLD = 50
 
+# A sheet's background counts as flat when this share of its outer border is within
+# FLAT_BORDER_TOLERANCE (per channel) of the border's median colour. Gradients, photos
+# and textures fail it, and detection on them is a guess.
+FLAT_BORDER_TOLERANCE = 24
+FLAT_BORDER_MIN_SHARE = 0.85
+
+
+def border_flatness(img: np.ndarray) -> float:
+    """Share (0 to 1) of the outer ring of pixels that is close to the ring's median colour."""
+    bgr = img[:, :, :3] if img.ndim == 3 else cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    h, w = bgr.shape[:2]
+    ring = max(1, min(4, h // 40, w // 40))
+    pixels = np.concatenate(
+        (
+            bgr[:ring].reshape(-1, 3),
+            bgr[-ring:].reshape(-1, 3),
+            bgr[ring:-ring, :ring].reshape(-1, 3),
+            bgr[ring:-ring, -ring:].reshape(-1, 3),
+        )
+    ).astype(np.int16)
+    median = np.median(pixels, axis=0)
+    near = np.abs(pixels - median).max(axis=1) <= FLAT_BORDER_TOLERANCE
+    return float(near.mean())
+
 
 def _cutoff(base: float, threshold: int) -> float:
     """Scale a built-in cut-off by the 1-100 threshold (50 = unchanged)."""
@@ -118,6 +142,49 @@ def _candidate_masks(
     return [(name, _clean_mask(mask)) for name, mask in candidates]
 
 
+# Parts of one item that sit a hair apart (a head above its shoulders, the dot of an "i")
+# are one asset. Two boxes merge when the gap between them is at most this share of the
+# sheet's shorter side (never under 3 px) and they overlap this much on the other axis.
+PART_GAP_SHARE = 0.01
+PART_MIN_GAP = 3
+PART_MIN_OVERLAP = 0.6
+
+
+def _span_overlap(a_start: int, a_len: int, b_start: int, b_len: int) -> float:
+    """Overlap of two 1-D spans as a share of the shorter one."""
+    overlap = min(a_start + a_len, b_start + b_len) - max(a_start, b_start)
+    return max(0, overlap) / max(1, min(a_len, b_len))
+
+
+def _merge_detached_parts(
+    boxes: list[tuple[int, int, int, int]], short_side: int
+) -> list[tuple[int, int, int, int]]:
+    gap_limit = max(PART_MIN_GAP, short_side * PART_GAP_SHARE)
+    boxes = list(boxes)
+    merged = True
+    while merged:
+        merged = False
+        for i in range(len(boxes)):
+            for j in range(i + 1, len(boxes)):
+                ax, ay, aw, ah = boxes[i]
+                bx, by, bw, bh = boxes[j]
+                gap_x = max(bx - (ax + aw), ax - (bx + bw), 0)
+                gap_y = max(by - (ay + ah), ay - (by + bh), 0)
+                stacked = gap_y <= gap_limit and _span_overlap(ax, aw, bx, bw) >= PART_MIN_OVERLAP
+                side_by_side = gap_x <= gap_limit and _span_overlap(ay, ah, by, bh) >= PART_MIN_OVERLAP
+                if not (stacked or side_by_side):
+                    continue
+                x0, y0 = min(ax, bx), min(ay, by)
+                x1, y1 = max(ax + aw, bx + bw), max(ay + ah, by + bh)
+                boxes[i] = (x0, y0, x1 - x0, y1 - y0)
+                del boxes[j]
+                merged = True
+                break
+            if merged:
+                break
+    return boxes
+
+
 def _boxes_from_mask(mask: np.ndarray) -> list[tuple[int, int, int, int]]:
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     boxes: list[tuple[int, int, int, int]] = []
@@ -129,7 +196,7 @@ def _boxes_from_mask(mask: np.ndarray) -> list[tuple[int, int, int, int]]:
             and width * height >= settings.MIN_BOX_AREA
         ):
             boxes.append((x, y, width, height))
-    return boxes
+    return _merge_detached_parts(boxes, min(mask.shape[:2]))
 
 
 def _score_candidate(mask: np.ndarray, boxes: list[tuple[int, int, int, int]]) -> float:
@@ -194,8 +261,16 @@ def find_bounding_boxes(
 
     confidence = _confidence(score, raw_boxes, mask)
     warning = None
+    # A transparent sheet has no background to be flat or not (the alpha mask is reliable), and
+    # a colour the user picked is their answer to "what is the background".
+    uneven_background = name != "alpha" and not background_color and border_flatness(img) < FLAT_BORDER_MIN_SHARE
     if not boxes:
         warning = "No distinct assets found. Try a different background mode or draw boxes manually."
+    elif uneven_background:
+        warning = (
+            "The background is a gradient or texture, not one flat colour, so these boxes are a guess. "
+            "Check them before you export."
+        )
     elif confidence < 0.45:
         warning = "Detection is uncertain. Try another background mode or review the boxes before export."
 

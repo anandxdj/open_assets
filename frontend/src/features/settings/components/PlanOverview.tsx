@@ -94,7 +94,7 @@ export function PlanOverview() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <span className="oa-label">Current plan</span>
-          <Badge tone={isPro ? "accent" : "neutral"}>{isPro ? "Pro" : "Free"}</Badge>
+          <Badge tone={isPro ? "pro" : "neutral"}>{isPro ? "Pro" : "Free"}</Badge>
           {note && <span className="text-xs text-ink-2">{note}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -129,7 +129,7 @@ export function PlanOverview() {
         </Notice>
       )}
 
-      <div className="oa-table-box max-w-[560px]">
+      <div role="region" aria-label="What your plan includes" tabIndex={0} className="oa-table-box max-w-[560px]">
         <table className="oa-table">
           <caption className="sr-only">What your plan includes</caption>
           <thead>

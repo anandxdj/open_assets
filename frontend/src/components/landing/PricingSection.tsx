@@ -8,7 +8,7 @@ import { WRAP } from "@/components/marketing/site";
 const FAQ: FaqItem[] = [
   {
     question: "Does my sheet need a transparent background?",
-    answer: "No. If it has no alpha channel, we remove the background before detection.",
+    answer: "No. Detection works on the sheet as it is, and the background is removed when the assets are cut.",
   },
   {
     question: "Which files can I upload?",

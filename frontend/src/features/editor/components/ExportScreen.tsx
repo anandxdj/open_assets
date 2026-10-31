@@ -34,7 +34,12 @@ import { isDialogOpen, isEditableTarget } from "../lib/keyboard";
 import { fileNameFromUrl } from "../lib/names";
 
 type TileSize = "s" | "m" | "l";
-const TILE_MIN: Record<TileSize, number> = { s: 120, m: 168, l: 240 };
+// Minimum tile width. On a phone the share of the row caps it, so S gives three columns, M two and L one.
+const TILE_MIN: Record<TileSize, string> = {
+  s: "min(120px, calc(33.333% - 11px))",
+  m: "min(168px, calc(50% - 8px))",
+  l: "min(240px, 100%)",
+};
 
 const CROP_IN_PROGRESS: JobStatus[] = ["detected", "removing_bg", "naming", "cropping"];
 const CROP_STEP: Partial<Record<JobStatus, string>> = {
@@ -149,7 +154,7 @@ function AssetTile({
             <span aria-hidden className="absolute left-1.5 top-1.5 size-[18px] border-[1.5px] border-line-strong bg-surface" />
           )}
           {upscaled && (
-            <Badge tone="accent" className="absolute right-1.5 top-1.5">
+            <Badge className="absolute right-1.5 top-1.5 bg-surface text-ink">
               {scale}×
             </Badge>
           )}
@@ -178,7 +183,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   const [upscaleOn, setUpscaleOn] = useState(false);
   // 2× for everyone; 4× is a Pro entitlement (the server enforces it too).
   const [upscaleScale, setUpscaleScale] = useState<2 | 4>(2);
-  const { refresh: refreshPlan } = usePlan();
+  const { refresh: refreshPlan, plan } = usePlan();
   const { value: maxUpscale, ready: planReady } = useEntitlement("maxUpscale");
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [upscaleTotal, setUpscaleTotal] = useState<number | null>(null);
@@ -474,6 +479,11 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
     badge = <StatusBadge status={status} />;
   }
 
+  // "with AI" only when the server's storage provider runs an AI upscaler; local storage resizes.
+  // Plain until the plan has loaded, so the label never claims more than the server does.
+  const upscaleLabel = `Upscale ${upscaleDone ? (job?.upscaleScale ?? upscaleScale) : upscaleScale}×${
+    plan?.capabilities?.aiUpscale ? " with AI" : ""
+  }`;
   let upscaleHelp = `Runs once per sheet. Tiles show ${upscaleScale}× as they finish.`;
   if (upscaleDone) upscaleHelp = "Done. Your upscaled assets are ready.";
   else if (cropInProgress) upscaleHelp = "Available when cropping finishes.";
@@ -606,7 +616,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
               <ul
                 aria-label="Assets"
                 className="grid gap-4"
-                style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(${TILE_MIN[tileSize]}px, 100%), 1fr))` }}
+                style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_MIN[tileSize]}, 1fr))` }}
               >
                 {assets.map((asset) => (
                   <AssetTile
@@ -694,7 +704,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="text-xs font-medium">
-                      {upscaleDone ? (job.upscaleScale ?? upscaleScale) : upscaleScale}× with AI
+                      {upscaleLabel}
                     </span>
                     <span id="upscale-help" className="text-[11px] leading-4 text-ink-2">
                       {upscaleHelp}
@@ -704,7 +714,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                     checked={upscaleChecked}
                     onCheckedChange={setUpscaleOn}
                     disabled={!canUpscale}
-                    aria-label={`Upscale ${upscaleDone ? (job.upscaleScale ?? upscaleScale) : upscaleScale}× with AI`}
+                    aria-label={upscaleLabel}
                     aria-describedby="upscale-help"
                   />
                 </div>
@@ -813,7 +823,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
               />
             ) : (
               <Button
-                variant="primary"
+                variant={cropDone && selectedCount > 0 && !namingBlocked ? "primary" : "secondary"}
                 size="lg"
                 block
                 disabled={!cropDone || selectedCount === 0 || localDownloading || namingBlocked}

@@ -35,7 +35,7 @@ export function GeneratorLayout({
         className="flex flex-none flex-col border-b-[1.5px] border-line bg-surface lg:min-h-0 lg:w-[340px] lg:border-b-0 lg:border-r-[1.5px]"
       >
         <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">{form}</div>
-        <div className="sticky bottom-14 z-10 flex flex-none flex-col gap-2 border-t-[1.5px] border-line bg-surface px-3.5 py-3 md:bottom-0 lg:static">
+        <div className="sticky bottom-0 z-10 flex flex-none flex-col gap-2 border-t-[1.5px] border-line bg-surface px-3.5 py-3 lg:static">
           {footer}
         </div>
       </aside>

@@ -24,6 +24,15 @@ const TRANSPARENT_MIN_FRACTION = 0.01;
 const BACKGROUND_TOLERANCE = 24;
 /** Pixels between 1x and 3x the tolerance next to removed background fade out instead of leaving a halo. */
 const FRINGE_REACH = 3;
+/** How many pixels deep the fade reaches into the artwork. */
+const FRINGE_RINGS = 2;
+/**
+ * A background whose channels differ by at least this much (magenta, green, blue screen) is a chroma key:
+ * artwork does not contain that colour on purpose, so it is removed everywhere, including pockets the border
+ * cannot reach (the gap between two legs, the inside of a ring). White, black and grey backgrounds are not
+ * keyed that way, because artwork has white and black in it.
+ */
+const CHROMA_SPREAD = 60;
 /** Share of the border that must be one colour for the background to count as flat. */
 const MIN_FLAT_BORDER_FRACTION = 0.85;
 
@@ -132,12 +141,62 @@ function borderBackground(image: RawImage): { colour: [number, number, number]; 
 }
 
 /**
+ * Kept pixels that are left in the background by uneven colour (JPEG-like noise a little
+ * past the tolerance) would show as faint specks. Such a pixel belongs to a small cluster
+ * of kept pixels that are all within fringe reach of the background colour and not attached
+ * to anything clearly different: noise, not artwork. A real anti-aliased edge is always
+ * connected to solid artwork, so it never matches. Clusters this small or smaller are
+ * dropped (marked removed).
+ */
+const NOISE_CLUSTER_MAX_PIXELS = 64;
+
+function dropBackgroundNoise(data: Buffer, removed: Uint8Array, colour: [number, number, number], width: number, height: number): void {
+  const total = width * height;
+  const reach = BACKGROUND_TOLERANCE * FRINGE_REACH;
+  const seen = new Uint8Array(total);
+  const stack = new Int32Array(total);
+  const cluster = new Int32Array(NOISE_CLUSTER_MAX_PIXELS);
+  for (let start = 0; start < total; start++) {
+    if (removed[start] || seen[start]) continue;
+    seen[start] = 1;
+    let top = 0;
+    stack[top++] = start;
+    let size = 0;
+    let solid = false;
+    while (top > 0) {
+      const pixel = stack[--top] as number;
+      if (size < NOISE_CLUSTER_MAX_PIXELS) cluster[size] = pixel;
+      size++;
+      if (!solid && channelDistance(data, pixel * 4, colour) > reach) solid = true;
+      const x = pixel % width;
+      const y = (pixel - x) / width;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const next = ny * width + nx;
+          if (removed[next] || seen[next]) continue;
+          seen[next] = 1;
+          stack[top++] = next;
+        }
+      }
+    }
+    if (!solid && size <= NOISE_CLUSTER_MAX_PIXELS) {
+      for (let i = 0; i < size; i++) removed[cluster[i] as number] = 1;
+    }
+  }
+}
+
+/**
  * Make a flat background transparent. Returns `{ kind: 'transparent' }` when the
  * image already is (nothing to do) and throws a `LocalTransformError` when the
  * border is not one flat colour.
  *
- * Only background connected to the image border is removed, so a white shirt on
- * a white sheet keeps its white. Pixels on the edge of the removed area fade out
+ * On a white, black or grey background only the part connected to the image border
+ * is removed, so a white shirt on a white sheet keeps its white. On a chroma-key
+ * colour (see CHROMA_SPREAD) every pixel of that colour goes. Pixels on the edge of the removed area fade out
  * in proportion to how close they are to the background colour, which avoids a
  * hard halo around anti-aliased artwork.
  */
@@ -183,6 +242,14 @@ export async function keyOutFlatBackground(input: Buffer): Promise<KeyResult> {
     if (pixel < total - width) seed(pixel + width);
   }
 
+  if (Math.max(...colour) - Math.min(...colour) >= CHROMA_SPREAD) {
+    for (let pixel = 0; pixel < total; pixel++) {
+      if (!removed[pixel] && channelDistance(data, pixel * 4, colour) <= BACKGROUND_TOLERANCE) removed[pixel] = 1;
+    }
+  }
+
+  dropBackgroundNoise(data, removed, colour, width, height);
+
   let removedCount = 0;
   for (let pixel = 0; pixel < total; pixel++) {
     if (removed[pixel]) {
@@ -192,23 +259,36 @@ export async function keyOutFlatBackground(input: Buffer): Promise<KeyResult> {
   }
 
   // Fade the anti-aliased fringe: kept pixels touching removed ones and still close to the background colour.
+  // Two rings deep, because a blurred or resampled edge is two or three pixels wide.
   const reach = BACKGROUND_TOLERANCE * FRINGE_REACH;
-  const fringe: number[] = [];
-  for (let pixel = 0; pixel < total; pixel++) {
-    if (removed[pixel]) continue;
-    const x = pixel % width;
-    const touches =
-      (x > 0 && removed[pixel - 1]) ||
-      (x < width - 1 && removed[pixel + 1]) ||
-      (pixel >= width && removed[pixel - width]) ||
-      (pixel < total - width && removed[pixel + width]);
-    if (touches) fringe.push(pixel);
-  }
-  for (const pixel of fringe) {
-    const distance = channelDistance(data, pixel * 4, colour);
-    if (distance >= reach) continue;
-    const alpha = Math.round((255 * (distance - BACKGROUND_TOLERANCE)) / (reach - BACKGROUND_TOLERANCE));
-    data[pixel * 4 + 3] = Math.max(0, Math.min(255, alpha));
+  const reached = Uint8Array.from(removed);
+  for (let ring = 0; ring < FRINGE_RINGS; ring++) {
+    const next: number[] = [];
+    for (let pixel = 0; pixel < total; pixel++) {
+      if (reached[pixel]) continue;
+      const x = pixel % width;
+      const touches =
+        (x > 0 && reached[pixel - 1]) ||
+        (x < width - 1 && reached[pixel + 1]) ||
+        (pixel >= width && reached[pixel - width]) ||
+        (pixel < total - width && reached[pixel + width]);
+      if (touches) next.push(pixel);
+    }
+    for (const pixel of next) {
+      const distance = channelDistance(data, pixel * 4, colour);
+      if (distance >= reach) continue;
+      reached[pixel] = 1;
+      const coverage = (distance - BACKGROUND_TOLERANCE) / (reach - BACKGROUND_TOLERANCE);
+      data[pixel * 4 + 3] = Math.max(0, Math.min(255, Math.round(255 * coverage)));
+      // The pixel is a blend of artwork and background. Take the background out of the colour too,
+      // or a magenta or white tint shows on the edge over a checkerboard.
+      if (coverage > 0.05) {
+        for (let c = 0; c < 3; c++) {
+          const mixed = (data[pixel * 4 + c] as number) - (1 - coverage) * (colour[c] as number);
+          data[pixel * 4 + c] = Math.max(0, Math.min(255, Math.round(mixed / coverage)));
+        }
+      }
+    }
   }
 
   const png = await sharp(data, { raw: { width, height, channels: 4 } }).png().toBuffer();

@@ -1,9 +1,9 @@
 import type { CollectionSummary } from "@/features/collections/api";
 
-/** Mirrors the backend guard: a pack is "unnamed" if blank or the placeholder. */
+/** Mirrors the backend guard: a collection is "unnamed" if blank or the placeholder (current or legacy). */
 export function isUntitled(name?: string): boolean {
   const n = (name ?? "").trim().toLowerCase();
-  return n === "" || n === "untitled pack";
+  return n === "" || n === "untitled collection" || n === "untitled pack";
 }
 
 export function creatorName(c: Pick<CollectionSummary, "creator">): string {

@@ -18,7 +18,8 @@ export function ClosingCta() {
           href="/register"
           className={cn(
             buttonVariants({ size: "xl" }),
-            "border-ink bg-ink text-page shadow-[4px_4px_0_var(--oa-bg)] hover:bg-ink hover:text-page focus-visible:outline-brand-fg max-sm:w-full"
+            // Fixed ink and paper in both themes (the band is orange either way), as on the canvas.
+            "border-[#0A0A0A] bg-[#0A0A0A] text-[#F4F3EE] shadow-[4px_4px_0_#F4F3EE] hover:bg-[#0A0A0A] hover:text-[#F4F3EE] focus-visible:outline-[#0A0A0A] max-sm:w-full"
           )}
         >
           Extract your first sheet

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CircleAlert, CircleCheck, LoaderCircle } from "lucide-react";
-import { toast } from "sonner";
 import { AuthIntro, AuthStatus } from "@/components/auth/AuthParts";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/feedback";
@@ -90,7 +89,6 @@ export function InviteScreen({ token }: { token: string }) {
     try {
       await acceptInvite(token);
       setJoined(teamName);
-      toast.success(`You joined ${teamName}`);
     } catch (err) {
       setError({
         code: err instanceof ApiRequestError ? err.code : undefined,

@@ -2,6 +2,7 @@ import type { Types } from 'mongoose';
 import { ApiError } from '../../common/utils/ApiError';
 import { UserModel } from '../auth/auth.model';
 import type { IUser } from '../auth/auth.model';
+import { getStorageStatus, type StorageStatus } from '../../lib/storage/status';
 import { getEffectivePlan, getEntitlements } from './entitlements';
 import { nextResetDate, periodKey, getSheetsUsed } from './sheetUsage.service';
 import { SheetUsageModel } from './sheetUsage.model';
@@ -45,13 +46,32 @@ export interface PlanStatus {
   };
   /** End of any time-limited Pro period (trial or timed admin grant), else null. */
   proEndsAt: string | null;
+  /**
+   * What this server's storage provider can do, which is the same for every
+   * account (unlike `entitlements`). It lives here because the export screen
+   * already loads this once per session and needs it beside `maxUpscale`.
+   */
+  capabilities: {
+    /**
+     * True when the export's upscale is done by the provider's AI upscaler
+     * (Cloudinary, ImageKit). False on local storage, where it is a plain
+     * Lanczos resize, so the UI must not call it AI.
+     */
+    aiUpscale: boolean;
+  };
 }
 
 function iso(date: Date | null | undefined): string | null {
   return date ? new Date(date).toISOString() : null;
 }
 
-export function buildPlanStatus(user: PlanFields, sheetsUsed: number, now: Date = new Date()): PlanStatus {
+export function buildPlanStatus(
+  user: PlanFields,
+  sheetsUsed: number,
+  now: Date = new Date(),
+  /** Read from the environment when omitted; tests pass it to pin the provider. */
+  storage: Pick<StorageStatus, 'supportsAi'> = getStorageStatus(),
+): PlanStatus {
   const effectivePlan = getEffectivePlan(user, now);
   const entitlements = getEntitlements(user, now);
   const limit = entitlements.sheetsPerMonth;
@@ -82,6 +102,7 @@ export function buildPlanStatus(user: PlanFields, sheetsUsed: number, now: Date 
       daysLeft: trialActive && endsAt ? Math.max(1, Math.ceil((endsAt.getTime() - now.getTime()) / DAY_MS)) : null,
     },
     proEndsAt: iso(proEndsAt),
+    capabilities: { aiUpscale: storage.supportsAi },
   };
 }
 
@@ -124,7 +145,7 @@ export async function startTrial(userId: string, now: Date = new Date()): Promis
     if (getEffectivePlan(user, now) === 'pro') {
       throw new ApiError(409, 'You already have Pro.', 'ALREADY_PRO');
     }
-    throw new ApiError(409, 'The free trial has already been used on this account.', 'TRIAL_USED');
+    throw new ApiError(409, 'The Pro trial has already been used on this account.', 'TRIAL_USED');
   }
   return getPlanStatus(userId, now);
 }

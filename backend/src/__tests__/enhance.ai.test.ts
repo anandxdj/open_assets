@@ -229,6 +229,19 @@ function submitInput(width: number, height: number, options: AiEnhanceOptions, u
   return { userId, buffer, probe, options };
 }
 
+test('submitAiEnhance turns a failed source upload into a 502 STORAGE_UPLOAD_FAILED without the provider text', async () => {
+  const { deps, storage, queued } = makeDeps();
+  storage.uploadError = Object.assign(new Error('Forbidden'), { status: 403 });
+  await assert.rejects(submitAiEnhance(deps, submitInput(64, 64, { scale: 2, removeBackground: false })), (error: unknown) => {
+    assert.ok(error instanceof ApiError);
+    assert.equal(error.statusCode, 502);
+    assert.equal(error.code, 'STORAGE_UPLOAD_FAILED');
+    assert.doesNotMatch(error.message, /Forbidden/);
+    return true;
+  });
+  assert.equal(queued.length, 0);
+});
+
 test('submitAiEnhance stores the source in the enhance folder and queues the job', async () => {
   const { deps, storage, store, queued } = makeDeps();
   const record = await submitAiEnhance(deps, submitInput(800, 600, { scale: 4, removeBackground: true }));

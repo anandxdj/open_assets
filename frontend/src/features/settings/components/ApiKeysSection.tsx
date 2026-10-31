@@ -16,6 +16,7 @@ import { useEntitlement } from "@/features/plans/PlanContext";
 import { ProGate } from "@/features/plans/ProGate";
 import { UpgradeAction } from "@/features/plans/UpgradeAction";
 import { formatFullDate, formatRelativeTime, useNow } from "@/features/jobs/time";
+import { ApiRequestError } from "@/lib/api-error";
 import { ENTITLEMENT_TABLE } from "@/lib/plans";
 import type { ApiKey, CreatedApiKey } from "@/types/account";
 
@@ -114,11 +115,15 @@ function CreateKey({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  /** About the name field: shown under it. */
+  const [nameError, setNameError] = useState<string | null>(null);
+  /** Not about a field (plan limit, server trouble): shown as a notice. */
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedApiKey | null>(null);
 
   function reset() {
     setName("");
+    setNameError(null);
     setError(null);
     setCreated(null);
   }
@@ -128,10 +133,12 @@ function CreateKey({
     const trimmed = name.trim();
     if (busy) return;
     if (!trimmed) {
-      setError("Name your key so you can tell it apart later.");
+      setNameError("Name your key so you can tell it apart later.");
+      nameRef.current?.focus();
       return;
     }
     setBusy(true);
+    setNameError(null);
     setError(null);
     try {
       const res = await createApiKey(trimmed);
@@ -140,7 +147,15 @@ function CreateKey({
       const { id, name: savedName, prefix, createdAt, lastUsedAt } = res.data;
       onCreated({ id, name: savedName, prefix, createdAt, lastUsedAt });
     } catch (err) {
-      setError(errorMessage(err, "Could not create the key. Try again."));
+      const message = errorMessage(err, "Could not create the key. Try again.");
+      // The server words a rejected name as "name: <reason>": that one belongs under the field.
+      const aboutName = err instanceof ApiRequestError && err.status === 400 && /^name:\s/i.test(message);
+      if (aboutName) {
+        setNameError(message.replace(/^name:\s*/i, "").replace(/^./, (c) => c.toUpperCase()));
+        nameRef.current?.focus();
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }
@@ -188,16 +203,18 @@ function CreateKey({
                   {error}
                 </Notice>
               )}
-              <Field label="Name" htmlFor={nameId} help="For example: CI export job.">
+              <Field label="Name" htmlFor={nameId} help="For example: CI export job." error={nameError}>
                 <Input
                   ref={nameRef}
                   id={nameId}
                   value={name}
                   maxLength={NAME_MAX}
                   autoComplete="off"
+                  invalid={Boolean(nameError)}
                   aria-describedby={describedBy(nameId, true)}
                   onChange={(e) => {
                     setName(e.target.value);
+                    setNameError(null);
                     setError(null);
                   }}
                 />

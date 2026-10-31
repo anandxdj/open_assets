@@ -9,16 +9,18 @@ import { PricingTiers } from "@/components/marketing/PricingTiers";
 import { SectionHeader } from "@/components/marketing/SectionHeader";
 import {
   COMPARISON,
+  FREE_SHEETS_PER_MONTH,
   PLANS,
   PRICING_FAQ,
   STARTUP_PROGRAM,
   type ComparisonValue,
 } from "@/components/marketing/pricing";
 import { WRAP } from "@/components/marketing/site";
+import { TRIAL_DAYS } from "@/lib/plans";
 
 export const metadata: Metadata = {
   title: "Pricing · OpenAssets",
-  description: "Start free with 5 sheets a month. Pro adds unlimited sheets, finer controls, 4× upscale and API keys.",
+  description: `Start free with ${FREE_SHEETS_PER_MONTH} sheets a month. Pro adds unlimited sheets, finer controls, 4× upscale and API keys.`,
   alternates: { canonical: "/pricing" },
 };
 
@@ -63,13 +65,13 @@ export default function PricingPage() {
                 bigger limits and custom terms: contact sales.
               </p>
               <Link href="#startups" className="oa-link text-xs">
-                Startup program: 50% off Pro for a year
+                Startup program: one-on-one onboarding
               </Link>
             </div>
           </div>
 
           <PricingTiers headingLevel="h2" />
-          <p className="text-xs leading-[18px] text-ink-2">Pro starts with a 14-day trial, no card needed. Billing is not switched on yet.</p>
+          <p className="text-xs leading-[18px] text-ink-2">Pro starts with a {TRIAL_DAYS}-day trial, no card needed. Billing is not switched on yet.</p>
         </section>
 
         <section
@@ -136,7 +138,7 @@ export default function PricingPage() {
             <div className="flex flex-col gap-3.5">
               <span className="oa-eyebrow">Startup program</span>
               <h2 id="startups-title" className="oa-h1 max-md:text-[30px] max-md:leading-[32px]">
-                Half off Pro for your first year
+                One-on-one help to get set up
               </h2>
               <p className="max-w-[460px] text-xs leading-[18px] opacity-75">{STARTUP_PROGRAM.eligibility}</p>
             </div>

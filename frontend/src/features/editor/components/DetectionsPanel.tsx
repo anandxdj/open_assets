@@ -104,7 +104,7 @@ export function DetectionsPanel({
                       className="size-6 border border-line"
                     />
                     <span className="oa-value min-w-0 flex-1 truncate">{name}</span>
-                    <span className="flex-none text-[11px] tabular-nums text-ink-3">
+                    <span className={`flex-none text-[11px] tabular-nums ${selected ? "text-ink-2" : "text-ink-3"}`}>
                       {Math.round(box.width)}×{Math.round(box.height)}
                     </span>
                   </button>

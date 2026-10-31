@@ -1,0 +1,23 @@
+import path from "node:path";
+import {
+  E2E_INVITE_TOKEN,
+  PUBLIC_PACK_ID,
+  READ_ONLY_TEAM_PACK_ID,
+  TEAM_PACK_ID,
+  PERSONAS,
+  jobId,
+  requireE2EPassword,
+  type PersonaKey,
+} from "../../backend/scripts/e2e/fixtures";
+
+export { E2E_INVITE_TOKEN, PERSONAS, PUBLIC_PACK_ID, READ_ONLY_TEAM_PACK_ID, TEAM_PACK_ID, jobId, requireE2EPassword };
+export type { PersonaKey };
+
+/** Who a test is signed in as. `anon` has no session at all. */
+export type Persona = PersonaKey | "anon";
+
+export const AUTH_DIR = path.join(__dirname, ".auth");
+
+export function storageStatePath(persona: Persona): string | undefined {
+  return persona === "anon" ? undefined : path.join(AUTH_DIR, `${persona}.json`);
+}

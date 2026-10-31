@@ -16,7 +16,7 @@ const VISUAL = "flex h-[168px] flex-col justify-center border-b-[1.5px] border-l
 const STEPS: { title: string; body: ReactNode; visual: ReactNode }[] = [
   {
     title: "Drop an image",
-    body: "Sprite sheets, icon grids, UI mockups, manga pages. No transparent background needed; we remove it first.",
+    body: "Sprite sheets, icon grids, UI mockups, manga pages. No transparent background needed; we remove it when we cut the assets.",
     visual: (
       <div className={`${VISUAL} oa-checker items-center p-4`}>
         <Image src="/samples/sprite-sheet.svg" alt="" width={640} height={320} className="h-auto w-full" />
@@ -57,7 +57,7 @@ const STEPS: { title: string; body: ReactNode; visual: ReactNode }[] = [
   },
   {
     title: "Export or publish",
-    body: "Download transparent PNGs, upscale 2× first, or save them to a collection you can publish.",
+    body: "Download transparent PNGs, upscale them first (up to 4× on Pro), or save them to a collection you can publish.",
     visual: (
       <div className={`${VISUAL} gap-1.5 bg-sunken px-5 py-4`}>
         <span className="flex items-center gap-2">

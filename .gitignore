@@ -47,3 +47,9 @@ scratch/
 extension/.wxt/
 extension/.output/
 
+
+# Playwright (frontend/e2e): reports, traces, and the saved sign-in sessions
+test-results/
+playwright-report/
+blob-report/
+frontend/e2e/.auth/
