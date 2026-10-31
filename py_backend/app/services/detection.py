@@ -64,6 +64,30 @@ def _clean_mask(mask: np.ndarray) -> np.ndarray:
 
 DEFAULT_THRESHOLD = 50
 
+# A sheet's background counts as flat when this share of its outer border is within
+# FLAT_BORDER_TOLERANCE (per channel) of the border's median colour. Gradients, photos
+# and textures fail it, and detection on them is a guess.
+FLAT_BORDER_TOLERANCE = 24
+FLAT_BORDER_MIN_SHARE = 0.85
+
+
+def border_flatness(img: np.ndarray) -> float:
+    """Share (0 to 1) of the outer ring of pixels that is close to the ring's median colour."""
+    bgr = img[:, :, :3] if img.ndim == 3 else cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    h, w = bgr.shape[:2]
+    ring = max(1, min(4, h // 40, w // 40))
+    pixels = np.concatenate(
+        (
+            bgr[:ring].reshape(-1, 3),
+            bgr[-ring:].reshape(-1, 3),
+            bgr[ring:-ring, :ring].reshape(-1, 3),
+            bgr[ring:-ring, -ring:].reshape(-1, 3),
+        )
+    ).astype(np.int16)
+    median = np.median(pixels, axis=0)
+    near = np.abs(pixels - median).max(axis=1) <= FLAT_BORDER_TOLERANCE
+    return float(near.mean())
+
 
 def _cutoff(base: float, threshold: int) -> float:
     """Scale a built-in cut-off by the 1-100 threshold (50 = unchanged)."""
@@ -237,8 +261,16 @@ def find_bounding_boxes(
 
     confidence = _confidence(score, raw_boxes, mask)
     warning = None
+    # A transparent sheet has no background to be flat or not (the alpha mask is reliable), and
+    # a colour the user picked is their answer to "what is the background".
+    uneven_background = name != "alpha" and not background_color and border_flatness(img) < FLAT_BORDER_MIN_SHARE
     if not boxes:
         warning = "No distinct assets found. Try a different background mode or draw boxes manually."
+    elif uneven_background:
+        warning = (
+            "The background is a gradient or texture, not one flat colour, so these boxes are a guess. "
+            "Check them before you export."
+        )
     elif confidence < 0.45:
         warning = "Detection is uncertain. Try another background mode or review the boxes before export."
 
