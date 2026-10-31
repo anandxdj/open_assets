@@ -8,6 +8,7 @@ export const badgeVariants = cva("oa-badge", {
   variants: {
     tone: {
       neutral: "",
+      /** Orange fill: selected objects only. Roles, plans and statuses never use it. */
       accent: "oa-badge-accent",
       pro: "oa-badge-pro",
       success: "oa-badge-success",

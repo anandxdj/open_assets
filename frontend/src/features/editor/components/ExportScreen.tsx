@@ -149,7 +149,7 @@ function AssetTile({
             <span aria-hidden className="absolute left-1.5 top-1.5 size-[18px] border-[1.5px] border-line-strong bg-surface" />
           )}
           {upscaled && (
-            <Badge tone="accent" className="absolute right-1.5 top-1.5">
+            <Badge className="absolute right-1.5 top-1.5 bg-surface text-ink">
               {scale}×
             </Badge>
           )}

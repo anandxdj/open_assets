@@ -284,10 +284,14 @@
   .oa-field-label .oa-link, .oa-field-label .oa-value { font-weight: 400; letter-spacing: 0; text-transform: none; }
   .oa-field-help { font-size: 11px; line-height: 16px; color: var(--oa-ink-3); }
   .oa-field-error { display: flex; gap: 6px; align-items: center; font-size: 11px; line-height: 16px; font-weight: 700; color: var(--oa-danger); }
-  .oa-input, .oa-select, .oa-textarea { width: 100%; border: var(--oa-bw) solid var(--oa-border-strong); border-radius: 0; background: var(--oa-surface); color: var(--oa-ink); font-size: 13px; outline: none; transition: box-shadow .12s var(--oa-ease); }
+  .oa-input, .oa-select, .oa-textarea { width: 100%; border: var(--oa-bw) solid var(--oa-border-strong); border-radius: 0; background: var(--oa-surface); color: var(--oa-ink); font-size: 13px; transition: box-shadow .12s var(--oa-ease); }
   .oa-input { height: 32px; padding: 0 10px; }
   .oa-input::placeholder, .oa-textarea::placeholder { color: var(--oa-ink-3); }
   .oa-input:focus, .oa-textarea:focus, .oa-select:focus, .oa-input-group:focus-within { box-shadow: 4px 4px 0 var(--oa-accent); }
+  /* focus: the global 2px ink outline (2px offset) plus the orange offset shadow, as DESIGN.md says. The inner input of a group hides its own outline; the group draws it. */
+  .oa-input-group:focus-within { outline: 2px solid var(--oa-ink); outline-offset: 2px; }
+  .oa-input-group input:focus-visible { outline: none; }
+  .oa-unit-input:focus-within { outline: 2px solid var(--oa-ink); outline-offset: 2px; }
   .oa-input[aria-invalid="true"] { border-color: var(--oa-danger); border-width: 2px; }
   .oa-input-sm { height: 28px; font-size: 12px; padding: 0 8px; }
   .oa-input-lg { height: 40px; font-size: 14px; padding: 0 12px; }
