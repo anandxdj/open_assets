@@ -48,11 +48,11 @@ import { TeamMemberModel } from '../src/modules/teams/teamMember.model';
 import {
   E2E_INVITEE_EMAIL,
   E2E_INVITE_TOKEN,
-  E2E_PASSWORD,
   JOB_OWNERS,
   PERSONAS,
   SHEET_KEY,
   jobId,
+  requireE2EPassword,
   seededId,
   type JobState,
   type PersonaKey,
@@ -152,8 +152,8 @@ async function zipOf(files: { name: string; data: Buffer }[]): Promise<Buffer> {
 
 // ── Users, plans, usage ─────────────────────────────────────────────────────
 
-async function seedUsers(): Promise<void> {
-  const passwordHash = await bcrypt.hash(E2E_PASSWORD, 10);
+async function seedUsers(password: string): Promise<void> {
+  const passwordHash = await bcrypt.hash(password, 10);
   for (const p of PERSONAS) await upsertUser(p, passwordHash);
 }
 
@@ -439,6 +439,8 @@ async function main(): Promise<void> {
     throw new Error('e2e:seed needs STORAGE_PROVIDER=local (it writes images to the local storage folder).');
   }
   if (process.env['NODE_ENV'] === 'production') throw new Error('Refusing to seed with NODE_ENV=production.');
+  // Stop before touching Mongo, Redis or the storage folder if the password is missing or too weak.
+  const password = requireE2EPassword();
 
   await connectDB();
   // Create the unique indexes first, so the upserts below behave like the app's own writes.
@@ -469,7 +471,7 @@ async function main(): Promise<void> {
     slimeKeys.push({ name, key: up.publicId });
   }
 
-  await seedUsers();
+  await seedUsers(password);
   await seedTeams();
   await seedCollections(sprites, slimeKeys);
   await seedJobs({ url: sheetUp.url, publicId: sheetUp.publicId, width, height }, assets, boxes, zip.url);

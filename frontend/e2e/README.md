@@ -10,7 +10,10 @@ Playwright drives the real web app against the real API with seeded data.
 
 Needs MongoDB and Redis, a backend and a frontend that share a `STORAGE_PROVIDER=local` setup (see the root README, "Run locally"), a seeded database, and a **production build** of the frontend (no dev overlay, no hot reload).
 
+The seeded accounts' password is not stored in the repo. Choose one per shell, once, before seeding and running; it needs 8+ characters with an uppercase letter and a digit (the app's password rules), and the seed and the tests must see the same value. Without it both stop right away with a message.
+
 ```bash
+export E2E_PASSWORD="E2e-$(openssl rand -hex 12)"
 pnpm --dir backend e2e:seed                  # idempotent; run it before every run
 pnpm --dir frontend build && pnpm --dir frontend start -p 3105
 pnpm --dir backend start                     # port from backend/.env
@@ -43,6 +46,6 @@ Writes straight to Mongo, Redis and the local storage folder with fixed ids, so 
 | `admin@` | Admin |
 | `creator@` | Free, author of two community collections |
 
-All use `@openassets.test` and the password in `backend/scripts/e2e/fixtures.ts`. Every account except `creator` has three jobs cut from `frontend/public/samples/sprite-sheet.svg` (rasterised with sharp, real transparent PNG crops): `e2e-<account>-ready` (finished, with a ZIP), `-cropped` (waiting on the export screen) and `-detected` (waiting in the editor). Collections: public, draft, shared with a team, read-only team, empty, and community packs with likes.
+All use `@openassets.test` and the password from `E2E_PASSWORD`. Every account except `creator` has three jobs cut from `frontend/public/samples/sprite-sheet.svg` (rasterised with sharp, real transparent PNG crops): `e2e-<account>-ready` (finished, with a ZIP), `-cropped` (waiting on the export screen) and `-detected` (waiting in the editor). Collections: public, draft, shared with a team, read-only team, empty, and community packs with likes.
 
 The API rate limits by client address; each test sends its own `X-Forwarded-For` (`env.ts`) so a long run does not throttle itself.

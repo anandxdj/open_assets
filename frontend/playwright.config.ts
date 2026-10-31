@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { requireE2EPassword } from "./e2e/fixtures";
 
 /**
  * Visual regression and accessibility tests. They run against an already
@@ -10,7 +11,12 @@ import { defineConfig, devices } from "@playwright/test";
  *   E2E_BASE_URL   where the web app is served (default http://oa-ui5.localhost:3105)
  *   E2E_API_URL    where the API is served     (default http://oa-ui5.localhost:4105)
  *   E2E_WORKERS    parallel workers (default 2)
+ *   E2E_PASSWORD   password of the seeded accounts, required (no default); the same
+ *                  value the seed was run with
  */
+// Fail before any browser starts if the password is missing.
+requireE2EPassword();
+
 const BASE_URL = process.env.E2E_BASE_URL ?? "http://oa-ui5.localhost:3105";
 
 export default defineConfig({

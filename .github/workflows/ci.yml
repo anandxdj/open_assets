@@ -110,6 +110,13 @@ jobs:
       E2E_WORKERS: "2"
     steps:
       - uses: actions/checkout@v4
+      - name: Generate the password of the seeded test accounts
+        # A fresh random value per run, masked in the logs and shared with the later
+        # steps through GITHUB_ENV, so no password lives in the repo or in a secret.
+        run: |
+          E2E_PASSWORD="E2e-$(node -e "process.stdout.write(require('crypto').randomBytes(12).toString('hex'))")"
+          echo "::add-mask::$E2E_PASSWORD"
+          echo "E2E_PASSWORD=$E2E_PASSWORD" >> "$GITHUB_ENV"
       - name: Install pnpm
         run: npm install -g pnpm@10.33.2
       - name: Install dependencies

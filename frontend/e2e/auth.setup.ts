@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { expect, test as setup } from "@playwright/test";
 import { API_URL, freshClientAddress } from "./env";
-import { AUTH_DIR, E2E_PASSWORD, PERSONAS, storageStatePath } from "./fixtures";
+import { AUTH_DIR, PERSONAS, requireE2EPassword, storageStatePath } from "./fixtures";
 
 /**
  * Signs every seeded persona in through the real API and keeps the session
@@ -18,7 +18,7 @@ for (const persona of PERSONAS) {
       baseURL: API_URL,
       extraHTTPHeaders: { "x-forwarded-for": freshClientAddress() },
     });
-    const res = await api.post("/api/auth/login", { data: { email: persona.email, password: E2E_PASSWORD } });
+    const res = await api.post("/api/auth/login", { data: { email: persona.email, password: requireE2EPassword() } });
     expect(res.status(), `login as ${persona.email} (did you run pnpm --dir backend e2e:seed?)`).toBe(200);
     await api.storageState({ path: storageStatePath(persona.key) });
     await api.dispose();

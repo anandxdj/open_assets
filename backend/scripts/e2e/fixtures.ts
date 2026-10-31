@@ -1,13 +1,34 @@
 /**
  * The people, plan states and names the end-to-end suite relies on. Imported by
- * the seed script (backend/scripts/e2e-seed.ts). frontend/e2e/fixtures.ts keeps
- * a copy of the public parts (emails and the password); change both together.
+ * the seed script (backend/scripts/e2e-seed.ts) and re-exported by
+ * frontend/e2e/fixtures.ts, so the two always agree.
  *
- * Everything here is a test fixture for a throwaway database. The password is
- * not a secret.
+ * Everything here is a test fixture for a throwaway database. The seeded
+ * accounts' password is not kept in the repo: it comes from the E2E_PASSWORD
+ * environment variable (see frontend/e2e/README.md).
  */
 
-export const E2E_PASSWORD = 'E2e-Passw0rd!';
+/**
+ * The password of every seeded account, read from E2E_PASSWORD. The seed hashes
+ * it and the tests sign in with it through POST /api/auth/login. There is no
+ * default: if it is unset (or the app would refuse it as a password) this throws
+ * with the way to set it, so a run fails before touching anything.
+ */
+export function requireE2EPassword(): string {
+  const value = process.env.E2E_PASSWORD;
+  const howTo =
+    'Set it once in your shell before seeding and running the suite, for example\n' +
+    '  export E2E_PASSWORD="E2e-$(openssl rand -hex 12)"\n' +
+    'and use the same value for `pnpm --dir backend e2e:seed` and the tests (see frontend/e2e/README.md).';
+  if (!value) {
+    throw new Error(`E2E_PASSWORD is not set. It is the password of the seeded test accounts.\n${howTo}`);
+  }
+  // The same rules as the app's register schema (backend/src/modules/auth/dto/register.schema.ts).
+  if (value.length < 8 || !/[A-Z]/.test(value) || !/\d/.test(value)) {
+    throw new Error(`E2E_PASSWORD must be at least 8 characters with an uppercase letter and a digit.\n${howTo}`);
+  }
+  return value;
+}
 
 /** The pending invite the /team/invite/<token> screen is shot with. Only its SHA-256 is stored. */
 /** Invite tokens are 43 characters (32 random bytes, base64url); anything else is refused before a lookup. */
