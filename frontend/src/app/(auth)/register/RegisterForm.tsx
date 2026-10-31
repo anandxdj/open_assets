@@ -6,9 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { withNext } from "@/features/auth/lib/next-path";
+import { emailError, nameError, newPasswordError, useFieldErrors } from "@/features/auth/lib/validation";
 import { FREE_SHEETS_PER_MONTH } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
-import { Field } from "@/components/ui/field";
+import { Field, describedBy } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/feedback";
 import { AuthIntro, GoogleButton, OrDivider } from "@/components/auth/AuthParts";
@@ -25,10 +26,19 @@ export function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fields = useFieldErrors(
+    { name: nameError(name), email: emailError(email), password: newPasswordError(password) },
+    ["name", "email", "password"]
+  );
+  const nameMessage = fields.shown("name");
+  const emailMessage = fields.shown("email");
+  const passwordMessage = fields.shown("password");
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (loading) return;
     setError(null);
+    if (!fields.check()) return;
     setLoading(true);
     try {
       await register(name, email, password);
@@ -49,27 +59,29 @@ export function RegisterForm() {
         <GoogleButton next={next}>Continue with Google</GoogleButton>
         <OrDivider />
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           {error && (
             <Notice tone="danger" role="alert">
               {error}
             </Notice>
           )}
 
-          <Field label="Name" htmlFor="name">
+          <Field label="Name" htmlFor="name" error={nameMessage}>
             <Input
               id="name"
               type="text"
               size="lg"
               autoComplete="name"
               required
-              minLength={2}
+              invalid={Boolean(nameMessage)}
+              aria-describedby={describedBy("name", Boolean(nameMessage))}
+              {...fields.bind("name")}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </Field>
 
-          <Field label="Email" htmlFor="email">
+          <Field label="Email" htmlFor="email" error={emailMessage}>
             <Input
               id="email"
               type="email"
@@ -77,20 +89,24 @@ export function RegisterForm() {
               autoComplete="email"
               placeholder="you@studio.com"
               required
+              invalid={Boolean(emailMessage)}
+              aria-describedby={describedBy("email", Boolean(emailMessage))}
+              {...fields.bind("email")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </Field>
 
-          <Field label="Password" htmlFor="password" help="8+ characters with an uppercase letter and a digit.">
+          <Field label="Password" htmlFor="password" error={passwordMessage} help="8+ characters with an uppercase letter and a digit.">
             <Input
               id="password"
               type="password"
               size="lg"
               autoComplete="new-password"
               required
-              minLength={8}
+              invalid={Boolean(passwordMessage)}
               aria-describedby="password-note"
+              {...fields.bind("password")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

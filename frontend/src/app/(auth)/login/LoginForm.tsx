@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { safeNextPath, withNext } from "@/features/auth/lib/next-path";
+import { currentPasswordError, emailError, useFieldErrors } from "@/features/auth/lib/validation";
 import { hasTrialIntent } from "@/features/plans/trial-intent";
 import { TRIAL_RETURN_PATH } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
-import { Field } from "@/components/ui/field";
+import { Field, describedBy } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/feedback";
 import { AuthIntro, GoogleButton, OrDivider } from "@/components/auth/AuthParts";
@@ -22,10 +23,15 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fields = useFieldErrors({ email: emailError(email), password: currentPasswordError(password) }, ["email", "password"]);
+  const emailMessage = fields.shown("email");
+  const passwordMessage = fields.shown("password");
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (loading) return;
     setError(null);
+    if (!fields.check()) return;
     setLoading(true);
     try {
       await login(email, password);
@@ -48,14 +54,14 @@ export function LoginForm() {
         <GoogleButton next={searchParams.get("next")}>Continue with Google</GoogleButton>
         <OrDivider />
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           {error && (
             <Notice tone="danger" role="alert">
               {error}
             </Notice>
           )}
 
-          <Field label="Email" htmlFor="email">
+          <Field label="Email" htmlFor="email" error={emailMessage}>
             <Input
               id="email"
               type="email"
@@ -63,6 +69,9 @@ export function LoginForm() {
               autoComplete="email"
               placeholder="you@studio.com"
               required
+              invalid={Boolean(emailMessage)}
+              aria-describedby={describedBy("email", Boolean(emailMessage))}
+              {...fields.bind("email")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -71,6 +80,7 @@ export function LoginForm() {
           <Field
             label="Password"
             htmlFor="password"
+            error={passwordMessage}
             aside={
               <Link href="/forgot-password" className="oa-link">
                 Forgot password?
@@ -83,6 +93,9 @@ export function LoginForm() {
               size="lg"
               autoComplete="current-password"
               required
+              invalid={Boolean(passwordMessage)}
+              aria-describedby={describedBy("password", Boolean(passwordMessage))}
+              {...fields.bind("password")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
