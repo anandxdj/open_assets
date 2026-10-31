@@ -37,7 +37,7 @@ export async function startHarness() {
   const redisBase = process.env['REDIS_URL'] as string;
 
   // Read when the app modules load, so they must be set first.
-  process.env['REDIS_URL'] = `${redisBase.replace(/\/\d+$/, '')}/15`;
+  process.env['REDIS_URL'] = `${redisBase.replace(/\/\d+$/, '')}/${process.env['TEST_REDIS_DB'] ?? '15'}`;
   process.env['NODE_ENV'] = 'test';
   process.env['FRONTEND_URL'] = 'http://app.test';
 
@@ -137,7 +137,7 @@ export async function startHarness() {
   /** Puts a collection straight into the database (folders and images as given), bypassing storage. */
   async function seedCollection(
     ownerId: string,
-    opts: { name?: string; isPublic?: boolean; teamId?: string; folders?: number; images?: number } = {},
+    opts: { name?: string; isPublic?: boolean; teamId?: string; tags?: string[]; folders?: number; images?: number } = {},
   ) {
     const collection = await CollectionModel.create({
       creator: ownerId,
@@ -145,6 +145,7 @@ export async function startHarness() {
       isPublic: opts.isPublic ?? false,
       status: opts.isPublic ? 'published' : 'draft',
       ...(opts.teamId ? { teamId: opts.teamId } : {}),
+      ...(opts.tags ? { tags: opts.tags } : {}),
     });
     const folderIds: string[] = [];
     const imageIds: string[] = [];

@@ -273,7 +273,7 @@ async function seedCollections(sprites: Sprite[], slimeKeys: { name: string; key
   const packs: PackSpec[] = [
     {
       n: 1, creator: 'pro', name: 'Dungeon starter kit', description: 'Potions, blades and loot for a first dungeon crawl.',
-      isPublic: true, tags: ['dungeon', 'loot', 'rpg'], likes: 24, downloads: 131, ageDays: 40,
+      isPublic: true, tags: ['dungeon', 'loot', 'rpg', 'pixel-art'], likes: 24, downloads: 131, ageDays: 40,
       images: sprites.map((s) => crop(s.name)), likedBy: ['creator', 'free'],
     },
     {
@@ -288,18 +288,35 @@ async function seedCollections(sprites: Sprite[], slimeKeys: { name: string; key
     },
     {
       n: 4, creator: 'creator', name: 'Slime pack', description: 'Four friendly slimes in every colour.',
-      isPublic: true, tags: ['slime', 'creatures', 'cute'], likes: 58, downloads: 302, ageDays: 60,
+      isPublic: true, tags: ['slime', 'creatures', 'cute', 'pixel-art'], likes: 58, downloads: 302, ageDays: 60,
       images: slimeKeys,
     },
     {
       n: 5, creator: 'creator', name: 'Pocket icons', description: 'Small icons for inventory screens.',
-      isPublic: true, tags: ['icons', 'ui'], likes: 9, downloads: 44, ageDays: 30,
+      isPublic: true, tags: ['icons', 'ui', 'pixel-art'], likes: 9, downloads: 44, ageDays: 30,
       images: sprites.slice(2, 6).map((s) => crop(s.name)), likedBy: ['pro'],
     },
     {
       n: 6, creator: 'lapsed', name: 'Studio shared set', description: 'Kept for the Dormant Studio team.',
       isPublic: false, team: 2, tags: ['team'], likes: 0, downloads: 0, ageDays: 15,
       images: sprites.slice(0, 5).map((s) => crop(s.name)),
+    },
+    // Community cards in every count and tag state: one asset and no tags, nothing in it yet, and five 24-character tags.
+    {
+      n: 7, creator: 'creator', name: 'Lone gem', description: 'A single teal gem.',
+      isPublic: true, tags: [], likes: 3, downloads: 12, ageDays: 10,
+      images: sprites.slice(3, 4).map((s) => crop(s.name)),
+    },
+    {
+      n: 8, creator: 'creator', name: 'Empty shelf', description: 'Published ahead of its first assets.',
+      isPublic: true, tags: ['wip'], likes: 0, downloads: 0, ageDays: 3,
+      images: [],
+    },
+    {
+      n: 9, creator: 'creator', name: 'Forest tileset starter kit', description: 'Tiles, trees and props for a top-down forest.',
+      isPublic: true, tags: ['hand-drawn-pixel-art-set', 'top-down-rpg-environment', 'seamless-tiles', 'mobile-game-ready', 'royalty-free-friendly'],
+      likes: 15, downloads: 71, ageDays: 25,
+      images: sprites.slice(0, 3).map((s) => crop(s.name)),
     },
   ];
 

@@ -1,9 +1,11 @@
+import type { Types } from 'mongoose';
 import { CollectionModel } from './collection.model';
 import type { ICollection } from './collection.model';
 import { FolderModel } from './folder.model';
 import { ImageModel } from './image.model';
 import type { IImage } from './image.model';
 import { CollectionLikeModel } from './collectionLike.model';
+import { MAX_TAGS, checkTags, normalizeTags, sanitizeTags } from './tags';
 import { storage } from '../../lib/storage';
 import { ApiError } from '../../common/utils/ApiError';
 import { assertEntitled } from '../plans/entitlements';
@@ -90,7 +92,7 @@ export async function scaffoldCollectionFromJob(params: ScaffoldParams): Promise
     name: (params.collectionName || UNTITLED_NAME).slice(0, 120),
     isPublic: false,
     status: 'draft',
-    tags: dedupe(params.collectionTags ?? []),
+    tags: sanitizeTags(params.collectionTags ?? []),
     sourceJobId: params.jobId,
     coverImageUrls: params.images.slice(0, MAX_COVERS).map((i) => i.cloudinaryUrl),
   });
@@ -172,13 +174,33 @@ export async function listMyCollections(userId: string) {
     .populate('creator', 'name picture')
     .lean();
 
+  const counts = await countAssets(items.map((c) => c._id));
+
   return items.map((c) => {
     const owned = idOf(c.creator) === userId;
     const access: CollectionAccess = owned
       ? { view: true, edit: true, manage: true, via: 'owner', teamReadOnly: false }
       : { view: true, edit: Boolean(state?.writable), manage: false, via: 'team', teamReadOnly: !state?.writable };
-    return { ...c, access: accessSummary(access) };
+    return { ...c, tags: c.tags ?? [], assetCount: counts.get(idOf(c._id)) ?? 0, access: accessSummary(access) };
   });
+}
+
+/**
+ * How many assets each collection holds, in one grouped query on the
+ * `collectionId` index (never one count per card). Collections with no images
+ * are absent from the result and count as 0. Computed on read, so every write
+ * path (editor export, upload, delete, account purge) keeps it right without a
+ * stored counter to maintain.
+ */
+export async function countAssets(collectionIds: readonly unknown[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (collectionIds.length === 0) return counts;
+  const rows = await ImageModel.aggregate<{ _id: Types.ObjectId; n: number }>([
+    { $match: { collectionId: { $in: collectionIds } } },
+    { $group: { _id: '$collectionId', n: { $sum: 1 } } },
+  ]);
+  for (const row of rows) counts.set(String(row._id), row.n);
+  return counts;
 }
 
 export async function listPublicCollections(params: ListParams) {
@@ -187,7 +209,9 @@ export async function listPublicCollections(params: ListParams) {
   const sortKey = params.sort ?? 'createdAt';
 
   const filter: Record<string, unknown> = { isPublic: true, status: 'published' };
-  if (params.tags?.length) filter['tags'] = { $in: params.tags };
+  // Tags are stored normalised, so the filter is normalised the same way ("Pixel Art" finds "pixel-art").
+  const tags = normalizeTags(params.tags ?? []).slice(0, MAX_TAGS);
+  if (tags.length) filter['tags'] = { $in: tags };
   if (params.q?.trim()) filter['$text'] = { $search: params.q.trim() };
 
   const sort: Record<string, 1 | -1> = { [sortKey]: -1 };
@@ -202,7 +226,19 @@ export async function listPublicCollections(params: ListParams) {
     CollectionModel.countDocuments(filter),
   ]);
 
-  return { items, total, page, limit, hasMore: page * limit < total };
+  const counts = await countAssets(items.map((c) => c._id));
+  return {
+    items: items.map((c) => ({
+      ...c,
+      // Collections stored before tags existed have no field at all.
+      tags: (c.tags ?? []).slice(0, MAX_TAGS),
+      assetCount: counts.get(idOf(c._id)) ?? 0,
+    })),
+    total,
+    page,
+    limit,
+    hasMore: page * limit < total,
+  };
 }
 
 /**
@@ -235,6 +271,8 @@ export async function getCollectionTree(id: string, requesterId?: string) {
 
   return {
     ...collection,
+    tags: collection.tags ?? [],
+    assetCount: images.length,
     access: accessSummary(access),
     team: team ? { id: String(team._id), name: team.name } : null,
     folders: folders.map((f) => ({ ...f, images: imagesByFolder.get(idOf(f._id)) ?? [] })),
@@ -276,7 +314,7 @@ export async function createCollection(
     description: input.description,
     isPublic: input.isPublic ?? false,
     status: input.isPublic ? 'published' : 'draft',
-    tags: dedupe(input.tags ?? []),
+    tags: requireTags(input.tags ?? []),
   });
 }
 
@@ -290,7 +328,7 @@ export async function updateCollection(
 
   if (input.name !== undefined) collection.name = input.name;
   if (input.description !== undefined) collection.description = input.description;
-  if (input.tags !== undefined) collection.tags = dedupe(input.tags);
+  if (input.tags !== undefined) collection.tags = requireTags(input.tags);
   if (input.isPublic !== undefined) {
     // Cannot publish an unnamed/placeholder collection — name it first.
     if (input.isPublic === true && isUntitled(collection.name)) {
@@ -454,6 +492,13 @@ export async function incrementDownloadCount(collectionId: string): Promise<void
 /* ------------------------------------------------------------------ *
  * Helpers
  * ------------------------------------------------------------------ */
+
+/** The owner's tags, normalised; 400 when there are too many or one is too long. The route's schema says the same. */
+function requireTags(raw: string[]): string[] {
+  const checked = checkTags(raw);
+  if (!checked.ok) throw ApiError.badRequest(checked.message);
+  return checked.tags;
+}
 
 function dedupe(arr: string[]): string[] {
   return [...new Set(arr.map((s) => s.trim()).filter(Boolean))];

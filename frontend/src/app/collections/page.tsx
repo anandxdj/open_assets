@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
+import { Loading } from "@/components/ui/feedback";
 import { CommunityScreen } from "@/features/collections/components/CommunityScreen";
 
 export const metadata: Metadata = {
@@ -8,5 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default function CollectionsGalleryPage() {
-  return <CommunityScreen />;
+  // CommunityScreen reads ?tag= from the address, which needs a Suspense boundary.
+  return (
+    <Suspense fallback={<Loading label="Loading collections" className="justify-center py-16" />}>
+      <CommunityScreen />
+    </Suspense>
+  );
 }

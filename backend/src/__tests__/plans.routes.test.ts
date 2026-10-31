@@ -75,7 +75,7 @@ before(async () => {
 
   // Must be set before the app modules load: the Redis URL and the Python
   // service address are read at import time.
-  process.env['REDIS_URL'] = `${(redisBase as string).replace(/\/\d+$/, '')}/15`;
+  process.env['REDIS_URL'] = `${(redisBase as string).replace(/\/\d+$/, '')}/${process.env['TEST_REDIS_DB'] ?? '15'}`;
   process.env['NODE_ENV'] = 'test';
 
   const pyRequests: Record<string, unknown>[] = [];

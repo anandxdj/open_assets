@@ -14,7 +14,12 @@ export interface ICollection extends Document {
   status: 'draft' | 'published';
   likesCount: number;
   downloadCount: number;
-  tags: string[]; // aggregated search tags
+  /**
+   * Up to 5 lowercase tags (<= 24 chars), see tags.ts. Set by the owner when they
+   * publish or edit, or by the naming step on extraction. Collections stored
+   * before this have none; read it as `tags ?? []`.
+   */
+  tags: string[];
   coverImageUrls: string[]; // auto-collaged cover sheet for the gallery card
   sourceJobId?: string; // the editor job this was auto-scaffolded from (if any)
   createdAt: Date;
@@ -41,6 +46,8 @@ const CollectionSchema = new Schema<ICollection>({
 CollectionSchema.index({ isPublic: 1, createdAt: -1 });
 CollectionSchema.index({ isPublic: 1, likesCount: -1 });
 CollectionSchema.index({ isPublic: 1, downloadCount: -1 });
+// Community tag filter: published collections with a tag, newest first.
+CollectionSchema.index({ isPublic: 1, status: 1, tags: 1, createdAt: -1 });
 // Keyword search across name/description/tags.
 CollectionSchema.index({ name: 'text', description: 'text', tags: 'text' });
 

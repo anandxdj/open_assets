@@ -92,7 +92,7 @@ before(async () => {
   if (skip) return;
 
   // Read at import time by the Redis client.
-  process.env['REDIS_URL'] = `${(redisBase as string).replace(/\/\d+$/, '')}/15`;
+  process.env['REDIS_URL'] = `${(redisBase as string).replace(/\/\d+$/, '')}/${process.env['TEST_REDIS_DB'] ?? '15'}`;
   process.env['NODE_ENV'] = 'test';
 
   const mongoose = (await import('mongoose')).default;
