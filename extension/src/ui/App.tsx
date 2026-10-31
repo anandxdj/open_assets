@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
-import { CircleAlert, ExternalLink, FolderOpen, ImagePlus, Keyboard, Lock, LogIn, MousePointer2, Pause, Play, Plus, ScanSearch, Search, Sparkles, X } from 'lucide-react';
+import { CircleAlert, ExternalLink, FolderOpen, ImagePlus, Keyboard, Lock, LogIn, MousePointer2, Pause, Play, Plus, RotateCcw, ScanSearch, Search, Sparkles, X } from 'lucide-react';
 import type { AppSnapshot, AspectRatio, QueueItem, ReferenceAsset } from '../shared/contracts';
 import { frontendUrl } from '../shared/config';
 import { callWorker } from '../shared/worker';
@@ -103,7 +103,10 @@ export function App() {
   const doneCount = useMemo(() => app?.queue.filter((item) => item.status === 'completed').length ?? 0, [app]);
   // "Run queue" only has work when something is waiting; failures have their own retry button.
   const runnableCount = useMemo(() => app?.queue.filter((item) => item.status === 'draft' || item.status === 'queued' || item.status === 'paused').length ?? 0, [app]);
+  const pausedCount = useMemo(() => app?.queue.filter((item) => item.status === 'paused').length ?? 0, [app]);
   const failedCount = useMemo(() => app?.queue.filter((item) => item.status === 'failed').length ?? 0, [app]);
+  // Only failures are left: retrying them is the one forward action, so it takes the primary slot.
+  const retryOnly = !!app && !app.isRunning && runnableCount === 0 && failedCount > 0;
   const promptCount = useMemo(() => parsePrompts(promptText, splitMode).length, [promptText, splitMode]);
   const progress = useMemo(() => app ? queueProgress(app) : null, [app]);
   const libraryItems = useMemo(() => {
@@ -304,8 +307,10 @@ export function App() {
             <div className="ext-footer-actions">
               {app.isRunning
                 ? <button type="button" className="oa-btn oa-btn-secondary ext-grow" onClick={() => void send({ type: 'PAUSE_QUEUE', reason: 'Paused by you.' })}><Pause aria-hidden="true" />Pause queue</button>
-                : <button type="button" className="oa-btn oa-btn-primary ext-grow" disabled={runnableCount === 0} onClick={() => void send({ type: 'RUN_QUEUE' })}><Play aria-hidden="true" />Run queue</button>}
-              {failedCount > 0 && <button type="button" className="oa-btn oa-btn-ghost" onClick={() => void send({ type: 'RETRY_FAILED' })}>Retry {failedCount} failed</button>}
+                : retryOnly
+                  ? <button type="button" className="oa-btn oa-btn-primary ext-grow" onClick={() => void send({ type: 'RETRY_FAILED' })}><RotateCcw aria-hidden="true" />Retry {failedCount} failed</button>
+                  : <button type="button" className="oa-btn oa-btn-primary ext-grow" disabled={runnableCount === 0} onClick={() => void send({ type: 'RUN_QUEUE' })}><Play aria-hidden="true" />{pausedCount > 0 ? 'Resume queue' : 'Run queue'}</button>}
+              {failedCount > 0 && !retryOnly && <button type="button" className="oa-btn oa-btn-ghost" onClick={() => void send({ type: 'RETRY_FAILED' })}>Retry {failedCount} failed</button>}
             </div>
           </footer>
         </section>
