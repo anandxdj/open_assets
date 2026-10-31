@@ -64,7 +64,7 @@ upload fails before a job exists.
 
 | Method | Path | |
 |---|---|---|
-| GET | `/api/plans/me` | effective plan, entitlements, sheets used/limit/reset date, trial status |
+| GET | `/api/plans/me` | effective plan, entitlements, sheets used/limit/reset date, trial status, `capabilities` |
 | POST | `/api/plans/trial` | start the 14-day Pro trial, once per account (409 `TRIAL_USED` / `ALREADY_PRO`) |
 | GET | `/api/admin/users?q=` | admin only: search users by email or name |
 | PUT | `/api/admin/users/:id/plan` | admin only: `{ plan: 'free' \| 'pro', days? }` |
@@ -78,6 +78,11 @@ Gates on existing routes:
   default pattern the same way. See `docs/naming-patterns.md`.
 - `POST /api/jobs/:id/redetect` takes `threshold` (1 to 100, default 50) and `padding` (0 to 64 px,
   default 0); free accounts may only send the defaults (else 403 `PLAN_REQUIRED`).
+
+`capabilities.aiUpscale` in `GET /api/plans/me` is a property of the server, the same for every account:
+true when `STORAGE_PROVIDER` is `cloudinary` or `imagekit` (the export's upscale is the provider's AI
+upscaler), false on `local`, where it is a plain Lanczos resize. The export screen words its switch from it
+("Upscale 2× with AI" only when true) and shows plain "Upscale 2×" while the plan is loading.
 
 Upscale factors: the storage providers' AI upscale is a fixed 4x. The extract export (`finalize`)
 resizes to exactly `scale` times the cropped width (2x is the 4x result scaled down), and AI enhance
