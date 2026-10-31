@@ -173,6 +173,33 @@ export function AiEnhanceWorkspace() {
       ? "Keeps the original size."
       : `${options.scale === 2 ? "Doubles" : "Quadruples"} the width and height.${expected ? ` Output ${formatSize(expected)} px.` : ""}`;
 
+  // Nothing to set up when the server cannot run it: one state with the reason and the way out, no dead controls.
+  if (unavailable && caps) {
+    return (
+      <>
+        <EnhanceTopbar active="ai" />
+        <main aria-label="AI enhance" className="flex min-h-0 flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-6">
+          <EmptyState
+            headingLevel={1}
+            className="flex-1 justify-center"
+            icon={<Sparkles aria-hidden className="size-5" />}
+            title="AI enhance is not available here"
+            description={
+              caps.reason === STORAGE_UNSUPPORTED
+                ? `${caps.message ?? "This server's storage cannot run AI enhance."} Cleanup works without it.`
+                : `${caps.message ?? "Image storage is not set up on this server."} Ask whoever runs this server to set it up. Cleanup works without it.`
+            }
+            actions={
+              <Button asChild>
+                <Link href="/enhance/excalibur">Go to cleanup</Link>
+              </Button>
+            }
+          />
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
       <EnhanceTopbar active="ai" />
@@ -214,23 +241,6 @@ export function AiEnhanceWorkspace() {
                   <Button variant="secondary" size="sm" className="mt-2" onClick={capabilities.retry}>
                     Try again
                   </Button>
-                </Notice>
-              </div>
-            )}
-
-            {unavailable && caps && (
-              <div className="oa-panel-sec">
-                <Notice tone="warning" role="status">
-                  <p className="font-bold">
-                    {caps.reason === STORAGE_UNSUPPORTED
-                      ? "Not supported by this server's storage"
-                      : "AI enhance is unavailable"}
-                  </p>
-                  <p className="mt-1">
-                    {caps.reason === STORAGE_UNSUPPORTED
-                      ? (caps.message ?? "This server's storage cannot run AI enhance.")
-                      : "It needs image storage that is not set up on this server."}
-                  </p>
                 </Notice>
               </div>
             )}
@@ -371,25 +381,7 @@ export function AiEnhanceWorkspace() {
           aria-label="Comparison"
           className="flex min-h-[420px] flex-col bg-page md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto"
         >
-          {unavailable && caps ? (
-            <div className="flex flex-1 p-4 md:p-6">
-              <EmptyState
-                className="flex-1 justify-center"
-                icon={<Sparkles aria-hidden className="size-5" />}
-                title="AI enhance is not available here"
-                description={
-                  caps.reason === STORAGE_UNSUPPORTED
-                    ? `${caps.message ?? "This server's storage cannot run AI enhance."} Cleanup works without it.`
-                    : `${caps.message ?? "Image storage is not set up on this server."} Ask whoever runs this server to set it up. Cleanup works without it.`
-                }
-                actions={
-                  <Button asChild>
-                    <Link href="/enhance/excalibur">Go to cleanup</Link>
-                  </Button>
-                }
-              />
-            </div>
-          ) : source ? (
+          {source ? (
             <AiComparePane
               sourceUrl={source.url}
               sourceSize={sourceSize}
