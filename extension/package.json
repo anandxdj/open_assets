@@ -9,7 +9,8 @@
     "zip": "wxt zip",
     "prepare": "wxt prepare",
     "typecheck": "wxt prepare && tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "harness": "vite --config harness/vite.config.ts --host :: --port 5174"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.3.0",

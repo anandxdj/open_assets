@@ -54,7 +54,7 @@ export default function GettingStartedPage() {
             </Steps>
             <p>
               Past extractions are listed in <Internal href="/history">History</Internal> for 24 hours. Each extraction
-              also leaves a private draft collection in your library, which you can publish or delete.
+              also leaves a private draft collection in My collections, which you can publish or delete.
             </p>
           </>
         ),

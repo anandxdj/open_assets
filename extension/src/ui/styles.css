@@ -7,10 +7,10 @@
    header and the persistent footer */
 .ext-sidepanel { height: 100vh; overflow: hidden; }
 .ext-sidepanel #root { height: 100%; }
-.ext-shell { display: flex; flex-direction: column; height: 100%; min-width: 0; background: var(--oa-bg); }
+.ext-shell { position: relative; display: flex; flex-direction: column; height: 100%; min-width: 0; background: var(--oa-bg); }
 
 /* header */
-.ext-header { position: relative; z-index: 2; display: flex; align-items: center; gap: 4px; height: 48px; flex: none; padding: 0 8px 0 14px; border-bottom: var(--oa-bw) solid var(--oa-border); }
+.ext-header { position: relative; z-index: 2; display: flex; align-items: center; gap: 8px; height: 48px; flex: none; padding: 0 8px 0 14px; border-bottom: var(--oa-bw) solid var(--oa-border); }
 .ext-brand { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--oa-ink); }
 .ext-header .ext-brand { flex: 1; }
 .ext-mark { width: 30px; height: 17px; flex: none; }
@@ -23,7 +23,7 @@
 .ext-account-email { overflow: hidden; color: var(--oa-ink-3); font-size: 11px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 
 /* section tabs */
-.ext-tabs { flex: none; padding: 10px 14px 0; }
+.ext-tabs { flex: none; padding: 10px 14px; border-bottom: var(--oa-bw) solid var(--oa-border); }
 .ext-tabs .oa-seg-item { height: 32px; font-size: 11.5px; }
 .ext-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .ext-panel:focus-visible { outline-offset: -2px; }
@@ -51,7 +51,7 @@
 
 /* generate: queue */
 .ext-queue { display: flex; flex-direction: column; padding: 12px 14px 14px; }
-.ext-queue-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; }
+.ext-queue-head { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding-bottom: 8px; }
 .ext-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid var(--oa-rule); }
 .ext-row-main { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .ext-row-prompt { overflow: hidden; font-size: 12px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
@@ -104,6 +104,8 @@
 .ext-library .ext-empty { border-top: 0; }
 
 /* signed out, loading */
+/* a button that is waiting on something stays legible; it still cannot be pressed */
+.oa-btn[aria-busy="true"] { opacity: 1; cursor: progress; }
 .ext-center { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px 24px; text-align: center; }
 .ext-center > * { max-width: 320px; }
 .ext-center .oa-icon-box { width: 48px; height: 48px; }
@@ -115,5 +117,5 @@
 .ext-loading svg { width: 16px; height: 16px; }
 
 /* popup */
-.ext-popup { display: flex; flex-direction: column; gap: 14px; width: 300px; padding: 16px 16px 19px; }
-.ext-popup p { color: var(--oa-ink-2); font-size: 12px; line-height: 18px; }
+.ext-popup { position: relative; display: flex; flex-direction: column; gap: 14px; width: 300px; padding: 16px 16px 19px; }
+.ext-popup p { color: var(--oa-ink-2); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }

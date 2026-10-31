@@ -183,8 +183,8 @@ const SECTIONS: LegalSectionData[] = [
             first and, if that fails, to Google’s Gemini API.
           </Step>
           <Step n={4}>
-            If you ask for background removal or 2× upscaling, the storage provider’s image add-ons do that work on the
-            files stored there.
+            When you crop, background removal runs, and when you export, upscaling does. The storage provider’s image
+            add-ons do that work on the files stored there.
           </Step>
           <Step n={5}>We build a ZIP, store it with the provider and give you the link.</Step>
         </Steps>
@@ -325,8 +325,9 @@ const SECTIONS: LegalSectionData[] = [
               "Uploaded originals and ZIP exports",
               "Storage provider",
               <>
-                Our code does not delete these when the 24-hour job state expires, and there is no delete button for
-                them yet. They stay until we remove them. <Fill>OWNER TO CONFIRM retention period and cleanup job</Fill>
+                Our code does not delete these when the 24-hour job state expires. They are removed when you delete
+                your account, for the extractions still listed in History at that point. Older ones stay until we
+                remove them. <Fill>OWNER TO CONFIRM retention period and cleanup job</Fill>
               </>,
             ],
             [
@@ -338,8 +339,10 @@ const SECTIONS: LegalSectionData[] = [
               "Account record",
               "MongoDB",
               <>
-                Until the account is deleted. There is no delete-account button yet, so ask us by email.{" "}
-                <Fill>OWNER TO CONFIRM deletion process and timing</Fill>
+                Until you delete your account in Settings. Deleting it removes your collections with their images,
+                likes, usage records, monthly sheet counts, API keys, extension sessions and the extractions in
+                History, and it dissolves a team you own. Stored image files are deleted on a best-effort basis.{" "}
+                <Fill>OWNER TO CONFIRM backup retention after deletion</Fill>
               </>,
             ],
             [
@@ -417,10 +420,16 @@ const SECTIONS: LegalSectionData[] = [
               "Until you clear it.",
             ],
             [
-              "oa:recent-jobs",
+              "oa.trial-intent",
               "Local storage",
-              "Your last 50 extractions on this device: file name, job ID and time, so the History page can list them.",
-              "Until you clear it.",
+              "Remembers that you clicked “Start 14-day trial” while signed out, so the trial can start after you sign in. It holds a timestamp.",
+              "7 days, or until the trial starts.",
+            ],
+            [
+              "oa:post-signin-next",
+              "Session storage",
+              "The page you were on when you chose to sign in, so you return to it afterwards.",
+              "Until the tab closes or you sign in.",
             ],
             [
               "Studio settings",
@@ -502,9 +511,9 @@ const SECTIONS: LegalSectionData[] = [
           answer within one month. <Fill>COUNSEL TO CONFIRM response time</Fill>
         </p>
         <p>
-          What you can do yourself today: delete collections and images, sign out, clear local storage, and remove
-          your own AI key. There is no delete-account or export button yet. For those, email us and we will do it by
-          hand.
+          What you can do yourself today: delete collections and images, delete your account in Settings, sign out,
+          clear local storage, and remove your own AI key. There is no data export button yet. For a copy of your
+          data, email us and we will do it by hand.
         </p>
         <p>
           You can also complain to your data protection authority.{" "}
