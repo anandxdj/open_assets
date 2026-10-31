@@ -44,8 +44,8 @@ Writes straight to Mongo, Redis and the local storage folder with fixed ids, so 
 | `lapsed@` | Pro period ended 16 days ago, owns "Dormant Studio" (read-only now) |
 | `member@` | Free, a member of "Dormant Studio": can view and download, not edit |
 | `admin@` | Admin |
-| `creator@` | Free, author of two community collections |
+| `creator@` | Free, author of five community collections: with tags, with one asset and no tags, empty, and with five 24-character tags |
 
-All use `@openassets.test` and the password from `E2E_PASSWORD`. Every account except `creator` has three jobs cut from `frontend/public/samples/sprite-sheet.svg` (rasterised with sharp, real transparent PNG crops): `e2e-<account>-ready` (finished, with a ZIP), `-cropped` (waiting on the export screen) and `-detected` (waiting in the editor). Collections: public, draft, shared with a team, read-only team, empty, and community packs with likes.
+All use `@openassets.test` and the password from `E2E_PASSWORD`. Every account except `creator` has three jobs cut from `frontend/public/samples/sprite-sheet.svg` (rasterised with sharp, real transparent PNG crops): `e2e-<account>-ready` (finished, with a ZIP), `-cropped` (waiting on the export screen) and `-detected` (waiting in the editor). Collections: public, draft, shared with a team, read-only team, and community packs with likes, tags (`pixel-art` is on three of them, for the tag filter) and asset counts of 0, 1, 3, 4 and 8.
 
 The API rate limits by client address; each test sends its own `X-Forwarded-For` (`env.ts`) so a long run does not throttle itself.

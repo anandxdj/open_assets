@@ -4,9 +4,12 @@ Chrome extension (Manifest V3, built with [WXT](https://wxt.dev), React and Type
 It does two things for a signed-in OpenAssets account:
 
 - **Extract**: right-click an image, press Alt+Shift+E, or use the Extract tab to send an
-  image from any page to OpenAssets and open it in the editor.
+  image from any page to OpenAssets and open it in the editor. The Extract tab keeps a list,
+  **Sent from this browser**, of what this browser sent in the last 24 hours with each
+  image's status (Queued, Detecting, Ready, Failed, Expired).
 - **Generate**: queue prompts in the side panel and run them in a ChatGPT tab, saving the
-  results to the Library.
+  results to the Library. Each Library row has a **Send to Extract** button that uploads that
+  image to your account and opens the editor (a row with several images asks which one first).
 
 ## Prerequisites
 
@@ -75,9 +78,13 @@ confirm `host_permissions` lists your API origin and `https://chatgpt.com/*` onl
 - **Single purpose:** send images from web pages and ChatGPT generations to the user's
   OpenAssets account and manage them there.
 - **Privacy policy URL:** `<WXT_PUBLIC_FRONTEND_URL>/privacy`.
-- **Data:** an image is uploaded only when the user picks it. Prompts, reference images and
+- **Data:** an image is uploaded only when the user picks it (the picker, the context menu,
+  the shortcut, or a Library row's Send to Extract button). Prompts, reference images and
   the library stay in the browser's extension storage; the access token is kept in session
-  storage only. No analytics or remote code.
+  storage only. The "Sent from this browser" list stores, for 24 hours and at most 20 rows,
+  the job id, a file name, the time, a status and the URL of the stored original in OpenAssets;
+  never the source image URL, the page, a prompt or the image itself. It is removed on sign-out
+  and by **Clear list**. No analytics or remote code.
 - **Icons:** `public/icons/icon{16,32,48,128}.png`, the OA monogram on ink. The 128 px file keeps
   the 16 px transparent margin the store asks for. Screenshots (1280x800) and the promo
   tiles are not in the repo.
@@ -110,7 +117,7 @@ button, so no `notifications` permission is needed.
 | `pnpm build` | Production build to `.output/chrome-mv3` |
 | `pnpm zip` | Build and zip for the store |
 | `pnpm typecheck` | `wxt prepare` and `tsc --noEmit` |
-| `pnpm test` | Vitest (URL and permission logic) |
+| `pnpm test` | Vitest (URL and permission logic, API error codes, auth retry, the sent list rules) |
 | `pnpm harness` | Dev-only preview of the popup and side panel in a normal tab (see below) |
 
 ## UI harness
@@ -125,6 +132,8 @@ and `--host ::` is already set so `*.localhost` names work.
 - `/frame.html?surface=sidepanel&state=working&theme=dark` is one surface on its own, for a screenshot at an
   exact viewport size. `surface` is `sidepanel` or `popup`; `theme` is `auto` (follows the browser, like the
   extension), `light` or `dark`.
+- States include the sent list (all statuses, live updates, refresh error, long names), Send to Extract
+  (several images, in progress, done, sheets used up, image gone) and a plan-limit notice kept by the worker.
 - Fixtures live in `harness/src/fixtures.ts`; the stub answers the same worker messages as
   `entrypoints/background.ts`, so adding, removing, running and pausing prompts works.
 
