@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Notice } from "@/components/ui/feedback";
 import { MarketingFooter } from "./MarketingFooter";
 import { MarketingHeader } from "./MarketingHeader";
-import { LEGAL_UPDATED, PRIVACY_EMAIL, SUPPORT_EMAIL, WRAP } from "./site";
+import { CARD, CARD_GAP, DISPLAY, LEGAL_UPDATED, NARROW, PRIVACY_EMAIL, SUPPORT_EMAIL } from "./site";
 
 /* -------------------------------------------------------------------------- */
 /* Inline pieces used by the Terms and Privacy copy                           */
@@ -186,7 +186,7 @@ export function LegalPage({
     <div className="flex min-h-screen flex-col bg-page text-ink">
       <MarketingHeader />
       <main className="flex-1">
-        <section aria-labelledby={titleId} className={`${WRAP} flex flex-col gap-8 pb-12 pt-12 md:pb-14 md:pt-[72px]`}>
+        <section aria-labelledby={titleId} className={`${NARROW} flex flex-col gap-10 pb-14 pt-16 md:pb-16 md:pt-24`}>
           <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center gap-3">
               <span className="oa-eyebrow">Legal</span>
@@ -195,7 +195,7 @@ export function LegalPage({
                 Draft
               </Badge>
             </div>
-            <h1 id={titleId} className="oa-display text-[clamp(36px,6.4vw,88px)] leading-[.95]">
+            <h1 id={titleId} className={DISPLAY}>
               {title}
             </h1>
           </div>
@@ -213,32 +213,32 @@ export function LegalPage({
             </Notice>
           </div>
 
-          <dl className="grid gap-[1.5px] border-2 border-line-strong bg-line-strong sm:grid-cols-2 lg:grid-cols-4">
-            <div className="flex flex-col gap-1 bg-surface px-[18px] py-3.5">
+          <dl className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
+            <div className={`flex flex-col gap-1.5 px-6 py-5 ${CARD}`}>
               <dt className="oa-label">Status</dt>
-              <dd className="text-xs font-bold leading-[18px]">Draft, not in force</dd>
+              <dd className="text-[13px] font-bold leading-[21px]">Draft, not in force</dd>
             </div>
-            <div className="flex flex-col gap-1 bg-surface px-[18px] py-3.5">
+            <div className={`flex flex-col gap-1.5 px-6 py-5 ${CARD}`}>
               <dt className="oa-label">Last updated</dt>
-              <dd className="text-xs font-bold leading-[18px]">
+              <dd className="text-[13px] font-bold leading-[21px]">
                 <time dateTime={LEGAL_UPDATED.iso}>{LEGAL_UPDATED.label}</time>
               </dd>
             </div>
-            <div className="flex flex-col gap-1 bg-surface px-[18px] py-3.5">
+            <div className={`flex flex-col gap-1.5 px-6 py-5 ${CARD}`}>
               <dt className="oa-label">Review</dt>
-              <dd className="text-xs font-bold leading-[18px]">Owner and legal counsel, pending</dd>
+              <dd className="text-[13px] font-bold leading-[21px]">Owner and legal counsel, pending</dd>
             </div>
-            <div className="flex flex-col gap-1 bg-surface px-[18px] py-3.5">
+            <div className={`flex flex-col gap-1.5 px-6 py-5 ${CARD}`}>
               <dt className="oa-label">Read also</dt>
-              <dd className="text-xs font-bold leading-[18px]">
+              <dd className="text-[13px] font-bold leading-[21px]">
                 <Internal href={related.href}>{related.label}</Internal>
               </dd>
             </div>
           </dl>
         </section>
 
-        <div className="border-t-2 border-line-strong">
-          <div className={`${WRAP} grid gap-10 py-12 md:py-16 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-16`}>
+        <div className="border-t border-line-soft">
+          <div className={`${NARROW} grid gap-12 py-16 md:py-20 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-16`}>
             <nav
               aria-labelledby={tocId}
               className="lg:sticky lg:top-[84px] lg:max-h-[calc(100dvh-108px)] lg:self-start lg:overflow-y-auto"
@@ -246,9 +246,9 @@ export function LegalPage({
               <h2 id={tocId} className="oa-label mb-3 text-ink-3">
                 Contents
               </h2>
-              <ol className="flex flex-col border-t-[1.5px] border-line">
+              <ol className="flex flex-col border-t border-line-soft">
                 {sections.map((section, i) => (
-                  <li key={section.id} className="border-b border-rule">
+                  <li key={section.id} className="border-b border-line-soft">
                     <a
                       href={`#${section.id}`}
                       className="flex gap-2.5 py-2 text-xs leading-[18px] text-ink-2 hover:text-ink hover:underline hover:decoration-[1.5px] hover:underline-offset-4"
@@ -267,7 +267,7 @@ export function LegalPage({
                   key={section.id}
                   id={section.id}
                   aria-labelledby={`${section.id}-title`}
-                  className="scroll-mt-24 border-t-[1.5px] border-line py-8 first:border-t-0 first:pt-0"
+                  className="scroll-mt-24 border-t border-line-soft py-10 first:border-t-0 first:pt-0"
                 >
                   <h2 id={`${section.id}-title`} className="oa-h3 mb-5 flex gap-3">
                     <span className="text-brand-text">{i + 1}.</span>

@@ -50,7 +50,7 @@ export function MarketingHeader() {
   const { user, loading } = useAuth();
 
   return (
-    <header className="sticky top-0 z-30 border-b-2 border-line-strong bg-page">
+    <header className="sticky top-0 z-30 border-b border-line-soft bg-page/90 backdrop-blur-sm supports-[backdrop-filter]:bg-page/80">
       <nav aria-label="Main" className={`${WRAP} flex h-[60px] items-center gap-3 md:gap-8`}>
         <Link href="/" aria-label="OpenAssets home" className="flex h-10 items-center">
           <Logo className="[&>span:last-child]:text-[15px]" />

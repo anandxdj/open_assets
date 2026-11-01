@@ -71,7 +71,7 @@ export function DocsPage<P extends DocsPageId>({
     <article aria-labelledby={titleId} className="flex min-w-0 flex-col gap-10">
       <header className="flex flex-col gap-5">
         <span className="oa-eyebrow">{config.eyebrow}</span>
-        <h1 id={titleId} className="oa-display text-[clamp(32px,5vw,56px)] leading-[1]">
+        <h1 id={titleId} className="oa-display text-[clamp(32px,5vw,56px)]">
           {config.title}
         </h1>
         <p className="oa-lead max-w-[640px]">{intro}</p>
@@ -83,7 +83,7 @@ export function DocsPage<P extends DocsPageId>({
             key={section.id}
             id={section.id}
             aria-labelledby={`${page}-${section.id}-title`}
-            className="scroll-mt-24 border-t-[1.5px] border-line py-8 first:border-t-0 first:pt-0"
+            className="scroll-mt-24 border-t border-line-soft py-10 first:border-t-0 first:pt-0"
           >
             <h2 id={`${page}-${section.id}-title`} className="oa-h3 mb-5 min-w-0 break-words">
               {section.title}
@@ -93,7 +93,7 @@ export function DocsPage<P extends DocsPageId>({
         ))}
       </div>
 
-      <nav aria-label="Previous and next page" className="flex flex-wrap justify-between gap-4 border-t-2 border-line-strong pt-6">
+      <nav aria-label="Previous and next page" className="flex flex-wrap justify-between gap-4 border-t border-line-soft pt-6">
         {prev ? (
           <Link href={prev.href} className="oa-label inline-flex items-center gap-2 hover:underline hover:decoration-[1.5px] hover:underline-offset-4">
             <ArrowLeft aria-hidden className="size-4" />

@@ -28,6 +28,10 @@
   --color-line: var(--oa-border);
   --color-line-strong: var(--oa-border-strong);
   --color-rule: var(--oa-rule);
+  /* marketing pages: quiet structure lines and the fixed dark band */
+  --color-line-soft: var(--oa-line-soft);
+  --color-band: var(--oa-band);
+  --color-band-fg: var(--oa-band-fg);
   --color-ink: var(--oa-ink);
   --color-ink-2: var(--oa-ink-2);
   --color-ink-3: var(--oa-ink-3);
@@ -102,6 +106,9 @@
   --oa-border: #0A0A0A;
   --oa-border-strong: #0A0A0A;
   --oa-rule: #D3D0C6;
+  --oa-line-soft: #D3D0C6;
+  --oa-band: #0A0A0A;
+  --oa-band-fg: #F4F3EE;
 
   /* text */
   --oa-ink: #0A0A0A;
@@ -183,6 +190,9 @@
   --oa-border: #3A3A37;
   --oa-border-strong: #EDECE8;
   --oa-rule: #262624;
+  --oa-line-soft: #2A2A28;
+  --oa-band: #141414;
+  --oa-band-fg: #F4F3EE;
 
   --oa-ink: #F4F3EE;
   --oa-ink-2: #B5B3AC;
@@ -271,7 +281,7 @@ html[data-session="1"] [data-auth="out"] { display: none; }
 
 @layer components {
   /* type: headings and labels are uppercase by style; markup keeps sentence case */
-  .oa-display { font-size: 72px; line-height: 72px; font-weight: 800; letter-spacing: -0.055em; text-transform: uppercase; }
+  .oa-display { font-size: 76px; line-height: 1.02; font-weight: 800; letter-spacing: -0.04em; text-transform: uppercase; }
   .oa-h1 { font-size: 44px; line-height: 46px; font-weight: 800; letter-spacing: -0.045em; text-transform: uppercase; }
   .oa-h2 { font-size: 28px; line-height: 32px; font-weight: 800; letter-spacing: -0.035em; text-transform: uppercase; }
   .oa-h3 { font-size: 18px; line-height: 24px; font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; }

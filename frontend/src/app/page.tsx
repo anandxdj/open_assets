@@ -4,6 +4,7 @@ import { GallerySection } from "@/components/landing/GallerySection";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { PricingSection } from "@/components/landing/PricingSection";
+import { ProductSection } from "@/components/landing/ProductSection";
 import { ToolsSection } from "@/components/landing/ToolsSection";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingHeader } from "@/components/marketing/MarketingHeader";
@@ -21,6 +22,7 @@ export default function LandingPage() {
       <MarketingHeader />
       <main className="flex-1">
         <HeroSection />
+        <ProductSection />
         <HowItWorks />
         <ToolsSection />
         <GallerySection />

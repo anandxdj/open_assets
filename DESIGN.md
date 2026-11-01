@@ -33,13 +33,24 @@ tabs and navigation render uppercase through CSS; the copy in markup stays in
 sentence case so screen readers and translators get normal text. File names,
 IDs and numeric values never change case. Tabular numerals everywhere.
 
-Scale: display 72/72, h1 44/46, h2 28/32, page title 18/24, section 13/18,
-body 13/20, small 12/18, label 11/16.
+Scale: display 76/1.02 (marketing page titles clamp 36 to 76px, tracking
+-0.04em), h1 44/46 (marketing section titles step down to 36/40, phones 30/32),
+h2 28/32, page title 18/24, section 13/18, body 13/20, small 12/18, label 11/16.
+Small copy on marketing pages is 13/21.
 
 ## Shape and depth
 
 - Corner radius is 0 everywhere.
-- Structure lines are 1.5px. Row dividers use a light rule colour.
+- Structure lines are 1.5px ink. Row dividers use a light rule colour.
+- Marketing pages (landing, pricing, careers, legal, status, docs) are calmer:
+  section dividers, card outlines and the header and footer lines use the soft
+  line (`--oa-line-soft`, 1px), and cards stand apart with 20 to 24px between them.
+  Controls (buttons, inputs, tabs) and the one selected or raised object (the Pro
+  plan card) keep the 1.5px ink line, so control boundaries stay at 3:1 or more
+  (WCAG 1.4.11). Inverted bands (Tools, startup programme, careers contact) are a
+  fixed dark band (`--oa-band`, `--oa-band-fg`) in both themes; hard shadows inside
+  a band are paper-coloured. The hero has a masked dot grid and no glow. The app
+  keeps 1.5px ink lines everywhere.
 - Docked surfaces are flat. Only floating things cast a hard offset shadow:
   3px (tool bar, primary button), 6px (menus, toasts), 8px (dialogs).
 - Primary buttons press into their shadow on click.

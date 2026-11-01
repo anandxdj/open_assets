@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/marketing/SectionHeader";
-import { WRAP } from "@/components/marketing/site";
+import { CARD, CARD_GAP, WRAP, SECTION_GAP, SECTION_Y } from "@/components/marketing/site";
 
 /* Static example tiles built from the bundled samples; the real gallery lives at /collections. */
 const PACKS: { name: string; sprites: string[] }[] = [
@@ -17,7 +17,7 @@ export function GallerySection() {
     <section
       id="gallery"
       aria-labelledby="gallery-title"
-      className={`${WRAP} flex scroll-mt-16 flex-col gap-7 py-16 md:py-[88px]`}
+      className={`${WRAP} flex scroll-mt-16 flex-col ${SECTION_GAP} ${SECTION_Y}`}
     >
       <SectionHeader
         eyebrow="Community gallery"
@@ -29,28 +29,25 @@ export function GallerySection() {
           </Button>
         }
       />
-      <ul className="grid border-l-2 border-t-2 border-line-strong sm:grid-cols-2 lg:grid-cols-4">
+      <ul className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
         {PACKS.map((pack) => (
-          <li key={pack.name} className="border-b-2 border-r-2 border-line-strong bg-surface">
-            <Link href="/collections" className="group flex h-full flex-col text-ink">
-              <span
-                aria-hidden
-                className="oa-checker grid aspect-[4/3] grid-cols-2 border-b-[1.5px] border-line-strong"
-              >
+          <li key={pack.name}>
+            <Link href="/collections" className={`oa-lift group flex h-full flex-col text-ink ${CARD}`}>
+              <span aria-hidden className="oa-checker grid aspect-[4/3] grid-cols-2 border-b border-line-soft">
                 {pack.sprites.map((s, i) => (
                   <span key={`${s}-${i}`} className="flex items-center justify-center">
                     <Image src={`/samples/${s}.svg`} alt="" width={64} height={64} className="h-auto w-[56%]" />
                   </span>
                 ))}
               </span>
-              <span className="flex flex-col gap-1 px-3.5 py-3">
+              <span className="flex flex-col gap-1.5 p-5">
                 <span className="flex justify-between gap-2">
                   <span className="oa-section group-hover:underline group-hover:decoration-[1.5px] group-hover:underline-offset-4">
                     {pack.name}
                   </span>
                   <span className="oa-value text-ink-3">4 sprites</span>
                 </span>
-                <span className="text-[11px] leading-4 text-ink-2">Example collection</span>
+                <span className="text-xs leading-[18px] text-ink-2">Example collection</span>
               </span>
             </Link>
           </li>

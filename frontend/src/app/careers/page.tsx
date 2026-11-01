@@ -5,7 +5,17 @@ import { Button } from "@/components/ui/button";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingHeader } from "@/components/marketing/MarketingHeader";
 import { SectionHeader } from "@/components/marketing/SectionHeader";
-import { SOCIAL, WRAP } from "@/components/marketing/site";
+import {
+  CARD,
+  CARD_GAP,
+  COPY,
+  DISPLAY,
+  SECTION_GAP,
+  SECTION_TITLE,
+  SECTION_Y,
+  SOCIAL,
+  WRAP,
+} from "@/components/marketing/site";
 
 export const metadata: Metadata = {
   title: "Careers · OpenAssets",
@@ -98,16 +108,16 @@ export default function CareersPage() {
     <div className="flex min-h-screen flex-col bg-page text-ink">
       <MarketingHeader />
       <main className="flex-1">
-        <section aria-labelledby="careers-title" className={`${WRAP} flex flex-col gap-10 pb-16 pt-12 md:pt-[72px]`}>
+        <section aria-labelledby="careers-title" className={`${WRAP} flex flex-col gap-12 pb-20 pt-16 md:gap-14 md:pb-28 md:pt-24`}>
           <div className="flex flex-col gap-6">
             <span className="oa-eyebrow">Careers</span>
-            <h1 id="careers-title" className="oa-display text-[clamp(36px,6.4vw,88px)] leading-[.95]">
+            <h1 id="careers-title" className={DISPLAY}>
               Build major projects
               <br />
               <span className="bg-brand px-[.12em] text-brand-fg">with me</span>
             </h1>
           </div>
-          <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-6">
+          <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8">
             <p className="oa-lead max-w-[600px]">
               No busywork and no repetitive corporate meetings. Just fast, open-source engineering on projects worth
               shipping. Let’s create something big.
@@ -121,18 +131,18 @@ export default function CareersPage() {
             </Button>
           </div>
 
-          <dl className="grid gap-[1.5px] border-2 border-line-strong bg-line-strong sm:grid-cols-2 lg:grid-cols-4">
+          <dl className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
             {FACTS.map((fact) => (
               <div
                 key={fact.label}
                 className={
                   fact.accent
-                    ? "flex flex-col gap-1 bg-brand px-[18px] py-3.5 text-brand-fg"
-                    : "flex flex-col gap-1 bg-surface px-[18px] py-3.5"
+                    ? "flex flex-col gap-1.5 border border-line-soft bg-brand px-6 py-5 text-brand-fg"
+                    : `flex flex-col gap-1.5 px-6 py-5 ${CARD}`
                 }
               >
                 <dt className={fact.accent ? "oa-label text-brand-fg" : "oa-label"}>{fact.label}</dt>
-                <dd className="text-xs font-bold leading-[18px]">{fact.value}</dd>
+                <dd className={`${COPY} font-bold`}>{fact.value}</dd>
               </div>
             ))}
           </dl>
@@ -140,18 +150,18 @@ export default function CareersPage() {
 
         <section
           aria-labelledby="projects-title"
-          className="border-t-2 border-line-strong bg-sunken"
+          className="border-t border-line-soft bg-sunken"
         >
-          <div className={`${WRAP} flex flex-col gap-8 py-16 md:py-[88px]`}>
+          <div className={`${WRAP} flex flex-col ${SECTION_GAP} ${SECTION_Y}`}>
             <SectionHeader eyebrow="Open ideas" titleId="projects-title" title="Projects looking for builders" />
-            <ul className="grid gap-[2px] border-2 border-line-strong bg-line-strong lg:grid-cols-3">
+            <ul className={`grid ${CARD_GAP} lg:grid-cols-3`}>
               {PROJECTS.map((project) => {
                 const Icon = project.icon;
                 const status = STATUS[project.status];
                 const StatusIcon = status.icon;
                 return (
-                  <li key={project.id} className="flex flex-col bg-surface">
-                    <article aria-labelledby={`${project.id}-title`} className="flex flex-1 flex-col gap-5 p-6 md:p-7">
+                  <li key={project.id} className={`flex flex-col ${CARD}`}>
+                    <article aria-labelledby={`${project.id}-title`} className="flex flex-1 flex-col gap-6 p-6">
                       <div className="flex items-start justify-between gap-3">
                         <span className="oa-icon-box">
                           <Icon aria-hidden className="size-5" />
@@ -167,13 +177,13 @@ export default function CareersPage() {
                         </h3>
                         <p className="oa-label">{project.subtitle}</p>
                       </div>
-                      <p className="text-xs leading-[18px] text-ink-2">{project.description}</p>
+                      <p className={`${COPY} text-ink-2`}>{project.description}</p>
 
                       <div className="flex flex-col gap-2">
                         <h4 className="oa-label text-ink-3">Stack</h4>
                         <ul className="flex flex-wrap gap-1.5">
                           {project.stack.map((item) => (
-                            <li key={item} className="oa-value border border-line px-1.5 py-0.5">
+                            <li key={item} className="oa-value border border-line-soft px-1.5 py-0.5">
                               {item}
                             </li>
                           ))}
@@ -182,10 +192,10 @@ export default function CareersPage() {
 
                       <div className="flex flex-col gap-1">
                         <h4 className="oa-label text-ink-3">What you will bring</h4>
-                        <ul className="flex flex-col text-xs leading-[18px]">
+                        <ul className={`flex flex-col ${COPY}`}>
                           {project.requirements.map((req) => (
-                            <li key={req} className="flex gap-2.5 border-t border-rule py-[9px] first:border-t-0">
-                              <span aria-hidden className="oa-value leading-[18px] text-brand-text">
+                            <li key={req} className="flex gap-2.5 border-t border-line-soft py-2.5 first:border-t-0">
+                              <span aria-hidden className="oa-value leading-[21px] text-brand-text">
                                 +
                               </span>
                               {req}
@@ -194,7 +204,7 @@ export default function CareersPage() {
                         </ul>
                       </div>
 
-                      <div className="mt-auto flex items-center justify-between gap-3 border-t-[1.5px] border-line pt-4">
+                      <div className="mt-auto flex items-center justify-between gap-3 border-t border-line-soft pt-4">
                         <p className="text-[11px] leading-4 text-ink-2">
                           <span className="oa-label text-ink-3">Scope</span> {project.scope}
                         </p>
@@ -214,14 +224,17 @@ export default function CareersPage() {
           </div>
         </section>
 
-        <section aria-labelledby="contact-title" className="border-t-2 border-line-strong bg-ink text-page">
-          <div className={`${WRAP} flex flex-wrap items-end justify-between gap-8 py-16 md:py-[88px]`}>
-            <div className="flex max-w-[640px] flex-col gap-3.5">
+        <section
+          aria-labelledby="contact-title"
+          className="bg-band text-band-fg [--oa-shadow-ink:var(--oa-band-fg)]"
+        >
+          <div className={`${WRAP} flex flex-wrap items-end justify-between gap-10 ${SECTION_Y}`}>
+            <div className="flex max-w-[640px] flex-col gap-4">
               <span className="oa-eyebrow">Get in touch</span>
-              <h2 id="contact-title" className="oa-h1 max-md:text-[30px] max-md:leading-[32px]">
+              <h2 id="contact-title" className={SECTION_TITLE}>
                 Ready to build with me?
               </h2>
-              <p className="text-xs leading-[18px] opacity-75">
+              <p className={`${COPY} opacity-75`}>
                 Send me a direct message on X. Tell me which project fits you and link your GitHub or portfolio, and
                 we will plan what to build together.
               </p>
@@ -230,7 +243,7 @@ export default function CareersPage() {
               asChild
               variant="primary"
               size="xl"
-              className="shadow-[4px_4px_0_var(--oa-bg)] focus-visible:outline-page max-sm:w-full"
+              className="focus-visible:outline-band-fg max-sm:w-full"
             >
               <a href={SOCIAL.x} target="_blank" rel="noopener noreferrer">
                 Message me on X

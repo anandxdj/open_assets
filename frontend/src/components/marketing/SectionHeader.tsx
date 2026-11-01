@@ -19,8 +19,8 @@ export function SectionHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-end justify-between gap-4", className)}>
-      <div className="flex flex-col gap-3.5">
+    <div className={cn("flex flex-wrap items-end justify-between gap-x-8 gap-y-5", className)}>
+      <div className="flex flex-col gap-4">
         <span className="oa-eyebrow">{eyebrow}</span>
         <Heading id={titleId} className={cn(SECTION_TITLE, "max-w-[760px]")}>
           {title}

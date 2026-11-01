@@ -3,7 +3,7 @@ import { Faq } from "@/components/marketing/Faq";
 import type { FaqItem } from "@/components/marketing/pricing";
 import { PricingTiers } from "@/components/marketing/PricingTiers";
 import { SectionHeader } from "@/components/marketing/SectionHeader";
-import { WRAP } from "@/components/marketing/site";
+import { WRAP, SECTION_GAP, SECTION_Y } from "@/components/marketing/site";
 
 const FAQ: FaqItem[] = [
   {
@@ -30,15 +30,15 @@ export function PricingSection() {
     <section
       id="pricing"
       aria-labelledby="pricing-title"
-      className="scroll-mt-16 border-t-2 border-line-strong bg-sunken"
+      className="scroll-mt-16 border-t border-line-soft bg-sunken"
     >
-      <div className={`${WRAP} flex flex-col gap-8 py-16 md:py-[88px]`}>
+      <div className={`${WRAP} flex flex-col ${SECTION_GAP} ${SECTION_Y}`}>
         <SectionHeader
           eyebrow="Pricing"
           titleId="pricing-title"
           title="Start free. Upgrade when it ships with you."
           aside={
-            <Link href="/pricing" className="oa-link text-xs">
+            <Link href="/pricing" className="oa-link text-[13px]">
               Compare every feature
             </Link>
           }

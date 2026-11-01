@@ -18,12 +18,12 @@ export function DocsNav() {
       className="lg:sticky lg:top-[84px] lg:max-h-[calc(100dvh-108px)] lg:self-start lg:overflow-y-auto"
     >
       <h2 className="oa-label mb-3 text-ink-3">Docs</h2>
-      <ul className="flex flex-col border-t-[1.5px] border-line">
+      <ul className="flex flex-col border-t border-line-soft">
         {DOCS_ORDER.map((id) => {
           const page = DOCS_PAGES[id];
           const current = pathname === page.href;
           return (
-            <li key={id} className="border-b border-rule">
+            <li key={id} className="border-b border-line-soft">
               <Link
                 href={page.href}
                 aria-current={current ? "page" : undefined}
