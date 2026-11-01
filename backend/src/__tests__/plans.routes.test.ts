@@ -75,7 +75,7 @@ before(async () => {
 
   // Must be set before the app modules load: the Redis URL and the Python
   // service address are read at import time.
-  process.env['REDIS_URL'] = `${(redisBase as string).replace(/\/\d+$/, '')}/15`;
+  process.env['REDIS_URL'] = `${(redisBase as string).replace(/\/\d+$/, '')}/${process.env['TEST_REDIS_DB'] ?? '15'}`;
   process.env['NODE_ENV'] = 'test';
 
   const pyRequests: Record<string, unknown>[] = [];
@@ -211,7 +211,15 @@ test('GET /api/plans/me says whether the export upscale is AI, from the storage 
       process.env['STORAGE_PROVIDER'] = provider;
       const { status, json } = await call('GET', '/api/plans/me', user.token);
       assert.equal(status, 200);
-      assert.deepEqual(json.data.capabilities, { aiUpscale }, provider);
+      assert.deepEqual(
+        json.data.capabilities,
+        {
+          aiUpscale,
+          enclosedBackground: true,
+          backgroundRemoval: { server: true, ai: aiUpscale, aiProvider: provider === 'local' ? null : provider === 'imagekit' ? 'ImageKit' : 'Cloudinary' },
+        },
+        provider,
+      );
     }
   } finally {
     if (before === undefined) delete process.env['STORAGE_PROVIDER'];

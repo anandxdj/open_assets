@@ -33,13 +33,25 @@ tabs and navigation render uppercase through CSS; the copy in markup stays in
 sentence case so screen readers and translators get normal text. File names,
 IDs and numeric values never change case. Tabular numerals everywhere.
 
-Scale: display 72/72, h1 44/46, h2 28/32, page title 18/24, section 13/18,
-body 13/20, small 12/18, label 11/16.
+Scale: display 76/1.02 (marketing page titles clamp 36 to 76px, tracking
+-0.04em), h1 44/46 (marketing section titles step down to 36/40, phones 30/32),
+h2 28/32, page title 18/24, section 13/18, body 13/20, small 12/18, label 11/16.
+Small copy on marketing pages is 13/21.
 
 ## Shape and depth
 
 - Corner radius is 0 everywhere.
-- Structure lines are 1.5px. Row dividers use a light rule colour.
+- Structure lines are 1.5px ink. Row dividers use a light rule colour.
+- Marketing pages (landing, pricing, careers, legal, status, docs) are calmer:
+  section dividers, card outlines and the header and footer lines use the soft
+  line (`--oa-line-soft`, 1px), and cards stand apart with 20 to 24px between them.
+  Controls (buttons, inputs, tabs) and the one selected or raised object (the Pro
+  plan card) keep the 1.5px ink line, so control boundaries stay at 3:1 or more
+  (WCAG 1.4.11). Inverted bands (Tools, startup programme, careers contact) are a
+  fixed dark band (`--oa-band`, `--oa-band-fg`) in both themes; hard shadows inside
+  a band are paper-coloured. The hero has a dot grid and one soft accent glow behind the copy (the only glow on the site, static). Its
+  headline box (ink inversion, hard accent shadow) is the one tilted object, -1deg, flat on hover over
+  `--oa-dur-3`. The app keeps 1.5px ink lines everywhere.
 - Docked surfaces are flat. Only floating things cast a hard offset shadow:
   3px (tool bar, primary button), 6px (menus, toasts), 8px (dialogs).
 - Primary buttons press into their shadow on click.
@@ -146,8 +158,88 @@ Tool names: Extract, Enhance (Cleanup, AI enhance), Studio, AniBuddy.
 
 ## Motion
 
-120ms ease-out for state changes; menus and panels appear instantly. No
-decorative motion. Respect `prefers-reduced-motion`.
+Motion confirms an action or a change of state and is gone in a fifth of a
+second. CSS only: transitions and `tw-animate-css` keyframes, no animation
+library.
+
+Tokens (`globals.css`):
+
+| Token | Value | Used for |
+|---|---|---|
+| `--oa-dur-1` | 120ms | colour, background and border changes, press |
+| `--oa-dur-2` | 200ms | shadows, lift, switch thumb |
+| `--oa-dur-3` | 320ms | larger travel: the marketing scroll-in reveal |
+| `--oa-ease` | `cubic-bezier(.2,.8,.2,1)` | state changes |
+| `--oa-ease-out` | `cubic-bezier(.16,1,.3,1)` | things that travel: lift, switch thumb, overlays, theme reveal |
+| `--oa-t-state` | colour, background, border 120ms, shadow 200ms | the shared `transition` of interactive classes |
+
+What animates:
+
+- **Hover, focus and selection** on `oa-nav-item`, `oa-tab`, `oa-seg-item`,
+  `oa-menu-item`, `oa-tool`, `oa-layer`, `oa-tile`, `oa-link`, table row
+  cells, buttons, inputs, checkboxes, switches and the drop zone: colour,
+  background, border and shadow fade (`--oa-t-state`). Nothing else changes.
+- **Marketing header mark**: the centred OA mark (the header's home link, mark
+  only) scales to 1.1 on hover over `--oa-dur-2` on `--oa-ease-out`; under
+  reduced motion it does not scale. The header is a 3-column grid (section links,
+  mark, actions) from 520px wide; below that the mark sits next to the menu
+  button, because the signed-in actions need the room.
+- **Link cards** (`oa-lift`): up and left 2px with a 4px hard shadow on hover or
+  keyboard focus, flat again while pressed; the same language as the primary
+  button. The focus ring moves with the card. Hover applies only where the
+  device has hover. A Tailwind shadow utility on the card wins over the lift
+  shadow (the card then only moves).
+- **Link rows** (`oa-row`, the borderless tool list on the dark band): a plain
+  full-width row cannot carry an offset shadow, so hover and keyboard focus
+  tint it with a paper-coloured plate (8%) and slide its arrow 4px right
+  (`--oa-dur-2`, `--oa-ease-out`). Plan cards are not links and do not lift;
+  Pro stays the one raised card through its static `shadow-pop`.
+- **Scroll-in reveal** (marketing pages: landing sections after the hero,
+  `/pricing`, `/careers`; `Reveal`, `lib/reveal.ts`): content is visible in the
+  server HTML. After hydration, and only with IntersectionObserver and no
+  reduced-motion preference, blocks below the fold at that moment get
+  `data-reveal="pending"` (opacity 0, 16px down). Each fades up once over
+  `--oa-dur-3` on `--oa-ease-out` when 15% of it clears the bottom 10% of the
+  viewport, children entering together stepping by 60ms (at most 4 steps), and
+  then it is left alone. Never hidden: the hero and anything in view at load,
+  a section a hash link points at (loaded with `/#pricing` or followed on the
+  page), anything above a restored scroll position, and print. A block that
+  receives keyboard focus appears at once, and so does everything if the
+  visitor switches to reduced motion. Wrap section headers and card lists, not
+  words; the wrapper keeps the semantic tag (`ul`, `ol`, `dl`).
+- **Overlays**: scrim fades in 150ms. Dialog fades, scales from 98% and slides
+  4px up in 160ms. Menu fades and slides 4px away from its trigger in 120ms.
+  Exits mirror the entrances. Radix keeps the node mounted until the exit ends,
+  and focus still returns to the control that opened it. Toasts keep Sonner's
+  own slide and fade (it positions and stacks them with the same `transform`,
+  so a second keyframe animation would fight it).
+- **Theme switch**: the new theme grows as a circle from the click (from the
+  toggle's centre for the keyboard), 420ms `--oa-ease-out`
+  (`document.startViewTransition`, helper in `lib/theme-reveal.ts`). Where the
+  API is missing the theme switches at once. Focus stays on the toggle.
+
+- **The landing product shot is the one sanctioned demo.** It may play
+  because it is honest, and only on these terms: it replays real product
+  states (what the app actually shows, never an invented console or pipeline);
+  it plays at most 3 loops and then rests on the final frame; it has a visible
+  Pause/Play control; it pauses while it is off-screen or the tab is hidden;
+  and under reduced motion it shows a static final frame. Its easing uses
+  `--oa-ease-out`.
+
+No decorative motion anywhere else (the marketing scroll-in reveal above is the
+one exception to "scrolling"). What never animates: `width`, `height` and
+`all` in new rules (the progress fill's `width` and Sonner's stacking are the
+two older exceptions), page loads, route changes, the app while scrolling, infinite loops
+other than status spinners, glows, cursor effects, anything on the editor
+canvas, and anything that carries meaning without also being visible when it
+stops.
+
+Reduced motion: one global `prefers-reduced-motion: reduce` rule in
+`globals.css` sets `transition: none` and `animation: none` on everything,
+including the view-transition pseudo-elements, and `oa-lift` and the primary
+button keep their shadow but do not move. `ThemeToggle` also skips
+`startViewTransition`. New motion must be a CSS transition or animation that the
+rule covers, or check `matchMedia("(prefers-reduced-motion: reduce)")` itself.
 
 ## Accessibility
 

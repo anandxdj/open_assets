@@ -10,6 +10,8 @@ import { Avatar } from "@/components/layout/UserMenu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Loading, Notice } from "@/components/ui/feedback";
+import { SafeImage } from "@/components/ui/safe-image";
+import { BackdropGroup, BackdropSurface } from "@/features/backdrop/BackdropSurface";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import {
   collectionDownloadUrl,
@@ -26,6 +28,7 @@ import {
 } from "@/features/collections/api";
 import { AssetPreviewDialog } from "@/features/collections/components/AssetPreviewDialog";
 import { NameDialog } from "@/features/collections/components/CollectionDialogs";
+import { TagChips } from "@/features/collections/components/TagChip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { creatorName, creatorPicture } from "@/features/collections/format";
 import { cn } from "@/lib/utils";
@@ -137,16 +140,17 @@ function FolderSection({
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3">
             {folder.images.map((img) => (
               <li key={img._id} className="flex min-w-0 flex-col gap-1.5">
-                <button
+                <BackdropSurface
+                  as="button"
+                  src={img.cloudinaryUrl}
                   type="button"
                   onClick={() => onPreview(img)}
                   data-selected={previewId === img._id || undefined}
-                  className="oa-tile oa-checker w-full cursor-zoom-in p-0 hover:border-line-strong"
+                  className="oa-tile w-full cursor-zoom-in p-0 hover:border-line-strong"
                   aria-label={`Preview ${img.name}`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img.cloudinaryUrl} alt="" loading="lazy" className="h-[70%] w-[70%] object-contain" />
-                </button>
+                  <SafeImage src={img.cloudinaryUrl} loading="lazy" className="h-[70%] w-[70%] object-contain" />
+                </BackdropSurface>
                 <span className="flex items-center gap-1">
                   <span className="oa-value min-w-0 flex-1 truncate text-[11.5px]" title={img.name}>
                     {img.name}
@@ -355,15 +359,19 @@ export function PackDetailScreen({ id }: { id: string }) {
             </Notice>
           )}
           {c.description && <p className="text-xs leading-[18px] text-ink-2">{c.description}</p>}
-          {c.tags.length > 0 && (
-            <ul className="flex flex-wrap gap-1.5" aria-label="Tags">
-              {c.tags.map((t) => (
-                <li key={t}>
-                  <Badge>{t}</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
+          {c.tags.length > 0 &&
+            (c.isPublic ? (
+              // Published: each tag opens the community page filtered by it.
+              <TagChips tags={c.tags} activeTag={null} />
+            ) : (
+              <ul className="flex flex-wrap gap-1.5" aria-label="Tags">
+                {c.tags.map((t) => (
+                  <li key={t}>
+                    <Badge>{t}</Badge>
+                  </li>
+                ))}
+              </ul>
+            ))}
           <dl className="grid grid-cols-3 gap-2 border-y-[1.5px] border-line py-3.5">
             <Stat label="Assets" value={totalAssets} />
             <Stat label="Likes" value={likes ?? c.likesCount} />
@@ -420,20 +428,22 @@ export function PackDetailScreen({ id }: { id: string }) {
               description={canEdit ? "Add a folder, then save assets into it from any export." : "This collection has no folders to show."}
             />
           ) : (
-            c.folders.map((folder) => (
-              <FolderSection
-                key={folder._id}
-                packId={id}
-                folder={folder}
-                isPublic={c.isPublic}
-                canEdit={canEdit}
-                open={!closed.has(folder._id)}
-                onToggle={() => toggleFolder(folder._id)}
-                previewId={preview?._id ?? null}
-                onPreview={setPreview}
-                onDeleteImage={(f, image) => setDeleting({ folder: f, image })}
-              />
-            ))
+            <BackdropGroup srcs={c.folders.flatMap((folder) => folder.images.map((img) => img.cloudinaryUrl))}>
+              {c.folders.map((folder) => (
+                <FolderSection
+                  key={folder._id}
+                  packId={id}
+                  folder={folder}
+                  isPublic={c.isPublic}
+                  canEdit={canEdit}
+                  open={!closed.has(folder._id)}
+                  onToggle={() => toggleFolder(folder._id)}
+                  previewId={preview?._id ?? null}
+                  onPreview={setPreview}
+                  onDeleteImage={(f, image) => setDeleting({ folder: f, image })}
+                />
+              ))}
+            </BackdropGroup>
           )}
         </div>
       </div>

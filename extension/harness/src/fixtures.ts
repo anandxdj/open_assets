@@ -1,4 +1,4 @@
-import type { Account, AppSnapshot, AspectRatio, LibraryItem, QueueItem, QueueStatus } from '../../src/shared/contracts';
+import type { Account, AppSnapshot, AspectRatio, LibraryItem, QueueItem, QueueStatus, SentItem } from '../../src/shared/contracts';
 
 /** A state the harness can put the popup or the side panel in. */
 export interface Fixture {
@@ -12,8 +12,15 @@ export interface Fixture {
   shortcut?: string;
   /** How the stubbed worker answers CONNECT_ACCOUNT. */
   connect?: 'ok' | 'pending' | { error: string };
-  /** Answer to EXTRACT_CURRENT_IMAGE when it should fail. */
+  /** Answer to EXTRACT_CURRENT_IMAGE when it should fail; `extractCode` is the API error code that comes with it. */
   extractError?: string;
+  extractCode?: string;
+  /** How the stubbed worker answers EXTRACT_IMAGE_URL (Send to Extract): a new row, never, or a failure. */
+  sendResult?: 'ok' | 'pending' | { error: string; code?: string };
+  /** SENT_REFRESH fails with this message. */
+  refreshError?: string;
+  /** Each SENT_REFRESH moves rows along Queued, Detecting, Ready, so the live update can be watched. */
+  advance?: boolean;
   /** UI steps replayed after the first render (see frame.ts). */
   drive?: Step[];
 }
@@ -67,8 +74,26 @@ const library: LibraryItem[] = [
   { id: 'l_5', prompt: 'Red mushroom with white spots, top-down RPG pickup', outputs: out(9, 'https://invalid.localhost/missing.png'), sourceConversationUrl: 'https://chatgpt.com/c/5', createdAt: at(65) },
 ];
 
-const empty: AppSnapshot = { account, queue: [], library: [], isRunning: false, activeItemId: null };
-const signedOut: AppSnapshot = { account: null, queue: [], library: [], isRunning: false, activeItemId: null };
+const sentRow = (n: number, fileName: string, status: SentItem['status'], minutesAgo: number, extra: Partial<SentItem> = {}): SentItem => ({
+  jobId: `job_${n}`,
+  fileName,
+  sentAt: at(minutesAgo),
+  via: 'page',
+  status,
+  ...(status === 'expired' ? {} : { thumbnailUrl: art.slime }),
+  ...extra,
+});
+
+const sent: SentItem[] = [
+  sentRow(1, 'rpg_pack_v1.png', 'ready', 42, { thumbnailUrl: art.chest }),
+  sentRow(2, 'slime_sheet.png', 'detecting', 3),
+  sentRow(3, 'openassets-1761912000000.png', 'queued', 0, { via: 'library' }),
+  sentRow(4, 'broken_scan.jpg', 'failed', 90, { error: 'Detection failed. Try a larger image.', thumbnailUrl: art.potion }),
+  sentRow(5, 'old_icons.png', 'expired', 1380),
+];
+
+const empty: AppSnapshot = { account, queue: [], library: [], isRunning: false, activeItemId: null, sent: [], notice: null };
+const signedOut: AppSnapshot = { account: null, queue: [], library: [], isRunning: false, activeItemId: null, sent: [], notice: null };
 
 const drafts = [
   item(1, 'Pixel art treasure chest, closed, front view', 'draft', { references: withRef }),
@@ -80,7 +105,7 @@ const working: AppSnapshot = {
   account,
   library: [],
   isRunning: true,
-  activeItemId: 'q_2',
+  activeItemId: 'q_2', sent: [], notice: null,
   queue: [
     item(1, 'Pixel art gold coin, spinning, 4 frames', 'completed', { references: withRef, outputs: out(1, art.coin) }),
     item(2, 'Pixel art treasure chest, closed, front view', 'generating', { references: withRef }),
@@ -93,7 +118,7 @@ const allStatuses: AppSnapshot = {
   account,
   library,
   isRunning: true,
-  activeItemId: 'q_6',
+  activeItemId: 'q_6', sent: [], notice: null,
   queue: [
     item(1, 'Draft: pixel art banner', 'draft'),
     item(2, 'Queued: pixel art key', 'queued'),
@@ -125,7 +150,7 @@ export const fixtures: Fixture[] = [
       account,
       library: [],
       isRunning: false,
-      activeItemId: null,
+      activeItemId: null, sent: [], notice: null,
       queue: [
         item(1, 'Pixel art gold coin, spinning, 4 frames', 'completed', { outputs: out(1, art.coin) }),
         item(2, 'Pixel art treasure chest, closed, front view', 'paused', { error: 'Sign in to ChatGPT, then resume.' }),
@@ -140,7 +165,7 @@ export const fixtures: Fixture[] = [
       account,
       library: [],
       isRunning: false,
-      activeItemId: null,
+      activeItemId: null, sent: [], notice: null,
       queue: [
         item(1, 'Pixel art gold coin, spinning, 4 frames', 'completed', { outputs: out(1, art.coin) }),
         item(2, 'Health potion icon set, three sizes', 'failed', { error: 'ChatGPT timed out' }),
@@ -155,7 +180,7 @@ export const fixtures: Fixture[] = [
       account,
       library,
       isRunning: false,
-      activeItemId: null,
+      activeItemId: null, sent: [], notice: null,
       queue: [
         item(1, 'Pixel art gold coin, spinning, 4 frames', 'completed', { references: withRef, outputs: out(1, art.coin) }),
         item(2, 'Cute slime family in four colours, sticker style', 'completed', { outputs: out(5, art.slime) }),
@@ -166,9 +191,19 @@ export const fixtures: Fixture[] = [
   { id: 'all-statuses', label: 'Generate: every queue status', snapshot: allStatuses },
   { id: 'error-add', label: 'Error: add with no prompt', snapshot: empty, drive: [{ click: 'Add to queue' }] },
   { id: 'library', label: 'Library: items', tab: 'library', snapshot: { ...empty, library } },
+  { id: 'library-send-chooser', label: 'Library: Send to Extract, several images (chooser open)', tab: 'library', snapshot: { ...empty, library }, drive: [{ click: 'Send to Extract: Pixel art gold coin' }] },
+  { id: 'library-send-sending', label: 'Library: Send to Extract in progress', tab: 'library', snapshot: { ...empty, library }, sendResult: 'pending', drive: [{ click: 'Send to Extract: Cute slime' }] },
+  { id: 'library-send-done', label: 'Library: Send to Extract done (row added to Sent)', tab: 'library', snapshot: { ...empty, library }, drive: [{ click: 'Send to Extract: Cute slime' }] },
+  { id: 'library-send-limit', label: 'Library: Send to Extract refused, sheets used up', tab: 'library', snapshot: { ...empty, library }, sendResult: { error: 'You have used all 10 sheets this month. Your allowance resets on 2026-11-01. Pro has no sheet limit.', code: 'SHEET_LIMIT' }, drive: [{ click: 'Send to Extract: Cute slime' }] },
+  { id: 'library-send-gone', label: 'Library: Send to Extract, image gone from ChatGPT', tab: 'library', snapshot: { ...empty, library }, sendResult: { error: 'That image is no longer available from ChatGPT. Open the conversation and use Extract on the page instead.' }, drive: [{ click: 'Send to Extract: Cute slime' }] },
+  { id: 'notice-plan-limit', label: 'Notice kept by the worker: sheets used up (context menu)', tab: 'extract', snapshot: { ...empty, notice: { message: 'You have used all 10 sheets this month. Your allowance resets on 2026-11-01. Pro has no sheet limit.', code: 'SHEET_LIMIT' } } },
   { id: 'library-empty', label: 'Library: empty', tab: 'library', snapshot: empty },
   { id: 'library-no-match', label: 'Library: search with no match', tab: 'library', snapshot: { ...empty, library }, drive: [{ type: 'zzz', into: 'input[type="search"]' }] },
   { id: 'extract', label: 'Extract', tab: 'extract', snapshot: empty },
+  { id: 'extract-sent', label: 'Extract: sent from this browser (all statuses)', tab: 'extract', snapshot: { ...empty, sent } },
+  { id: 'extract-sent-live', label: 'Extract: sent, statuses update on their own', tab: 'extract', advance: true, snapshot: { ...empty, sent: sent.filter((row) => row.status === 'detecting' || row.status === 'queued') } },
+  { id: 'extract-sent-error', label: 'Extract: sent, status refresh failed', tab: 'extract', refreshError: 'Could not reach OpenAssets.', snapshot: { ...empty, sent: sent.slice(1, 3) } },
+  { id: 'extract-sent-long', label: 'Stress: long file names in the sent list', tab: 'extract', snapshot: { ...empty, sent: [sentRow(1, 'a_very_long_sprite_sheet_name_that_keeps_going_and_going_for_the_final_export_v12.png', 'detecting', 4), sentRow(2, 'Unbroken_token_without_any_spaces_that_is_long_enough_to_push_the_row_wider_than_the_panel.png', 'failed', 10, { error: 'Detectionfailedwithaverylongunbrokenerrormessagethatmustwrapinsidetherow' })] } },
   { id: 'extract-no-shortcut', label: 'Extract: shortcut unbound', tab: 'extract', shortcut: '', snapshot: empty },
   { id: 'extract-mac-shortcut', label: 'Extract: macOS shortcut glyphs', tab: 'extract', shortcut: '⌥⇧E', snapshot: empty },
   { id: 'error-extract', label: 'Error: extract on a non-web page', tab: 'extract', snapshot: empty, extractError: 'Open a webpage with an image first.', drive: [{ click: 'Select an image on this page' }] },
@@ -178,6 +213,7 @@ export const fixtures: Fixture[] = [
     tab: 'extract',
     snapshot: empty,
     extractError: 'You have used all 10 sheets this month. Your allowance resets on 2026-11-01. Pro has no sheet limit.',
+    extractCode: 'SHEET_LIMIT',
     drive: [{ click: 'Select an image on this page' }],
   },
   {
@@ -187,7 +223,7 @@ export const fixtures: Fixture[] = [
       account: longAccount,
       library: library.map((entry, index) => ({ ...entry, prompt: `${entry.prompt} ${'with extra detail '.repeat(index + 3)}`.trim() })),
       isRunning: false,
-      activeItemId: null,
+      activeItemId: null, sent: [], notice: null,
       queue: [
         item(1, 'Unbroken_token_without_any_spaces_that_is_long_enough_to_push_the_row_wider_than_the_panel_if_nothing_clips_it', 'failed', { error: 'ChatGPTreturnedanerrorwithaverylongunbrokenmessagethatmustwrapinsidetherow' }),
         item(2, 'Pixel art treasure chest, open, gold inside', 'uploading_refs', { aspectRatio: 'landscape', references: [...withRef, ...withRef.map((r) => ({ ...r, id: 'r_2' })), ...withRef.map((r) => ({ ...r, id: 'r_3' }))] }),

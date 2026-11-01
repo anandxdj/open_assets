@@ -78,3 +78,19 @@ test('ALLOW_LOCAL_STORAGE does nothing for the other providers', () => {
   const { errors } = checkEnv({ ...validProduction, ALLOW_LOCAL_STORAGE: '1' });
   assert.deepEqual(errors, []);
 });
+
+test('production on cloudinary with ALLOW_LOCAL_STORAGE and a LOCAL_STORAGE_DIR warns that old files are served read-only', () => {
+  const env = {
+    ...validProduction,
+    STORAGE_PROVIDER: 'cloudinary',
+    CLOUDINARY_CLOUD_NAME: 'c',
+    CLOUDINARY_API_KEY: 'k',
+    CLOUDINARY_API_SECRET: 's',
+    ALLOW_LOCAL_STORAGE: '1',
+    LOCAL_STORAGE_DIR: '/data/files',
+  };
+  const served = checkEnv(env);
+  assert.deepEqual(served.errors, []);
+  assert.match(served.warnings.join('\n'), /served read-only at \/storage/);
+  assert.doesNotMatch(checkEnv({ ...env, ALLOW_LOCAL_STORAGE: undefined }).warnings.join('\n'), /read-only/);
+});

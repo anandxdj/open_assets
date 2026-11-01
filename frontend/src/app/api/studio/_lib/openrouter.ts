@@ -59,6 +59,18 @@ export async function resolveKeyAndCredits(
   // exists to exercise auth and credits end to end without provider spend.
   // Provider configuration still applies when a real LLM call is made.
   if (process.env.NODE_ENV === 'development' && !isMockMode()) {
+    // With no provider key at all the call below could only fail with the provider's own "Missing
+    // Authentication header", which tells the user nothing. Say what is missing instead.
+    if (!process.env.OPENROUTER_API_KEY?.trim() && !process.env.OPENQUOTA_API_KEY?.trim()) {
+      return {
+        ok: false,
+        status: 503,
+        error:
+          options.allowByok === false
+            ? 'No AI provider is configured on this server. Add an Open Quota or OpenRouter key.'
+            : 'No AI provider is configured on this server. Add an Open Quota or OpenRouter key, or use your own OpenRouter key in Settings.',
+      };
+    }
     return { ok: true, key: process.env.OPENROUTER_API_KEY ?? '', byok: false };
   }
 

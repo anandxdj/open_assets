@@ -25,6 +25,11 @@ export function plural(n: number, one: string, many = `${one}s`): string {
   return `${formatCount(n)} ${n === 1 ? one : many}`;
 }
 
+/** "0 assets", "1 asset", "12 assets", "1.2k assets" */
+export function assetsLabel(n: number): string {
+  return plural(n, "asset");
+}
+
 export function formatBytes(bytes?: number): string {
   if (!bytes) return "—";
   if (bytes < 1024) return `${bytes} B`;

@@ -1,4 +1,13 @@
 import sharp from 'sharp';
+import {
+  analyseBorder,
+  BACKGROUND_TOLERANCE,
+  classifyBackground,
+  hasTransparency,
+  type JobBackground,
+} from '../background';
+
+export { hasTransparency };
 
 /**
  * The image transforms the local storage provider can do on this machine. They
@@ -10,31 +19,26 @@ import sharp from 'sharp';
  *  - `keyOutFlatBackground`: makes a single flat background colour transparent
  *    by flood-filling in from the image border. It works for sprite sheets drawn
  *    on a white, black or coloured background, and refuses anything else rather
- *    than guessing.
+ *    than guessing. With `removeEnclosed` it also clears pockets of that colour
+ *    the border cannot reach (the hole of a ring, the inside of a letter "O").
  */
 
 /** Above this many pixels a transform is refused instead of exhausting memory (an 8000 x 6000 sheet is 48 MP). */
 export const MAX_TRANSFORM_PIXELS = 64_000_000;
 
-/** The same rule py_backend uses to call an image transparent: an alpha channel with at least 1% non-opaque pixels. */
-const TRANSPARENT_ALPHA_BELOW = 250;
-const TRANSPARENT_MIN_FRACTION = 0.01;
-
-/** Largest per-channel difference from the background colour that still counts as background. */
-const BACKGROUND_TOLERANCE = 24;
 /** Pixels between 1x and 3x the tolerance next to removed background fade out instead of leaving a halo. */
 const FRINGE_REACH = 3;
 /** How many pixels deep the fade reaches into the artwork. */
 const FRINGE_RINGS = 2;
 /**
- * A background whose channels differ by at least this much (magenta, green, blue screen) is a chroma key:
- * artwork does not contain that colour on purpose, so it is removed everywhere, including pockets the border
- * cannot reach (the gap between two legs, the inside of a ring). White, black and grey backgrounds are not
- * keyed that way, because artwork has white and black in it.
+ * Enclosed pockets (opt-in, `removeEnclosed`). A pocket is a group of background-coloured pixels the border
+ * flood did not reach. It is cleared only when it has a real edge: at least this share of the pixels around it
+ * must have a clearly different colour (over FRINGE_REACH x the tolerance) within ENCLOSED_EDGE_RADIUS pixels.
+ * A smooth gradient inside the art drifts past the tolerance slowly, so it never has such an edge and stays.
  */
-const CHROMA_SPREAD = 60;
-/** Share of the border that must be one colour for the background to count as flat. */
-const MIN_FLAT_BORDER_FRACTION = 0.85;
+const ENCLOSED_MIN_PIXELS = 4;
+const ENCLOSED_EDGE_RADIUS = 3;
+const ENCLOSED_MIN_EDGE_SHARE = 0.5;
 
 /** The image is a transform the local provider cannot do for this input. The message tells the user what to change. */
 export class LocalTransformError extends Error {
@@ -61,7 +65,7 @@ export interface RawImage {
   height: number;
 }
 
-async function readPixels(input: Buffer): Promise<RawImage> {
+export async function readPixels(input: Buffer): Promise<RawImage> {
   const meta = await sharp(input, { failOn: 'none' }).metadata();
   const pixels = (meta.width ?? 0) * (meta.height ?? 0);
   if (pixels > MAX_TRANSFORM_PIXELS) {
@@ -78,14 +82,9 @@ async function readPixels(input: Buffer): Promise<RawImage> {
   return { data, width: info.width, height: info.height };
 }
 
-/** Whether a decoded RGBA image already has a transparent background. */
-export function hasTransparency(image: RawImage): boolean {
-  const total = image.width * image.height;
-  let transparent = 0;
-  for (let i = 3; i < image.data.length; i += 4) {
-    if ((image.data[i] as number) < TRANSPARENT_ALPHA_BELOW) transparent++;
-  }
-  return transparent / total >= TRANSPARENT_MIN_FRACTION;
+/** Classifies a stored image with the shared rule (see lib/background.ts). */
+export async function classifyImage(input: Buffer): Promise<JobBackground> {
+  return classifyBackground(await readPixels(input));
 }
 
 export type KeyResult =
@@ -98,46 +97,6 @@ function channelDistance(data: Buffer, offset: number, bg: [number, number, numb
     Math.abs((data[offset + 1] as number) - bg[1]),
     Math.abs((data[offset + 2] as number) - bg[2]),
   );
-}
-
-/** The most common border colour (coarsely binned, then averaged), and how much of the border is near it. */
-function borderBackground(image: RawImage): { colour: [number, number, number]; fraction: number } {
-  const { data, width, height } = image;
-  const border: number[] = [];
-  for (let x = 0; x < width; x++) {
-    border.push(x, (height - 1) * width + x);
-  }
-  for (let y = 1; y < height - 1; y++) {
-    border.push(y * width, y * width + width - 1);
-  }
-
-  const bins = new Map<number, { count: number; r: number; g: number; b: number }>();
-  for (const pixel of border) {
-    const o = pixel * 4;
-    const r = data[o] as number;
-    const g = data[o + 1] as number;
-    const b = data[o + 2] as number;
-    const bin = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
-    const entry = bins.get(bin);
-    if (entry) {
-      entry.count++;
-      entry.r += r;
-      entry.g += g;
-      entry.b += b;
-    } else {
-      bins.set(bin, { count: 1, r, g, b });
-    }
-  }
-  let best = { count: 0, r: 0, g: 0, b: 0 };
-  for (const entry of bins.values()) if (entry.count > best.count) best = entry;
-  const colour: [number, number, number] = [
-    Math.round(best.r / best.count),
-    Math.round(best.g / best.count),
-    Math.round(best.b / best.count),
-  ];
-  let near = 0;
-  for (const pixel of border) if (channelDistance(data, pixel * 4, colour) <= BACKGROUND_TOLERANCE) near++;
-  return { colour, fraction: near / border.length };
 }
 
 /**
@@ -190,28 +149,109 @@ function dropBackgroundNoise(data: Buffer, removed: Uint8Array, colour: [number,
 }
 
 /**
+ * Marks as removed every pocket of background colour that the border flood did not reach and that has a hard edge.
+ * Pockets are 4-connected groups of kept pixels within BACKGROUND_TOLERANCE of the background colour.
+ */
+function removeEnclosedPockets(data: Buffer, removed: Uint8Array, colour: [number, number, number], width: number, height: number): void {
+  const total = width * height;
+  const reach = BACKGROUND_TOLERANCE * FRINGE_REACH;
+  // 0 = not visited, 1 = in a pocket candidate, 2 = pixel next to the pocket being measured.
+  const seen = new Uint8Array(total);
+  const members = new Int32Array(total);
+  const isBackground = (pixel: number) => channelDistance(data, pixel * 4, colour) <= BACKGROUND_TOLERANCE;
+
+  for (let start = 0; start < total; start++) {
+    if (removed[start] || seen[start] || !isBackground(start)) continue;
+
+    let count = 0;
+    members[count++] = start;
+    seen[start] = 1;
+    const ring: number[] = [];
+    for (let head = 0; head < count; head++) {
+      const pixel = members[head] as number;
+      const x = pixel % width;
+      const neighbours = [
+        x > 0 ? pixel - 1 : -1,
+        x < width - 1 ? pixel + 1 : -1,
+        pixel >= width ? pixel - width : -1,
+        pixel < total - width ? pixel + width : -1,
+      ];
+      for (const next of neighbours) {
+        if (next < 0 || removed[next]) continue;
+        if (isBackground(next)) {
+          if (seen[next] === 1) continue;
+          seen[next] = 1;
+          members[count++] = next;
+        } else if (seen[next] !== 2) {
+          seen[next] = 2;
+          ring.push(next);
+        }
+      }
+    }
+
+    let accept = count >= ENCLOSED_MIN_PIXELS && ring.length > 0;
+    if (accept) {
+      let strong = 0;
+      for (const pixel of ring) {
+        const px = pixel % width;
+        const py = (pixel - px) / width;
+        let hard = false;
+        for (let dy = -ENCLOSED_EDGE_RADIUS; dy <= ENCLOSED_EDGE_RADIUS && !hard; dy++) {
+          for (let dx = -ENCLOSED_EDGE_RADIUS; dx <= ENCLOSED_EDGE_RADIUS; dx++) {
+            const nx = px + dx;
+            const ny = py + dy;
+            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+            if (channelDistance(data, (ny * width + nx) * 4, colour) > reach) {
+              hard = true;
+              break;
+            }
+          }
+        }
+        if (hard) strong++;
+      }
+      accept = strong / ring.length >= ENCLOSED_MIN_EDGE_SHARE;
+    }
+
+    for (const pixel of ring) seen[pixel] = 0;
+    if (accept) for (let i = 0; i < count; i++) removed[members[i] as number] = 1;
+  }
+}
+
+export interface KeyOptions {
+  /**
+   * Also clear pockets of the background colour that the border cannot reach: the hole of a ring or a key, the
+   * inside of a letter. Off by default, because artwork can contain the background colour on purpose (a white
+   * eye highlight on a white sheet).
+   */
+  removeEnclosed?: boolean;
+}
+
+/**
  * Make a flat background transparent. Returns `{ kind: 'transparent' }` when the
  * image already is (nothing to do) and throws a `LocalTransformError` when the
  * border is not one flat colour.
  *
  * On a white, black or grey background only the part connected to the image border
  * is removed, so a white shirt on a white sheet keeps its white. On a chroma-key
- * colour (see CHROMA_SPREAD) every pixel of that colour goes. Pixels on the edge of the removed area fade out
+ * colour (see CHROMA_SPREAD) every pixel of that colour goes. With `options.removeEnclosed`, pockets of the
+ * background colour with a hard edge go too, on any background (see `removeEnclosedPockets`). Pixels on the edge of the removed area fade out
  * in proportion to how close they are to the background colour, which avoids a
  * hard halo around anti-aliased artwork.
  */
-export async function keyOutFlatBackground(input: Buffer): Promise<KeyResult> {
+export async function keyOutFlatBackground(input: Buffer, options: KeyOptions = {}): Promise<KeyResult> {
   const image = await readPixels(input);
   if (hasTransparency(image)) return { kind: 'transparent' };
 
-  const { colour, fraction } = borderBackground(image);
-  if (fraction < MIN_FLAT_BORDER_FRACTION) {
+  // The same rule detection applied (lib/background.ts), so the keyer never contradicts the job's classification.
+  const background = classifyBackground(image);
+  if (background.kind === 'complex') {
     throw new LocalTransformError(
       'BACKGROUND_NOT_FLAT',
-      "Local storage can only remove a flat, single-colour background, and this image's border isn't one. " +
-        'Use a sheet that is already transparent or on a plain background, or configure Cloudinary or ImageKit for AI background removal.',
+      "Flat-colour removal can only remove a flat, single-colour background, and this image's border isn't one. " +
+        'Use a sheet that is already transparent or on a plain background, or use AI background removal (Cloudinary or ImageKit).',
     );
   }
+  const colour = analyseBorder(image).colour;
 
   const { data, width, height } = image;
   const total = width * height;
@@ -242,11 +282,13 @@ export async function keyOutFlatBackground(input: Buffer): Promise<KeyResult> {
     if (pixel < total - width) seed(pixel + width);
   }
 
-  if (Math.max(...colour) - Math.min(...colour) >= CHROMA_SPREAD) {
+  if (background.kind === 'chroma') {
     for (let pixel = 0; pixel < total; pixel++) {
       if (!removed[pixel] && channelDistance(data, pixel * 4, colour) <= BACKGROUND_TOLERANCE) removed[pixel] = 1;
     }
   }
+
+  if (options.removeEnclosed) removeEnclosedPockets(data, removed, colour, width, height);
 
   dropBackgroundNoise(data, removed, colour, width, height);
 

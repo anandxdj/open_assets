@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { AuthController } from './auth.controller';
+import { providersRouter } from './providers.route';
 import { authenticate } from './auth.middleware';
 import { validate } from '../../common/middlewares/validate.middleware';
 import { authLimiter } from '../../common/middlewares/rateLimit';
@@ -27,6 +28,9 @@ router.post('/extension/authorize', authenticate() as any, AuthController.extens
 router.post('/extension/token', AuthController.extensionToken as any);
 router.post('/extension/refresh', AuthController.extensionRefresh as any);
 router.delete('/extension/session/current', AuthController.extensionLogout as any);
+
+// Which sign-in methods this server can complete (GET /providers), so the web app hides the rest.
+router.use(providersRouter);
 
 // Google OAuth
 router.get('/google', AuthController.googleLogin);

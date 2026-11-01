@@ -2,14 +2,15 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { WRAP } from "@/components/marketing/site";
+import { Reveal } from "@/components/marketing/Reveal";
+import { SECTION_Y, WRAP } from "@/components/marketing/site";
 
 /** Orange closing band. Text on orange is always ink. */
 export function ClosingCta() {
   return (
-    <section aria-labelledby="closing-title" className="border-t-2 border-line-strong bg-brand text-brand-fg">
-      <div className={`${WRAP} flex flex-wrap items-end justify-between gap-7 py-14 md:py-[72px]`}>
-        <h2 id="closing-title" className="oa-display text-[clamp(40px,6vw,80px)] leading-[.95]">
+    <section aria-labelledby="closing-title" className="bg-brand text-brand-fg">
+      <Reveal stagger className={`${WRAP} flex flex-wrap items-end justify-between gap-8 ${SECTION_Y}`}>
+        <h2 id="closing-title" className="oa-display text-[clamp(36px,5vw,64px)]">
           Stop cropping
           <br />
           by hand.
@@ -25,7 +26,7 @@ export function ClosingCta() {
           Extract your first sheet
           <ArrowRight aria-hidden />
         </Link>
-      </div>
+      </Reveal>
     </section>
   );
 }

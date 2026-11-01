@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 /**
@@ -29,6 +30,36 @@ export function resolveLocalStorageSettings(
   const port = env['PORT']?.trim() || '4000';
   const baseUrl = (env['LOCAL_STORAGE_BASE_URL']?.trim() || `http://localhost:${port}`).replace(/\/+$/, '');
   return { dir: path.resolve(cwd, dir), baseUrl };
+}
+
+/**
+ * The directory the read-only `/storage` route serves, or `undefined` when none should be mounted.
+ *
+ * - `STORAGE_PROVIDER=local`: always (it is where new files go; production is already gated in env.ts).
+ * - Any other provider: files an earlier run stored locally keep their `/storage/...` URLs in the
+ *   database, so the folder is still served read-only when `LOCAL_STORAGE_DIR` is set or the default
+ *   folder exists. Nothing writes there with this provider.
+ * - Production with another provider additionally needs `ALLOW_LOCAL_STORAGE=1`, the same opt-in that
+ *   a deployment which stored files locally already had to set. Without it a stray `.local-storage`
+ *   folder is never published by accident.
+ */
+export function resolveServedStorageDir(
+  env: NodeJS.ProcessEnv = process.env,
+  options: { cwd?: string; exists?: (dir: string) => boolean } = {},
+): string | undefined {
+  const settings = resolveLocalStorageSettings(env, options.cwd);
+  const raw = env['STORAGE_PROVIDER']?.trim();
+  if (raw === 'local') return settings.dir;
+
+  const exists = options.exists ?? existsSync;
+  const explicit = Boolean(env['LOCAL_STORAGE_DIR']?.trim());
+  if (!explicit && !exists(settings.dir)) return undefined;
+
+  if (env['NODE_ENV'] === 'production') {
+    const allow = env['ALLOW_LOCAL_STORAGE']?.trim().toLowerCase();
+    if (allow !== '1' && allow !== 'true' && allow !== 'yes' && allow !== 'on') return undefined;
+  }
+  return settings.dir;
 }
 
 const MAX_SEGMENT_LENGTH = 100;

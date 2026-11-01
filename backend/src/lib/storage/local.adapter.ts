@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
-import type { StorageAdapter, UploadOptions, UploadResult, ResourceType, EnhanceTransform } from './interface';
+import type { StorageAdapter, UploadOptions, UploadResult, ResourceType, EnhanceTransform, BackgroundRemovalOptions } from './interface';
 import type { UpscaleScale } from '../../modules/plans/upscale';
 import {
   extensionFor,
@@ -34,6 +34,7 @@ const DERIVED_SUFFIX = '.d';
  *  - `applyUpscale` is a Lanczos resize to the requested size.
  *  - `applyBackgroundRemoval` keys out a flat background (and is a no-op for an
  *    image that is already transparent). Anything else is refused with a message.
+ *    Pockets the border cannot reach stay, unless `removeEnclosed` is set.
  *  - `applyEnhance` is not supported: AI enhance reports "not available".
  */
 export class LocalStorageAdapter implements StorageAdapter {
@@ -81,13 +82,19 @@ export class LocalStorageAdapter implements StorageAdapter {
     await pruneEmptyParents(path.dirname(target), this.root);
   }
 
-  async applyBackgroundRemoval(publicId: string): Promise<string> {
+  readBuffer(publicId: string): Promise<Buffer> {
+    return this.read(publicId);
+  }
+
+  async applyBackgroundRemoval(publicId: string, options: BackgroundRemovalOptions = {}): Promise<string> {
     const source = await this.read(publicId);
-    const derivedKey = `${publicId}${DERIVED_SUFFIX}/nobg.png`;
+    const removeEnclosed = options.removeEnclosed === true;
+    // The two results differ, so each has its own cached file.
+    const derivedKey = `${publicId}${DERIVED_SUFFIX}/${removeEnclosed ? 'nobg-enclosed' : 'nobg'}.png`;
     const cached = await this.derivedUrlIfPresent(derivedKey);
     if (cached) return cached;
 
-    const result = await keyOutFlatBackground(source);
+    const result = await keyOutFlatBackground(source, { removeEnclosed });
     // Already transparent: the original is what the pipeline should use.
     if (result.kind === 'transparent') return publicUrl(this.settings, publicId);
     return this.writeDerived(derivedKey, result.png);

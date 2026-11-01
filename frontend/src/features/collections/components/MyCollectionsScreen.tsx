@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Ellipsis, Eye, Folder, Globe, LayoutGrid, List, LoaderCircle, Lock, Pencil, Plus, Trash2, UserMinus, Users } from "lucide-react";
+import { Ellipsis, Eye, Folder, Globe, LayoutGrid, List, LoaderCircle, Lock, Pencil, Plus, Tags, Trash2, UserMinus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Crumbs, PageBody, PageTitle, Topbar } from "@/components/layout/AppShell";
 import { Badge } from "@/components/ui/badge";
@@ -19,9 +19,10 @@ import {
   updateCollection,
   type CollectionSummary,
 } from "@/features/collections/api";
-import { ConfirmDeleteDialog, NameDialog } from "@/features/collections/components/CollectionDialogs";
+import { ConfirmDeleteDialog, NameDialog, PublishDialog, TagsDialog } from "@/features/collections/components/CollectionDialogs";
+import { BackdropGroup } from "@/features/backdrop/BackdropSurface";
 import { CoverGrid } from "@/features/collections/components/CoverGrid";
-import { creatorName, formatCount, isUntitled, plural } from "@/features/collections/format";
+import { assetsLabel, creatorName, formatCount, isUntitled, plural } from "@/features/collections/format";
 import { formatFullDate, formatRelativeTime, useNow } from "@/features/jobs/time";
 import { getTeam, type TeamOverview } from "@/features/team/api";
 
@@ -47,6 +48,7 @@ type DialogState =
   | { kind: "create" }
   | { kind: "rename"; collection: CollectionSummary }
   | { kind: "publish"; collection: CollectionSummary }
+  | { kind: "tags"; collection: CollectionSummary }
   | { kind: "delete"; collection: CollectionSummary }
   | null;
 
@@ -90,6 +92,7 @@ type CardActions = {
   onRename: (c: CollectionSummary) => void;
   onTogglePublish: (c: CollectionSummary) => void;
   onToggleShare: (c: CollectionSummary) => void;
+  onEditTags: (c: CollectionSummary) => void;
   onDelete: (c: CollectionSummary) => void;
   /** The signed-in person owns a team that can take more collections. */
   canShare: boolean;
@@ -125,6 +128,10 @@ function CollectionMenu({ collection: c, busy, actions }: { collection: Collecti
         <MenuItem onSelect={() => actions.onRename(c)}>
           <Pencil aria-hidden />
           Rename
+        </MenuItem>
+        <MenuItem onSelect={() => actions.onEditTags(c)}>
+          <Tags aria-hidden />
+          Edit tags
         </MenuItem>
         <MenuItem onSelect={() => actions.onTogglePublish(c)}>
           {c.isPublic ? <Lock aria-hidden /> : <Globe aria-hidden />}
@@ -184,7 +191,8 @@ function CollectionGrid({
               >
                 {c.name}
               </Link>
-              <span className="text-[11px] leading-4 text-ink-2">{metaLine(c, now)}</span>
+              <span className="text-[11px] leading-4 text-ink-2">{assetsLabel(c.assetCount)}</span>
+              <span className="text-[11px] leading-4 text-ink-3">{metaLine(c, now)}</span>
             </div>
             {isFromTeam(c) ? <TeamBadge /> : <VisibilityBadge isPublic={c.isPublic} />}
             <CollectionMenu collection={c} busy={busyId === c._id} actions={actions} />
@@ -213,6 +221,7 @@ function CollectionTable({
         <thead>
           <tr>
             <th scope="col">Collection</th>
+            <th scope="col">Assets</th>
             <th scope="col">Visibility</th>
             <th scope="col">Likes</th>
             <th scope="col">Downloads</th>
@@ -238,6 +247,7 @@ function CollectionTable({
                   </span>
                 </span>
               </td>
+              <td className="text-ink-2">{formatCount(c.assetCount)}</td>
               <td>
                 <span className="flex flex-wrap gap-1.5">
                   {isFromTeam(c) ? (
@@ -362,10 +372,14 @@ export function MyCollectionsScreen() {
     );
   }
 
-  async function setVisibility(c: CollectionSummary, isPublic: boolean, name?: string): Promise<boolean> {
+  async function setVisibility(c: CollectionSummary, isPublic: boolean, extra: { name?: string; tags?: string[] } = {}): Promise<boolean> {
     setBusyId(c._id);
     try {
-      const res = await updateCollection(c._id, name ? { name, isPublic } : { isPublic });
+      const res = await updateCollection(c._id, {
+        isPublic,
+        ...(extra.name ? { name: extra.name } : {}),
+        ...(extra.tags ? { tags: extra.tags } : {}),
+      });
       replace(res.data);
       toast.success(isPublic ? "Published to the community" : "Moved back to drafts", { description: res.data.name });
       return true;
@@ -416,12 +430,12 @@ export function MyCollectionsScreen() {
     },
     onRename: (c) => openFromMenu({ kind: "rename", collection: c }),
     onDelete: (c) => openFromMenu({ kind: "delete", collection: c }),
+    onEditTags: (c) => openFromMenu({ kind: "tags", collection: c }),
     onTogglePublish: (c) => {
       if (busyId === c._id) return;
-      // Unpublishing is always allowed; an unnamed pack must be named before it goes public.
+      // Unpublishing is always allowed. Publishing asks for the tags first (and the name, while it is untitled).
       if (c.isPublic) void setVisibility(c, false);
-      else if (isUntitled(c.name)) openFromMenu({ kind: "publish", collection: c });
-      else void setVisibility(c, true);
+      else openFromMenu({ kind: "publish", collection: c });
     },
   };
 
@@ -447,6 +461,21 @@ export function MyCollectionsScreen() {
       return true;
     } catch (err) {
       toast.error("Could not rename", { description: errorMessage(err, "Try again.") });
+      return false;
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleTags(c: CollectionSummary, tags: string[]) {
+    setBusyId(c._id);
+    try {
+      const res = await updateCollection(c._id, { tags });
+      replace(res.data);
+      toast.success(tags.length ? "Tags saved" : "Tags removed", { description: res.data.name });
+      return true;
+    } catch (err) {
+      toast.error("Could not save the tags", { description: errorMessage(err, "Try again.") });
       return false;
     } finally {
       setBusyId(null);
@@ -589,9 +618,13 @@ export function MyCollectionsScreen() {
           {visible.length === 0 ? (
             emptyTab()
           ) : view === "grid" ? (
-            <CollectionGrid items={visible} busyId={busyId} actions={actions} now={now} />
+            <BackdropGroup srcs={visible.flatMap((c) => c.coverImageUrls)}>
+              <CollectionGrid items={visible} busyId={busyId} actions={actions} now={now} />
+            </BackdropGroup>
           ) : (
-            <CollectionTable items={visible} busyId={busyId} actions={actions} now={now} />
+            <BackdropGroup srcs={visible.flatMap((c) => c.coverImageUrls)}>
+              <CollectionTable items={visible} busyId={busyId} actions={actions} now={now} />
+            </BackdropGroup>
           )}
         </div>
       </>
@@ -638,18 +671,23 @@ export function MyCollectionsScreen() {
         initialName={dialog?.kind === "rename" ? dialog.collection.name : ""}
         onSubmit={(name) => (dialog?.kind === "rename" ? handleRename(dialog.collection, name) : Promise.resolve(true))}
       />
-      <NameDialog
+      <PublishDialog
         open={dialog?.kind === "publish"}
         onOpenChange={closeDialog}
         onCloseAutoFocus={restoreFocus}
-        title="Name your collection"
-        description="Give this collection a name before you publish it to the community."
-        submitLabel="Publish"
-        placeholder="e.g. Retro RPG assets"
-        minLength={2}
-        onSubmit={(name) =>
-          dialog?.kind === "publish" ? setVisibility(dialog.collection, true, name) : Promise.resolve(true)
+        collectionName={dialog?.kind === "publish" ? dialog.collection.name : ""}
+        needsName={dialog?.kind === "publish" && isUntitled(dialog.collection.name)}
+        initialTags={dialog?.kind === "publish" ? dialog.collection.tags ?? [] : []}
+        onSubmit={({ name, tags }) =>
+          dialog?.kind === "publish" ? setVisibility(dialog.collection, true, { name, tags }) : Promise.resolve(true)
         }
+      />
+      <TagsDialog
+        open={dialog?.kind === "tags"}
+        onOpenChange={closeDialog}
+        onCloseAutoFocus={restoreFocus}
+        initialTags={dialog?.kind === "tags" ? dialog.collection.tags ?? [] : []}
+        onSubmit={(tags) => (dialog?.kind === "tags" ? handleTags(dialog.collection, tags) : Promise.resolve(true))}
       />
       <ConfirmDeleteDialog
         open={dialog?.kind === "delete"}

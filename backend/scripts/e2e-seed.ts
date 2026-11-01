@@ -30,6 +30,7 @@ import bcrypt from 'bcryptjs';
 import mongoose, { Types } from 'mongoose';
 import sharp from 'sharp';
 import { connectDB } from '../src/common/config/db';
+import { getConfig } from '../src/common/config/env';
 import { redis } from '../src/common/config/redis';
 import { hashToken } from '../src/common/utils/jwt.utils';
 import { LocalStorageAdapter } from '../src/lib/storage/local.adapter';
@@ -273,7 +274,7 @@ async function seedCollections(sprites: Sprite[], slimeKeys: { name: string; key
   const packs: PackSpec[] = [
     {
       n: 1, creator: 'pro', name: 'Dungeon starter kit', description: 'Potions, blades and loot for a first dungeon crawl.',
-      isPublic: true, tags: ['dungeon', 'loot', 'rpg'], likes: 24, downloads: 131, ageDays: 40,
+      isPublic: true, tags: ['dungeon', 'loot', 'rpg', 'pixel-art'], likes: 24, downloads: 131, ageDays: 40,
       images: sprites.map((s) => crop(s.name)), likedBy: ['creator', 'free'],
     },
     {
@@ -288,18 +289,35 @@ async function seedCollections(sprites: Sprite[], slimeKeys: { name: string; key
     },
     {
       n: 4, creator: 'creator', name: 'Slime pack', description: 'Four friendly slimes in every colour.',
-      isPublic: true, tags: ['slime', 'creatures', 'cute'], likes: 58, downloads: 302, ageDays: 60,
+      isPublic: true, tags: ['slime', 'creatures', 'cute', 'pixel-art'], likes: 58, downloads: 302, ageDays: 60,
       images: slimeKeys,
     },
     {
       n: 5, creator: 'creator', name: 'Pocket icons', description: 'Small icons for inventory screens.',
-      isPublic: true, tags: ['icons', 'ui'], likes: 9, downloads: 44, ageDays: 30,
+      isPublic: true, tags: ['icons', 'ui', 'pixel-art'], likes: 9, downloads: 44, ageDays: 30,
       images: sprites.slice(2, 6).map((s) => crop(s.name)), likedBy: ['pro'],
     },
     {
       n: 6, creator: 'lapsed', name: 'Studio shared set', description: 'Kept for the Dormant Studio team.',
       isPublic: false, team: 2, tags: ['team'], likes: 0, downloads: 0, ageDays: 15,
       images: sprites.slice(0, 5).map((s) => crop(s.name)),
+    },
+    // Community cards in every count and tag state: one asset and no tags, nothing in it yet, and five 24-character tags.
+    {
+      n: 7, creator: 'creator', name: 'Lone gem', description: 'A single teal gem.',
+      isPublic: true, tags: [], likes: 3, downloads: 12, ageDays: 10,
+      images: sprites.slice(3, 4).map((s) => crop(s.name)),
+    },
+    {
+      n: 8, creator: 'creator', name: 'Empty shelf', description: 'Published ahead of its first assets.',
+      isPublic: true, tags: ['wip'], likes: 0, downloads: 0, ageDays: 3,
+      images: [],
+    },
+    {
+      n: 9, creator: 'creator', name: 'Forest tileset starter kit', description: 'Tiles, trees and props for a top-down forest.',
+      isPublic: true, tags: ['hand-drawn-pixel-art-set', 'top-down-rpg-environment', 'seamless-tiles', 'mobile-game-ready', 'royalty-free-friendly'],
+      likes: 15, downloads: 71, ageDays: 25,
+      images: sprites.slice(0, 3).map((s) => crop(s.name)),
     },
   ];
 
@@ -434,11 +452,32 @@ async function seedJobs(sheet: { url: string; publicId: string; width: number; h
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
+/**
+ * The seed stores absolute image URLs built from LOCAL_STORAGE_BASE_URL (default http://localhost:<PORT>).
+ * The suite's pages only allow images from the API origin they were built with (the CSP img-src that
+ * next.config.ts bakes in from NEXT_PUBLIC_API_URL), so URLs on any other host render as broken tiles and every
+ * screenshot with an image fails. When E2E_API_URL is set, the two must name the same origin.
+ */
+function assertImageUrlsMatchTestApi(): void {
+  const testApi = process.env['E2E_API_URL'];
+  const base = getConfig().localStorage?.baseUrl;
+  if (!testApi || !base) return;
+  const origin = (value: string) => new URL(value).origin;
+  if (origin(testApi) !== origin(base)) {
+    throw new Error(
+      `LOCAL_STORAGE_BASE_URL (${origin(base)}) must be the same origin as E2E_API_URL (${origin(testApi)}): ` +
+        'the seeded image URLs are built from it, and the web app only loads images from the API it was built with. ' +
+        'Set LOCAL_STORAGE_BASE_URL=<E2E_API_URL> in backend/.env, then seed again.',
+    );
+  }
+}
+
 async function main(): Promise<void> {
   if ((process.env['STORAGE_PROVIDER'] ?? '').toLowerCase() !== 'local') {
     throw new Error('e2e:seed needs STORAGE_PROVIDER=local (it writes images to the local storage folder).');
   }
   if (process.env['NODE_ENV'] === 'production') throw new Error('Refusing to seed with NODE_ENV=production.');
+  assertImageUrlsMatchTestApi();
   // Stop before touching Mongo, Redis or the storage folder if the password is missing or too weak.
   const password = requireE2EPassword();
 

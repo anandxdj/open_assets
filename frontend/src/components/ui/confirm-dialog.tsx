@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter } from "@/components/ui/dialog";
@@ -44,6 +44,7 @@ export function ConfirmDialog({
   onCloseAutoFocus?: (event: Event) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   async function handleConfirm() {
     setBusy(true);
@@ -54,7 +55,16 @@ export function ConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent title={title} description={description} onCloseAutoFocus={onCloseAutoFocus}>
+      <DialogContent
+        title={title}
+        description={description}
+        onCloseAutoFocus={onCloseAutoFocus}
+        // Land on the safe choice: Cancel, not the close button or the destructive confirm.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          cancelRef.current?.focus();
+        }}
+      >
         {error ? (
           <DialogBody className="pb-0">
             <Notice tone="danger" role="alert">
@@ -64,7 +74,7 @@ export function ConfirmDialog({
         ) : null}
         <DialogFooter className="border-t-0 pt-5">
           <DialogClose asChild>
-            <Button variant="ghost" disabled={busy}>
+            <Button ref={cancelRef} variant="ghost" disabled={busy}>
               Cancel
             </Button>
           </DialogClose>

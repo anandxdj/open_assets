@@ -9,6 +9,13 @@ export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
+// Motion (DESIGN.md, Motion): tw-animate-css keyframes. Radix keeps the node mounted until the exit animation ends
+// and unmounts at once when animations are off (prefers-reduced-motion), so nothing waits on motion that is not there.
+const SCRIM_MOTION =
+  "duration-150 ease-(--oa-ease-out) data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0";
+const DIALOG_MOTION =
+  "duration-160 ease-(--oa-ease-out) data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[.98] data-[state=open]:slide-in-from-bottom-1 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[.98] data-[state=closed]:slide-out-to-bottom-1";
+
 /** Centered modal with a scrim. Title is required for screen readers. */
 export function DialogContent({
   title,
@@ -28,7 +35,7 @@ export function DialogContent({
   const returnTo = React.useRef<HTMLElement | null>(null);
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="oa-scrim fixed inset-0 z-50" />
+      <DialogPrimitive.Overlay className={cn("oa-scrim fixed inset-0 z-50", SCRIM_MOTION)} />
       <DialogPrimitive.Content
         onOpenAutoFocus={(event) => {
           const active = document.activeElement;
@@ -47,6 +54,7 @@ export function DialogContent({
         }}
         className={cn(
           "oa-dialog fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-32px)] w-[min(460px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col outline-none",
+          DIALOG_MOTION,
           className
         )}
         {...props}

@@ -1,3 +1,5 @@
+import { parseBackground } from '../../lib/background';
+import type { BackgroundKind, BackgroundMethod, BackgroundRemovalMode } from '../../lib/background';
 import { parseAssets, parseBoxes } from '../jobs/job.store';
 import type { JobSummaryRecord } from '../jobs/job.store';
 import type { BoundingBox, JobHash, JobStatus } from '../jobs/job.types';
@@ -39,6 +41,17 @@ export interface V1Job {
   createdAt: string | null;
   image: { url: string; width: number; height: number };
   detection: { mode: string | null; confidence: number | null; warning: string | null };
+  /**
+   * What the sheet's background is, from detection: `transparent`, `flat` (white, black, a plain colour),
+   * `chroma` (magenta, green, blue screen) or `complex` (gradient, texture). `color` is set for flat and chroma.
+   * null on jobs detected before this existed.
+   */
+  background: { kind: BackgroundKind; color: string | null } | null;
+  /**
+   * How the crop treated the background, once it has run. `method`: `server` (our free keyer), `ai` (the
+   * provider's paid AI removal) or `none`; `reason` says why the background was kept. null before the crop.
+   */
+  backgroundRemoval: { mode: BackgroundRemovalMode; method: BackgroundMethod; reason: string | null } | null;
   boxes: V1Box[];
   assets: V1Asset[];
   export: {
@@ -90,6 +103,10 @@ export function serializeJob(job: JobHash & { id: string }): V1Job {
       confidence: number(job.detectionConfidence),
       warning: job.detectionWarning || null,
     },
+    background: ((bg) => (bg ? { kind: bg.kind, color: bg.color ?? null } : null))(parseBackground(job.background)),
+    backgroundRemoval: job.backgroundMethod
+      ? { mode: job.backgroundRemoval ?? 'auto', method: job.backgroundMethod, reason: job.backgroundReason || null }
+      : null,
     boxes: parseBoxes(job.boxes).map(toBox),
     assets: parseAssets(job.assets).map((a) => ({
       id: a.id,

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { apiClient } from "@/lib/api-client";
 import { tokenStore } from "@/lib/token-store";
+import { setSessionHint } from "@/lib/session-hint";
 
 interface User {
   _id: string;
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setTokenAndUser = useCallback((token: string, u: User) => {
     tokenStore.set(token);
+    setSessionHint(true);
     setUser(u);
   }, []);
 
@@ -60,9 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         tokenStore.set(refresh.data.accessToken);
         const me = await apiClient.get<ApiWrap<User>>("/api/auth/me");
-        if (me.data) setUser(me.data);
+        if (me.data) {
+          setUser(me.data);
+          setSessionHint(true);
+        }
       } catch {
         // no valid session — stay logged out
+        setSessionHint(false);
       } finally {
         setLoading(false);
       }
@@ -76,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       { email, password }
     );
     tokenStore.set(res.data.accessToken);
+    setSessionHint(true);
     setUser(res.data.user);
   }
 
@@ -90,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore — clear local state regardless
     }
     tokenStore.set(null);
+    setSessionHint(false);
     setUser(null);
   }
 

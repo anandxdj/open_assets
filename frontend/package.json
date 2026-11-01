@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --import tsx --test 'src/__tests__/**/*.test.ts'",
     "e2e": "playwright test",
     "e2e:update": "playwright test --update-snapshots",
     "e2e:report": "playwright show-report"
@@ -44,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

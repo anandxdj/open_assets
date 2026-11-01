@@ -6,6 +6,10 @@ import type { AssetResult } from '../../lib/py.client';
 import { cropIntoStorage } from '../../lib/cropStore';
 import type { NameAssetsResult } from '../../lib/py.client';
 import { storage } from '../../lib/storage';
+import { getStorageStatus } from '../../lib/storage/status';
+import { parseBackground, serializeBackground } from '../../lib/background';
+import type { BackgroundRemovalMode } from '../../lib/background';
+import { describeBackground, fetchIsTransparent, removeSheetBackground } from './cropBackground';
 import { extractError } from '../../common/utils/extractError';
 import { scaffoldCollectionFromJob } from '../collections/collection.service';
 import type { ScaffoldImage } from '../collections/collection.service';
@@ -13,6 +17,10 @@ import type { ScaffoldImage } from '../collections/collection.service';
 interface CropJobData {
   jobId: string;
   isRaw?: boolean;
+  /** Also remove background pockets the sheet border cannot reach. Absent on jobs queued before the option existed. */
+  removeEnclosedBackground?: boolean;
+  /** How the background is removed. Absent on jobs queued before the option existed, which means `auto`. */
+  backgroundRemoval?: BackgroundRemovalMode;
 }
 
 /**
@@ -64,7 +72,7 @@ export function startCropWorker(): Worker<CropJobData> {
   const worker = new Worker<CropJobData>(
     'crop',
     async (job) => {
-      const { jobId, isRaw } = job.data;
+      const { jobId, isRaw, removeEnclosedBackground, backgroundRemoval } = job.data;
 
       const jobData = await getJob(jobId);
       if (!jobData) throw new Error(`Job ${jobId} not found in Redis`);
@@ -79,7 +87,12 @@ export function startCropWorker(): Worker<CropJobData> {
       if (isRaw) {
         // Legacy server-side raw path (the frontend now crops raw locally).
         // Cut the original sheet as-is — no background removal, no naming.
-        await updateJob(jobId, { status: 'cropping', workingUrl });
+        await updateJob(jobId, {
+          status: 'cropping',
+          workingUrl,
+          backgroundMethod: 'none',
+          backgroundReason: 'The sheet was cut as it is (raw crop).',
+        });
         try {
           assets = await cropIntoStorage(workingUrl, boxes, jobId);
         } catch (err) {
@@ -93,14 +106,34 @@ export function startCropWorker(): Worker<CropJobData> {
           return { names: {} } as NameAssetsResult;
         });
 
-        // 1. Make the whole image transparent. Cut as soon as it's ready —
-        //    don't block on Gemini, which keeps running in the background.
+        // 1. Make the whole image transparent, the cheapest way that works: our own keyer for a flat or
+        //    chroma-key sheet (free, any provider), the provider's AI only for a gradient or texture.
+        //    Cut as soon as it's ready; don't block on Gemini, which keeps running in the background.
+        const request = {
+          jobId,
+          publicId: jobData.publicId,
+          originalUrl: jobData.cloudinaryUrl,
+          mode: backgroundRemoval,
+          removeEnclosed: removeEnclosedBackground === true,
+          background: parseBackground(jobData.background),
+        };
+        let outcome: Awaited<ReturnType<typeof removeSheetBackground>>;
         try {
-          workingUrl = await storage.applyBackgroundRemoval(jobData.publicId);
+          outcome = await removeSheetBackground(request, { storage, supportsAi: getStorageStatus().supportsAi, checkTransparent: fetchIsTransparent });
         } catch (err) {
           throw new Error(`Background removal failed: ${extractError(err)}`);
         }
-        await updateJob(jobId, { workingUrl, status: 'cropping' });
+        console.log(describeBackground(jobId, request, outcome));
+        workingUrl = outcome.workingUrl;
+        await updateJob(jobId, {
+          workingUrl,
+          status: 'cropping',
+          backgroundMethod: outcome.method,
+          backgroundReason: outcome.reason ?? '',
+          ...(outcome.workingPublicId ? { workingPublicId: outcome.workingPublicId } : {}),
+          // A job queued before detection stored its classification gets the one made here.
+          ...(!request.background && outcome.background ? { background: serializeBackground(outcome.background) } : {}),
+        });
 
         // 2. Cut each box out of the transparent image (systematic names for now).
         try {

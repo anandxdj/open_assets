@@ -58,6 +58,8 @@ export const STATE_ROUTES: RouteSpec[] = [
   { id: "collections-free", path: "/dashboard/collections", persona: "free" },
   { id: "pack-team-owner", path: `/collections/${TEAM_PACK_ID}`, persona: "pro" },
   { id: "pack-team-readonly", path: `/collections/${READ_ONLY_TEAM_PACK_ID}`, persona: "member" },
+  { id: "community-tag", path: "/collections?tag=pixel-art", persona: "free" },
+  { id: "community-tag-empty", path: "/collections?tag=no-such-tag", persona: "free" },
   { id: "extract-pro", path: "/upload", persona: "pro" },
   { id: "extract-lapsed", path: "/upload", persona: "lapsed" },
 ];

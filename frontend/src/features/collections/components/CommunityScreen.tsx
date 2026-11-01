@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Compass, Download, Heart, Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Compass, Download, Heart, Search, Tag, X } from "lucide-react";
 import { Crumbs, PageBody, PageTitle, Topbar } from "@/components/layout/AppShell";
 import { Avatar } from "@/components/layout/UserMenu";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Loading } from "@/components/ui/feedback";
 import { InputGroup, Select } from "@/components/ui/input";
 import { listCollections, type CollectionSummary, type SortKey } from "@/features/collections/api";
+import { BackdropGroup } from "@/features/backdrop/BackdropSurface";
 import { CoverGrid } from "@/features/collections/components/CoverGrid";
-import { creatorName, creatorPicture, formatCount } from "@/features/collections/format";
+import { TagChip, TagChips } from "@/features/collections/components/TagChip";
+import { assetsLabel, creatorName, creatorPicture, formatCount } from "@/features/collections/format";
+import { tagFromQuery } from "@/features/collections/tags";
 import { cn } from "@/lib/utils";
 
 const SORTS: { key: SortKey; label: string }[] = [
@@ -24,7 +28,7 @@ const DEBOUNCE_MS = 350;
 
 type Result = { key: string; items: CollectionSummary[]; error: string | null };
 
-function PackCard({ collection: c }: { collection: CollectionSummary }) {
+function PackCard({ collection: c, activeTag }: { collection: CollectionSummary; activeTag: string | null }) {
   const author = creatorName(c);
   return (
     <li className="relative flex flex-col gap-2.5">
@@ -50,12 +54,16 @@ function PackCard({ collection: c }: { collection: CollectionSummary }) {
             {formatCount(c.downloadCount)}
           </span>
         </span>
+        <span className="text-[11px] leading-4 text-ink-2">{assetsLabel(c.assetCount)}</span>
+        <TagChips tags={c.tags} activeTag={activeTag} />
       </div>
     </li>
   );
 }
 
 export function CommunityScreen() {
+  // The tag lives in the address (/collections?tag=pixel-art): shareable, and the back button undoes it.
+  const tag = tagFromQuery(useSearchParams().get("tag"));
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState<SortKey>("createdAt");
@@ -68,11 +76,11 @@ export function CommunityScreen() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const key = `${debounced}\u0000${sort}\u0000${attempt}`;
+  const key = `${debounced}\u0000${sort}\u0000${tag ?? ""}\u0000${attempt}`;
 
   useEffect(() => {
     let alive = true;
-    listCollections({ q: debounced || undefined, sort, limit: PAGE_SIZE })
+    listCollections({ q: debounced || undefined, tags: tag ? [tag] : undefined, sort, limit: PAGE_SIZE })
       .then((res) => {
         if (alive) setResult({ key, items: res.data.items, error: null });
       })
@@ -84,7 +92,7 @@ export function CommunityScreen() {
     return () => {
       alive = false;
     };
-  }, [key, debounced, sort]);
+  }, [key, debounced, sort, tag]);
 
   const loading = result?.key !== key;
   const items = result?.items ?? [];
@@ -93,7 +101,7 @@ export function CommunityScreen() {
     ? "Loading collections"
     : result?.error
       ? "Could not load collections"
-      : `${items.length} ${items.length === 1 ? "collection" : "collections"}${debounced ? ` for “${debounced}”` : ""}`;
+      : `${items.length} ${items.length === 1 ? "collection" : "collections"}${tag ? ` tagged “${tag}”` : ""}${debounced ? ` matching “${debounced}”` : ""}`;
 
   let body: React.ReactNode;
   if (!result) {
@@ -110,42 +118,58 @@ export function CommunityScreen() {
       />
     );
   } else if (items.length === 0) {
-    body = debounced ? (
-      <EmptyState
-        icon={<Search aria-hidden className="size-5" />}
-        title="No collections found"
-        description={`Nothing matches “${debounced}”. Try another word or tag.`}
-        actions={
-          <Button variant="ghost" onClick={() => setQuery("")}>
-            Clear search
-          </Button>
-        }
-      />
-    ) : (
-      <EmptyState
-        icon={<Compass aria-hidden className="size-5" />}
-        title="No community collections yet"
-        description="Publish one of your collections to start the shelf."
-        actions={
-          <Button asChild>
-            <Link href="/dashboard/collections">Open my collections</Link>
-          </Button>
-        }
-      />
-    );
+    body =
+      debounced || tag ? (
+        <EmptyState
+          icon={<Search aria-hidden className="size-5" />}
+          title={tag && !debounced ? `No collections tagged “${tag}”` : "No collections found"}
+          description={
+            debounced
+              ? `Nothing matches “${debounced}”${tag ? ` with the tag “${tag}”` : ""}. Try another word or tag.`
+              : "Nothing is published with this tag yet. Clear the filter to see every collection."
+          }
+          actions={
+            <>
+              {debounced && (
+                <Button variant="ghost" onClick={() => setQuery("")}>
+                  Clear search
+                </Button>
+              )}
+              {tag && (
+                <Button asChild>
+                  <Link href="/collections">Clear tag filter</Link>
+                </Button>
+              )}
+            </>
+          }
+        />
+      ) : (
+        <EmptyState
+          icon={<Compass aria-hidden className="size-5" />}
+          title="No community collections yet"
+          description="Publish one of your collections to start the shelf."
+          actions={
+            <Button asChild>
+              <Link href="/dashboard/collections">Open my collections</Link>
+            </Button>
+          }
+        />
+      );
   } else {
     body = (
-      <ul
-        aria-busy={loading || undefined}
-        className={cn(
-          "grid grid-cols-[repeat(auto-fill,minmax(min(232px,100%),1fr))] gap-x-5 gap-y-7",
-          loading && "opacity-60"
-        )}
-      >
-        {items.map((c) => (
-          <PackCard key={c._id} collection={c} />
-        ))}
-      </ul>
+      <BackdropGroup srcs={items.flatMap((c) => c.coverImageUrls)}>
+        <ul
+          aria-busy={loading || undefined}
+          className={cn(
+            "grid grid-cols-[repeat(auto-fill,minmax(min(232px,100%),1fr))] gap-x-5 gap-y-7",
+            loading && "opacity-60"
+          )}
+        >
+          {items.map((c) => (
+            <PackCard key={c._id} collection={c} activeTag={tag} />
+          ))}
+        </ul>
+      </BackdropGroup>
     );
   }
 
@@ -179,6 +203,21 @@ export function CommunityScreen() {
             ))}
           </Select>
         </div>
+        {tag && (
+          <div className="flex flex-wrap items-center gap-2" aria-label="Active filter" role="group">
+            <span className="oa-label flex items-center gap-1.5">
+              <Tag aria-hidden className="size-3.5" />
+              Tag
+            </span>
+            <TagChip tag={tag} active />
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/collections">
+                <X aria-hidden />
+                Clear filter
+              </Link>
+            </Button>
+          </div>
+        )}
         <p role="status" className="sr-only">
           {announcement}
         </p>

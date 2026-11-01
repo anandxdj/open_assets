@@ -46,6 +46,7 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec tsc --noEmit
+      - run: pnpm test
       - run: pnpm audit --audit-level=high
         continue-on-error: true
 
@@ -61,6 +62,8 @@ jobs:
           python-version: "3.11"
       - run: pip install -r requirements.txt
       - run: python -c "import compileall, sys; sys.exit(0 if compileall.compile_dir('app', quiet=1) else 1)"
+      - run: pip install pytest
+      - run: python -m pytest -q
       - run: pip install pip-audit && pip-audit
         continue-on-error: true
 

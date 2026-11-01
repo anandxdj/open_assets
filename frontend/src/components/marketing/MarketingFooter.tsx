@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Logo } from "@/components/layout/Logo";
-import { DOCS_URL, LEGAL_LINKS, SALES_EMAIL, SOCIAL, SUPPORT_EMAIL, WRAP, type MarketingLink } from "./site";
+import { DOCS_URL, EXTENSION_HREF, LEGAL_LINKS, SALES_EMAIL, SOCIAL, SUPPORT_EMAIL, WRAP, type MarketingLink } from "./site";
 
 const COLUMNS: { title: string; links: MarketingLink[] }[] = [
   {
@@ -9,7 +9,7 @@ const COLUMNS: { title: string; links: MarketingLink[] }[] = [
     links: [
       { label: "How it works", href: "/#how" },
       { label: "Pricing", href: "/pricing" },
-      { label: "Extension", href: "/#extension" },
+      { label: "Extension", href: EXTENSION_HREF },
       { label: "Community", href: "/collections" },
     ],
   },
@@ -64,11 +64,11 @@ function FooterLink({ link }: { link: MarketingLink }) {
 
 export function MarketingFooter() {
   return (
-    <footer className="border-t-2 border-line-strong bg-page">
-      <div className={`${WRAP} flex flex-wrap justify-between gap-10 py-12`}>
+    <footer className="border-t border-line-soft bg-page">
+      <div className={`${WRAP} flex flex-wrap justify-between gap-12 py-16`}>
         <div className="flex max-w-[300px] flex-col gap-2.5">
           <Logo />
-          <p className="text-xs leading-[18px] text-ink-2">AI asset extraction for game and UI artists.</p>
+          <p className="text-[13px] leading-[21px] text-ink-2">AI asset extraction for game and UI artists.</p>
         </div>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-14 gap-y-8">
           {COLUMNS.map((col) => (
@@ -85,7 +85,7 @@ export function MarketingFooter() {
           ))}
         </nav>
       </div>
-      <div className="border-t border-rule">
+      <div className="border-t border-line-soft">
         <p className={`${WRAP} py-4 text-[11px] leading-4 text-ink-3`}>© {new Date().getFullYear()} OpenAssets</p>
       </div>
     </footer>

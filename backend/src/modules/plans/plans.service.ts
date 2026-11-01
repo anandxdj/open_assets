@@ -58,6 +58,23 @@ export interface PlanStatus {
      * Lanczos resize, so the UI must not call it AI.
      */
     aiUpscale: boolean;
+    /**
+     * Kept for older clients: true when the crop can remove background pockets the sheet border cannot reach.
+     * That is the server keyer's option and the keyer runs on every provider now, so this is always true. New
+     * code reads `backgroundRemoval.server`.
+     */
+    enclosedBackground: boolean;
+    /**
+     * How the crop can remove a sheet's background here. `server`: our own flat and chroma-key keyer, free, on
+     * every provider (always true). `ai`: the provider's AI removal (Cloudinary, ImageKit), a paid call; false
+     * on local storage, where a sheet with a gradient or texture background keeps its background.
+     */
+    backgroundRemoval: {
+      server: boolean;
+      ai: boolean;
+      /** Whose AI add-on the AI removal uses (informational: the editor does not show it). null when `ai` is false. */
+      aiProvider: 'Cloudinary' | 'ImageKit' | null;
+    };
   };
 }
 
@@ -70,7 +87,7 @@ export function buildPlanStatus(
   sheetsUsed: number,
   now: Date = new Date(),
   /** Read from the environment when omitted; tests pass it to pin the provider. */
-  storage: Pick<StorageStatus, 'supportsAi'> = getStorageStatus(),
+  storage: Pick<StorageStatus, 'supportsAi' | 'provider'> = getStorageStatus(),
 ): PlanStatus {
   const effectivePlan = getEffectivePlan(user, now);
   const entitlements = getEntitlements(user, now);
@@ -102,7 +119,16 @@ export function buildPlanStatus(
       daysLeft: trialActive && endsAt ? Math.max(1, Math.ceil((endsAt.getTime() - now.getTime()) / DAY_MS)) : null,
     },
     proEndsAt: iso(proEndsAt),
-    capabilities: { aiUpscale: storage.supportsAi },
+    // Our keyer runs on every provider; only Cloudinary and ImageKit have the AI add-ons (supportsAi).
+    capabilities: {
+      aiUpscale: storage.supportsAi,
+      enclosedBackground: true,
+      backgroundRemoval: {
+        server: true,
+        ai: storage.supportsAi,
+        aiProvider: storage.supportsAi ? (storage.provider === 'imagekit' ? 'ImageKit' : 'Cloudinary') : null,
+      },
+    },
   };
 }
 

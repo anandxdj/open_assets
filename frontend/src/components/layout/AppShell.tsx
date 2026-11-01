@@ -13,6 +13,7 @@ import {
   LogOut,
   Moon,
   PersonStanding,
+  Puzzle,
   ScanSearch,
   Settings,
   ShieldCheck,
@@ -23,15 +24,15 @@ import {
   WandSparkles,
   type LucideIcon,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { Logo } from "@/components/layout/Logo";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { ThemeToggle, useThemeSwitch } from "@/components/layout/ThemeToggle";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { TrialBadge } from "@/features/plans/TrialBadge";
 import { usePlan } from "@/features/plans/PlanContext";
+import { EXTENSION_HREF } from "@/components/marketing/site";
 import { cn } from "@/lib/utils";
 
 type NavEntry = {
@@ -127,6 +128,10 @@ function Sidebar() {
       ))}
       <span className="flex-1" />
       <TrialBadge className="mx-2 mb-1" />
+      <Link href={EXTENSION_HREF} className="oa-nav-item">
+        <Puzzle aria-hidden />
+        Chrome extension
+      </Link>
       <div className="flex items-center justify-between px-2 py-2">
         <span className="oa-label text-ink-3">Theme</span>
         <ThemeToggle />
@@ -218,7 +223,7 @@ function MobileLink({ entry, path }: { entry: NavEntry; path: string }) {
 function MobileAccount({ path }: { path: string }) {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, toggleFromElement } = useThemeSwitch();
   const isDark = resolvedTheme === "dark";
   const { plan } = usePlan();
   const daysLeft = plan?.trial.active ? plan.trial.daysLeft : null;
@@ -280,7 +285,13 @@ function MobileAccount({ path }: { path: string }) {
           Pricing
         </Link>
       </MenuItem>
-      <MenuItem onSelect={() => setTheme(isDark ? "light" : "dark")}>
+      <MenuItem asChild>
+        <Link href={EXTENSION_HREF}>
+          <Puzzle aria-hidden />
+          Chrome extension
+        </Link>
+      </MenuItem>
+      <MenuItem onSelect={(event) => toggleFromElement(event.target as Element)}>
         {isDark ? <Sun aria-hidden /> : <Moon aria-hidden />}
         {isDark ? "Light theme" : "Dark theme"}
       </MenuItem>

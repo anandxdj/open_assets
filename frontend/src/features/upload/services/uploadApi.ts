@@ -1,6 +1,7 @@
 import { apiClient, refreshAccessToken } from "@/lib/api-client";
 import { apiErrorFrom, ApiRequestError } from "@/lib/api-error";
 import { tokenStore } from "@/lib/token-store";
+import { UploadAbortedError } from "@/features/upload/lib/uploadErrors";
 import type { JobResponse, UploadResponse } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -11,11 +12,29 @@ interface ApiEnvelope<T> {
   data: T;
 }
 
-export class UploadAbortedError extends Error {
-  constructor() {
-    super("Upload cancelled");
-    this.name = "UploadAbortedError";
-  }
+export { UploadAbortedError };
+
+/** Resolves with `promise`, or rejects as soon as `signal` aborts (the promise itself keeps running). */
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  return new Promise<T>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new UploadAbortedError());
+      return;
+    }
+    const onAbort = () => reject(new UploadAbortedError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (err) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(err);
+      }
+    );
+  });
 }
 
 type XhrResult = { status: number; body: unknown };
@@ -67,7 +86,8 @@ export async function uploadImageWithProgress(
   let res = await sendWithProgress(file, tokenStore.get(), onProgress, signal);
 
   if (res.status === 401) {
-    const token = await refreshAccessToken();
+    // Cancel must not wait for the token refresh to finish.
+    const token = await abortable(refreshAccessToken(), signal);
     if (token) {
       onProgress(0);
       res = await sendWithProgress(file, token, onProgress, signal);

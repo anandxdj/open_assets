@@ -1,11 +1,12 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
-import { Upload } from "lucide-react";
+import { ImageIcon, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/controls";
 import { Checker } from "@/components/ui/feedback";
-import type { UploadStatus, UploadingFile } from "@/features/upload/hooks/useFileUpload";
+import { isBusy, isCancellable, type UploadStatus, type UploadingFile } from "@/features/upload/lib/uploadController";
 import { cn } from "@/lib/utils";
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -27,6 +28,7 @@ function rejectionMessage(rejections: FileRejection[]): string {
 }
 
 export const PHASE_TEXT: Record<Exclude<UploadStatus, "idle" | "error">, { verb: string; hint: string }> = {
+  preparing: { verb: "Preparing", hint: "Getting the image ready. Nothing is sent yet" },
   uploading: { verb: "Uploading", hint: "Next: detection opens in the editor" },
   processing: { verb: "Saving", hint: "Storing the image and queueing detection…" },
   success: { verb: "Uploaded", hint: "Queued for detection · opening editor…" },
@@ -44,11 +46,38 @@ function UploadingPanel({
   onCancel: () => void;
 }) {
   const phase = PHASE_TEXT[status];
+  const panelRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const cancellable = isCancellable(status);
+
+  // The control that started this (Choose file, a sample button) is gone or disabled. Put focus on
+  // Cancel while it can be used, and on the panel itself once it cannot, so keyboard focus is never
+  // dropped on <body> and the next Tab or Shift+Tab starts from here.
+  useEffect(() => {
+    const active = document.activeElement;
+    const nowhere = !active || active === document.body || active.matches(":disabled");
+    if (!nowhere && !panelRef.current?.contains(active)) return; // the user is somewhere else on purpose
+    if (!nowhere && active === cancelRef.current) return;
+    (cancellable ? cancelRef.current : panelRef.current)?.focus();
+  }, [cancellable]);
+
   return (
-    <div className="flex min-h-[280px] flex-col items-center justify-center gap-6 border-[1.5px] border-line bg-surface px-4 py-8 sm:px-8">
+    <div
+      ref={panelRef}
+      tabIndex={-1}
+      role="group"
+      aria-label="Upload progress"
+      className="flex min-h-[280px] flex-col items-center justify-center gap-6 border-[1.5px] border-line bg-surface px-4 py-8 focus-visible:[outline-offset:-4px] sm:px-8"
+    >
       <Checker className="aspect-[2/1] w-[280px] max-w-full overflow-hidden border border-line">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={file.previewUrl} alt={`Preview of ${file.name}`} className="size-full object-contain" />
+        {file.previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={file.previewUrl} alt={`Preview of ${file.name}`} className="size-full object-contain" />
+        ) : (
+          <span className="flex size-full items-center justify-center text-ink-3">
+            <ImageIcon aria-hidden className="size-8" />
+          </span>
+        )}
       </Checker>
       <div className="flex w-full max-w-[420px] flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
@@ -62,9 +91,10 @@ function UploadingPanel({
         <Progress value={progress} label={`${phase.verb} ${file.name}`} />
         <div className="flex min-h-7 items-center justify-between gap-3">
           <span className="text-[11px] leading-4 text-ink-2">{phase.hint}</span>
-          {status === "uploading" && (
-            <Button variant="ghost" size="sm" onClick={onCancel}>
+          {cancellable && (
+            <Button ref={cancelRef} variant="ghost" size="sm" onClick={onCancel}>
               Cancel
+              <span className="sr-only"> upload of {file.name}</span>
             </Button>
           )}
         </div>
@@ -95,7 +125,21 @@ export function DropZone({
   /** Nothing can be uploaded right now (for example the monthly allowance is used). */
   locked?: boolean;
 }) {
-  const busy = status === "uploading" || status === "processing" || status === "success";
+  const busy = isBusy(status);
+  const chooseRef = useRef<HTMLButtonElement>(null);
+  const wasBusy = useRef(false);
+
+  // The panel is replaced by the drop zone again (cancelled, or the upload failed). Focus was on
+  // the panel's Cancel button, now gone: bring it back to "Choose file", the control that starts
+  // the next upload, unless the user has already moved on to something else.
+  useEffect(() => {
+    const returned = wasBusy.current && !busy;
+    wasBusy.current = busy;
+    if (!returned) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && !active.matches(":disabled") && active.isConnected) return;
+    chooseRef.current?.focus();
+  }, [busy]);
 
   const { getRootProps, getInputProps, isDragActive, isDragReject, open } = useDropzone({
     onDropAccepted: (files) => {
@@ -147,7 +191,7 @@ export function DropZone({
               PNG, JPEG or WebP · up to 20 MB · one sheet at a time
             </span>
           </div>
-          <Button variant="primary" size="lg" onClick={open} disabled={locked}>
+          <Button ref={chooseRef} variant="primary" size="lg" onClick={open} disabled={locked}>
             Choose file
           </Button>
         </>

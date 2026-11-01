@@ -1,9 +1,10 @@
 # End-to-end: visual regression and accessibility
 
-Playwright drives the real web app against the real API with seeded data.
+Playwright drives the real web app against the real API with seeded data. Unit tests for logic that needs no browser (the upload state machine) run with `pnpm test` in `frontend/`.
 
 - `visual.spec.ts`: viewport screenshots of each key route, light and dark, at 1280 and 375 wide, plus a few plan-state screens.
 - `a11y.spec.ts`: axe (`wcag2a`, `wcag2aa`, `wcag21aa`, `wcag22aa`) on the same routes and on the other plan states. Serious and critical violations fail; no rule is disabled.
+- `keyboard.spec.ts`: keyboard-only walkthroughs (skip link, the editor's keyboard equivalents of move, resize, add, duplicate, zoom and delete, the shortcuts dialog, and cancelling an upload). Behaviour only, no screenshots.
 - `routes.ts`: the route table (path, who is signed in). `auth.setup.ts` signs each seeded account in through `POST /api/auth/login` and stores the session cookie, so tests start signed in.
 
 ## Run it
@@ -24,7 +25,7 @@ frontend/e2e/docker.sh test
 frontend/e2e/docker.sh test --update-snapshots
 ```
 
-Defaults point at `http://oa-ui5.localhost:3105` (web) and `:4105` (API); override with `E2E_BASE_URL`, `E2E_API_URL`, `E2E_HOST` (the host name mapped to 127.0.0.1 inside the container). `NEXT_PUBLIC_API_URL` is baked into the build, so build with the API URL the tests use. `pnpm e2e` runs Playwright directly and is for accessibility runs and debugging only: **do not update baselines that way**, a developer machine renders text differently from CI.
+Defaults point at `http://oa-ui5.localhost:3105` (web) and `:4105` (API); override with `E2E_BASE_URL`, `E2E_API_URL`, `E2E_HOST` (the host name mapped to 127.0.0.1 inside the container). `NEXT_PUBLIC_API_URL` is baked into the build, so build with the API URL the tests use. **Set `LOCAL_STORAGE_BASE_URL` in `backend/.env` to that same API URL** (for example `http://oa-ui5.localhost:4105`) before seeding: the seed stores absolute image URLs built from it (default `http://localhost:<PORT>`), and the web app's CSP only lets pages load images from the API origin it was built with. With any other host every seeded image renders as a broken tile, and the editor, export, collections, community and pack screenshots all fail. The seed refuses to run when `E2E_API_URL` is exported and names a different origin. `pnpm e2e` runs Playwright directly and is for accessibility runs and debugging only: **do not update baselines that way**, a developer machine renders text differently from CI.
 
 ## Rules for baselines
 
@@ -44,8 +45,8 @@ Writes straight to Mongo, Redis and the local storage folder with fixed ids, so 
 | `lapsed@` | Pro period ended 16 days ago, owns "Dormant Studio" (read-only now) |
 | `member@` | Free, a member of "Dormant Studio": can view and download, not edit |
 | `admin@` | Admin |
-| `creator@` | Free, author of two community collections |
+| `creator@` | Free, author of five community collections: with tags, with one asset and no tags, empty, and with five 24-character tags |
 
-All use `@openassets.test` and the password from `E2E_PASSWORD`. Every account except `creator` has three jobs cut from `frontend/public/samples/sprite-sheet.svg` (rasterised with sharp, real transparent PNG crops): `e2e-<account>-ready` (finished, with a ZIP), `-cropped` (waiting on the export screen) and `-detected` (waiting in the editor). Collections: public, draft, shared with a team, read-only team, empty, and community packs with likes.
+All use `@openassets.test` and the password from `E2E_PASSWORD`. Every account except `creator` has three jobs cut from `frontend/public/samples/sprite-sheet.svg` (rasterised with sharp, real transparent PNG crops): `e2e-<account>-ready` (finished, with a ZIP), `-cropped` (waiting on the export screen) and `-detected` (waiting in the editor). Collections: public, draft, shared with a team, read-only team, and community packs with likes, tags (`pixel-art` is on three of them, for the tag filter) and asset counts of 0, 1, 3, 4 and 8.
 
 The API rate limits by client address; each test sends its own `X-Forwarded-For` (`env.ts`) so a long run does not throttle itself.

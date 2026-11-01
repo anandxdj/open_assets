@@ -19,7 +19,7 @@ const keys: string[] = [];
 
 before(() => {
   if (skip) return;
-  client = new Redis(`${(redisBase as string).replace(/\/\d+$/, '')}/15`, { maxRetriesPerRequest: null });
+  client = new Redis(`${(redisBase as string).replace(/\/\d+$/, '')}/${process.env['TEST_REDIS_DB'] ?? '15'}`, { maxRetriesPerRequest: null });
   client.on('error', () => undefined);
 });
 

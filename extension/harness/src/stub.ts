@@ -1,4 +1,4 @@
-import type { AppSnapshot, QueueItem, WorkerRequest, WorkerResponse } from '../../src/shared/contracts';
+import type { AppSnapshot, QueueItem, SentItem, WorkerRequest, WorkerResponse } from '../../src/shared/contracts';
 import { account, type Fixture } from './fixtures';
 
 /**
@@ -35,7 +35,7 @@ export function installChromeStub(fixture: Fixture) {
         return { ok: true, snapshot: structuredClone(state) };
       }
       case 'SIGN_OUT':
-        mutate((current) => { current.account = null; current.isRunning = false; current.activeItemId = null; });
+        mutate((current) => { current.account = null; current.isRunning = false; current.activeItemId = null; current.sent = []; current.notice = null; });
         return { ok: true, snapshot: structuredClone(state) };
       case 'ADD_PROMPTS':
         mutate((current) => {
@@ -70,7 +70,31 @@ export function installChromeStub(fixture: Fixture) {
         });
         return { ok: true, started: true };
       case 'EXTRACT_CURRENT_IMAGE':
-        return fixture.extractError ? { ok: false, error: fixture.extractError } : { ok: true };
+        return fixture.extractError ? { ok: false, error: fixture.extractError, ...(fixture.extractCode ? { code: fixture.extractCode } : {}) } : { ok: true };
+      case 'EXTRACT_IMAGE_URL': {
+        const mode = fixture.sendResult ?? 'ok';
+        if (mode === 'pending') return new Promise<WorkerResponse>(() => undefined);
+        if (typeof mode === 'object') return { ok: false, error: mode.error, ...(mode.code ? { code: mode.code } : {}) };
+        const jobId = `job_new_${Date.now()}`;
+        const row: SentItem = { jobId, fileName: request.fileName ?? 'openassets-new.png', sentAt: now(), via: request.via ?? 'page', status: 'queued' };
+        mutate((current) => { current.sent = [row, ...current.sent]; });
+        log('tabs.create', { url: `/editor/${jobId}` });
+        return { ok: true, jobId };
+      }
+      case 'SENT_REFRESH':
+        if (fixture.refreshError) return { ok: false, error: fixture.refreshError };
+        if (fixture.advance) {
+          mutate((current) => {
+            current.sent = current.sent.map((row) => (row.status === 'queued' ? { ...row, status: 'detecting' } : row.status === 'detecting' ? { ...row, status: 'ready' } : row));
+          });
+        }
+        return { ok: true };
+      case 'CLEAR_SENT':
+        mutate((current) => { current.sent = []; });
+        return { ok: true };
+      case 'DISMISS_NOTICE':
+        mutate((current) => { current.notice = null; });
+        return { ok: true };
       default:
         log('unhandled worker request', request);
         return { ok: true };

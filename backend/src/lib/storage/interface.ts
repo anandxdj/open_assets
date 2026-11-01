@@ -34,10 +34,27 @@ export interface EnhanceTransform {
   removeBackground?: boolean;
 }
 
+export interface BackgroundRemovalOptions {
+  /**
+   * Also remove background-coloured pockets the sheet border cannot reach (the hole of a ring, the inside of a
+   * letter). Only the flat-colour keyer acts on it (the crop worker runs it on every provider): the AI cut-out of
+   * Cloudinary and ImageKit ignores it.
+   */
+  removeEnclosed?: boolean;
+}
+
 export interface StorageAdapter {
   upload(buffer: Buffer, options: UploadOptions): Promise<UploadResult>;
   delete(publicId: string, resourceType?: ResourceType): Promise<void>;
-  applyBackgroundRemoval(publicId: string): Promise<string>;
+  /**
+   * The provider's AI background removal (Cloudinary `e_background_removal`, ImageKit `e-bgremove`): a paid call.
+   * The crop worker only reaches it for a complex background or when the user asks for AI. Free flat-colour keying
+   * is not done here but by the worker, on every provider (see workers/cropBackground.ts). The local provider has
+   * no AI: its version is the flat keyer, which the worker no longer calls for the sheet.
+   */
+  applyBackgroundRemoval(publicId: string, options?: BackgroundRemovalOptions): Promise<string>;
+  /** The stored file's bytes, when the provider can read them without going through its public URL (local storage). */
+  readBuffer?(publicId: string): Promise<Buffer>;
   /**
    * AI upscale chained with background removal (the extract export). The
    * providers upscale by a fixed 4x, so when `sourceWidth` is known the result

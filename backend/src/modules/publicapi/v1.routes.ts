@@ -120,10 +120,16 @@ router.post(
     const job = await loadOwnedJob(req);
     if (job.status !== 'detected') throw wrongState(job, 'detected');
 
-    const boxes = (req.body as CropBody).boxes ?? parseBoxes(job.boxes);
+    const { boxes: sentBoxes, removeEnclosedBackground, backgroundRemoval } = req.body as CropBody;
+    const boxes = sentBoxes ?? parseBoxes(job.boxes);
     if (boxes.length === 0) throw v1Error(409, 'INVALID_JOB_STATE', 'No assets were detected on this sheet, so there is nothing to crop.', { status: job.status });
 
-    req.body = { jobId: job.id, boxes };
+    req.body = {
+      jobId: job.id,
+      boxes,
+      ...(removeEnclosedBackground !== undefined ? { removeEnclosedBackground } : {}),
+      ...(backgroundRemoval !== undefined ? { backgroundRemoval } : {}),
+    };
     await startCrop(req, res);
   }),
 );

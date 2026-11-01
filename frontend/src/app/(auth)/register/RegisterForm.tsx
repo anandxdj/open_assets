@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/feedback";
 import { AuthIntro, GoogleButton, OrDivider } from "@/components/auth/AuthParts";
 
-export function RegisterForm() {
+/** `google`: whether the API can complete Google sign-in (decided on the server, see getAuthProviders). */
+export function RegisterForm({ google }: { google: boolean }) {
   const { register } = useAuth();
   const router = useRouter();
   // Carried through sign-up and sign-in so a visitor lands where they started
@@ -56,8 +57,12 @@ export function RegisterForm() {
       <AuthIntro title="Create your account">Free plan includes {FREE_SHEETS_PER_MONTH} sheets a month.</AuthIntro>
 
       <div className="flex flex-col gap-4">
-        <GoogleButton next={next}>Continue with Google</GoogleButton>
-        <OrDivider />
+        {google && (
+          <>
+            <GoogleButton next={next}>Continue with Google</GoogleButton>
+            <OrDivider />
+          </>
+        )}
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           {error && (

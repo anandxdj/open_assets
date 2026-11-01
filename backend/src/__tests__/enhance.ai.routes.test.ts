@@ -271,11 +271,21 @@ test('dimensions over the provider limit are a 400 that explains the cap', async
 });
 
 test('a file over the size limit is a 413 with a readable message', async () => {
-  const { base, storage } = await start();
-  const { status, body } = await post(base, form(fakePng(64, 64, 11 * 1024 * 1024), { scale: '2' }));
+  // The upload cap (multer, built when the router is) follows STORAGE_PROVIDER, and the mock deps say
+  // Cloudinary, so pin the provider while the router is built; a local-storage .env would raise it to 20 MB.
+  const previousProvider = process.env['STORAGE_PROVIDER'];
+  process.env['STORAGE_PROVIDER'] = 'cloudinary';
+  let ctx: Awaited<ReturnType<typeof start>>;
+  try {
+    ctx = await start();
+  } finally {
+    if (previousProvider === undefined) delete process.env['STORAGE_PROVIDER'];
+    else process.env['STORAGE_PROVIDER'] = previousProvider;
+  }
+  const { status, body } = await post(ctx.base, form(fakePng(64, 64, 11 * 1024 * 1024), { scale: '2' }));
   assert.equal(status, 413);
   assert.match(body.message, /larger than 10 MB/);
-  assert.equal(storage.uploads.length, 0);
+  assert.equal(ctx.storage.uploads.length, 0);
 });
 
 // ── the happy path and job ownership ────────────────────────────────────────

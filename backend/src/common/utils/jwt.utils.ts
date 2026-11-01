@@ -49,7 +49,9 @@ export const isAccessTokenRevoked = (
 };
 
 export const generateRefreshToken = (payload: object) => {
-  return jwt.sign(payload, JWT_REFRESH_SECRET, {
+  // A unique `jti` keeps two sign-ins in the same second from minting the same
+  // token, which would collapse two sessions into one hash.
+  return jwt.sign({ jti: crypto.randomUUID(), ...payload }, JWT_REFRESH_SECRET, {
     expiresIn: JWT_REFRESH_EXPIRES_IN as any,
   });
 };

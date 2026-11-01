@@ -70,7 +70,8 @@ export async function requireEditAccess(req: AuthRequest, _res: Response, next: 
 export async function createCollection(req: AuthRequest, res: Response): Promise<void> {
   const user = requireUser(req);
   const collection = await service.createCollection(user.id, req.body);
-  ApiResponse.created(res, 'Collection created', collection);
+  // A new collection holds nothing yet; list rows carry the count, so this one does too.
+  ApiResponse.created(res, 'Collection created', { ...collection.toJSON(), assetCount: 0 });
 }
 
 export async function getCollection(req: AuthRequest, res: Response): Promise<void> {

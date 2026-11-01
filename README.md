@@ -34,8 +34,11 @@ The same pipeline is reachable three ways: a **web app**, a **Chrome extension**
         ZIP of named PNGs  ·  optional public gallery
 ```
 
-The image never needs a transparent background to start — if it doesn't already
-have an alpha channel, the pipeline runs AI background removal before detection.
+The image never needs a transparent background to start. Detection classifies the
+sheet's background (transparent, flat, chroma key or complex), and the crop removes it
+the cheapest way that works: a flat or chroma-key background is keyed out on our own
+server for free, on every storage provider, and the provider's paid AI removal only runs
+for a gradient or texture (or when you ask for it).
 
 ---
 
@@ -117,10 +120,30 @@ uploaded → queued → detecting → (removing_bg?) → detected
 **1 — Upload & Detect** (`detection.worker`)
 `POST /api/upload` streams the file (multer, 20 MB cap, images only) to object
 storage, creates the Redis job, and enqueues detection. The worker checks the image
-for transparency; if it's opaque it runs AI background removal first. Then it asks
-py_backend `/detect`, which uses the alpha channel as a mask, dilates to merge
-fragments, finds contours, filters tiny boxes (`w≥20, h≥20, area≥400`), and sorts
-them top-to-bottom / left-to-right into `asset_001…N`.
+for transparency. Then it asks py_backend `/detect`, which uses the alpha channel (or
+the border colour) as a mask, dilates to merge fragments, finds contours, filters tiny
+boxes (`w≥20, h≥20, area≥400`), and numbers them in reading order, row by row (boxes
+whose centres are within half the median box height share a row) and left to right,
+into `asset_001…N`. It also classifies the background and returns
+`background: { kind: transparent | flat | chroma | complex, color? }`, which is stored on
+the job and returned by `GET /api/jobs/:id`.
+
+**Background removal** (`crop.worker`, `backgroundRemoval` on `POST /api/crop` and
+`POST /api/v1/jobs/:id/crop`: `auto` (default), `flat`, `ai`, `none`):
+
+| Sheet | `auto` | `flat` | `ai` | `none` |
+|---|---|---|---|---|
+| transparent | nothing to do | nothing | nothing | nothing |
+| flat or chroma key | **server keying, free**, any provider | server keying | provider AI (paid) | kept |
+| complex (gradient, texture) | provider AI (paid); local storage: kept, with a reason | kept, with a reason | provider AI; local: kept, with a reason | kept |
+
+Server keying downloads the stored sheet, runs the flood-fill keyer, uploads the keyed PNG
+through the storage adapter and crops from it. The job records `backgroundMethod`
+(`none`, `server` or `ai`) and, when the background was kept, `backgroundReason`; the
+worker logs one line per crop job. `removeEnclosedBackground` applies whenever the server
+keyer runs. The flat/chroma rule is one rule in py_backend (`classify_background`) and
+the backend (`backend/src/lib/background.ts`), pinned by shared fixtures in
+`backend/src/__tests__/fixtures/background-cases`.
 
 **2 — Name & Crop** (`crop.worker`)
 The user confirms/edits boxes in the canvas and calls `POST /api/crop`. The worker
@@ -139,8 +162,10 @@ it as a raw asset, and stores the `downloadUrl`. `GET /api/jobs/:jobId/download`
 302-redirects to it.
 
 > **Note:** AI background removal and AI upscale are paid storage-provider add-ons.
-> If they're disabled, the affected job fails with a clear, actionable error instead
-> of hanging.
+> Background removal only uses the AI for sheets with a gradient or texture background (or
+> when `backgroundRemoval: "ai"` is sent); flat and chroma-key sheets are keyed on our
+> server for free. If an AI add-on is disabled, the affected job fails with a clear,
+> actionable error instead of hanging.
 
 ---
 
@@ -380,7 +405,7 @@ add-ons are not available on your machine:
 
 | Step | Cloudinary / ImageKit | Local storage |
 |---|---|---|
-| Background removal (extract) | AI | Only a **flat, single-colour** background (white, black, a solid colour) is keyed out, from the image border inwards. A sheet that is already transparent is used as it is. Any other background fails the job with a message saying so |
+| Background removal (extract) | Flat and chroma-key sheets: our own keyer, free. AI only for a gradient or texture | The same keyer, free. There is no AI, so a gradient or texture sheet **keeps its background** and the job records why (`backgroundReason`). A sheet that is already transparent is used as it is. The keyer clears the background that touches the sheet border and a chroma-key colour (magenta, green) everywhere; background enclosed by the art (a ring's hole, the inside of a letter) stays unless `removeEnclosedBackground` is sent on the crop (the editor's "Also remove enclosed background" switch, off by default) |
 | Export upscale (2x / 4x) | AI upscale | A plain Lanczos **resize** to the same size. Sharp edges, no invented detail |
 | AI enhance | AI upscale / background removal | **Not available**: the page and `GET /api/enhance/capabilities` report `STORAGE_UNSUPPORTED` |
 
@@ -392,6 +417,14 @@ job id), with their real content type, no directory listing, and nothing outside
 `LOCAL_STORAGE_DIR` reachable. **Production refuses `local`** unless you set
 `ALLOW_LOCAL_STORAGE=1` (and `LOCAL_STORAGE_BASE_URL` to the API's public URL): files then live on
 that one server only, so run a single API instance and back up the directory.
+
+**Switching provider later.** Files stored while `STORAGE_PROVIDER=local` keep their
+`/storage/<key>` URLs in the database. After a switch to `cloudinary` or `imagekit` the API still
+serves that folder **read-only** (same checks, headers and content types, nothing is ever written)
+when `LOCAL_STORAGE_DIR` is set or `./.local-storage` exists, so old collections, jobs and history
+keep their images. New files go to the new provider. In production this read-only route also needs
+`ALLOW_LOCAL_STORAGE=1`, the opt-in a deployment that stored files locally already had to set;
+without it a stray folder is never published.
 
 ### Checks
 

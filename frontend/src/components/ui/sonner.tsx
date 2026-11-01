@@ -15,6 +15,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       position="top-center"
       offset={56}
       mobileOffset={56}
+      // Motion: Sonner slides and fades each toast itself (400ms transitions on transform and opacity, which it also
+      // uses to stack toasts). Do not add tw-animate keyframes here: they would replace that transform and break the
+      // stack. The global prefers-reduced-motion rule switches the transitions off.
       icons={{
         success: <CircleCheck className="size-4 text-success" />,
         info: <Info className="size-4 text-info" />,

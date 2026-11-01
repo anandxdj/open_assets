@@ -244,6 +244,7 @@ function RevokeKey({ apiKey, onRevoked }: { apiKey: ApiKey; onRevoked: (id: stri
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   async function handleConfirm() {
     setBusy(true);
@@ -281,6 +282,11 @@ function RevokeKey({ apiKey, onRevoked }: { apiKey: ApiKey; onRevoked: (id: stri
           </>
         }
         description="Anything using this key stops working immediately. This cannot be undone."
+        // Land on the safe choice, not the close button or the destructive confirm.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          cancelRef.current?.focus();
+        }}
       >
         {error && (
           <div className="px-5 pt-4">
@@ -291,7 +297,7 @@ function RevokeKey({ apiKey, onRevoked }: { apiKey: ApiKey; onRevoked: (id: stri
         )}
         <DialogFooter className="border-t-0 pt-5">
           <DialogClose asChild>
-            <Button variant="ghost" disabled={busy}>
+            <Button ref={cancelRef} variant="ghost" disabled={busy}>
               Cancel
             </Button>
           </DialogClose>
@@ -393,7 +399,18 @@ export function ApiKeysContent() {
   }
 
   const list = keys.data ?? [];
-  const remove = (id: string) => keys.mutate((current) => current.filter((k) => k.id !== id));
+  const remove = (id: string) => {
+    const index = list.findIndex((k) => k.id === id);
+    keys.mutate((current) => current.filter((k) => k.id !== id));
+    // The revoked row, and the button that opened the dialog with it, are gone. Hand focus to the
+    // next key's Revoke button, or to Create API key when no key is left, not to <body>.
+    requestAnimationFrame(() => {
+      const section = document.getElementById("api-keys");
+      const revokes = section?.querySelectorAll<HTMLElement>('button[aria-label^="Revoke API key"]');
+      const next = revokes && revokes.length > 0 ? revokes[Math.min(index, revokes.length - 1)] : null;
+      (next ?? section?.querySelector<HTMLElement>('button[aria-haspopup="dialog"]'))?.focus();
+    });
+  };
 
   // Free account that never made a key: the section is locked.
   if (!allowed && list.length === 0) {

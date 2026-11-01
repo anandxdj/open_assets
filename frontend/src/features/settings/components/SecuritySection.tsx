@@ -72,7 +72,12 @@ function PasswordForm({
     if (next !== confirm) found.confirm = "Passwords do not match.";
     setErrors(found);
     setFormError(null);
-    if (Object.keys(found).length > 0) return;
+    if (Object.keys(found).length > 0) {
+      // First invalid field, in reading order, so the error is read out and the fix starts there.
+      const first = found.current ? currentId : found.next ? nextId : confirmId;
+      document.getElementById(first)?.focus();
+      return;
+    }
 
     setBusy(true);
     try {
@@ -89,8 +94,10 @@ function PasswordForm({
       onChanged();
     } catch (err) {
       const message = errorMessage(err, "Could not update your password. Try again.");
-      if (hasPassword && /current password/i.test(message)) setErrors({ current: message });
-      else setFormError(message);
+      if (hasPassword && /current password/i.test(message)) {
+        setErrors({ current: message });
+        document.getElementById(currentId)?.focus();
+      } else setFormError(message);
     } finally {
       setBusy(false);
     }
@@ -167,7 +174,7 @@ function PasswordForm({
         extension.
       </p>
       <div>
-        <Button type="submit" disabled={busy} aria-busy={busy || undefined}>
+        <Button type="submit" aria-disabled={busy || undefined} aria-busy={busy || undefined}>
           {busy && <LoaderCircle aria-hidden className="animate-spin" />}
           {busy ? "Saving…" : hasPassword ? "Change password" : "Set password"}
         </Button>

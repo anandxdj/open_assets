@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import { redis } from '../../common/config/redis';
 import { updateJob } from '../jobs/job.store';
 import { checkTransparency, detectAssets } from '../../lib/py.client';
+import { serializeBackground } from '../../lib/background';
 import { extractError } from '../../common/utils/extractError';
 import type { BoundingBox } from '../jobs/job.types';
 
@@ -57,6 +58,7 @@ export function startDetectionWorker(): Worker<DetectionJobData> {
         detectionMode: result.detection_mode,
         detectionConfidence: String(result.detection_confidence),
         detectionWarning: result.detection_warning ?? '',
+        background: serializeBackground(result.background),
       });
 
       console.log(`[detection.worker] Job ${jobId}: ${boxes.length} assets detected`);

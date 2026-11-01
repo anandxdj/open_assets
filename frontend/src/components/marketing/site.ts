@@ -1,13 +1,45 @@
 /** Shared constants for the public marketing pages (landing, pricing, careers). */
 
-/** Page-width container used by every marketing section. */
-export const WRAP = "mx-auto w-full max-w-[1200px] px-4 md:px-8";
+/** Page-width container for full-width grids. 20px gutter on phones, 32px from md. */
+export const WRAP = "mx-auto w-full max-w-[1200px] px-5 md:px-8";
 
-/** Section headings use the h1 scale on desktop and step down on phones. */
-export const SECTION_TITLE = "oa-h1 max-md:text-[30px] max-md:leading-[32px]";
+/** Narrower container for text-led sections (gallery, pricing, FAQ, legal). */
+export const NARROW = "mx-auto w-full max-w-[1040px] px-5 md:px-8";
+
+/** Vertical padding of every marketing section: 80px on phones, 112px from md. */
+export const SECTION_Y = "py-20 md:py-28";
+
+/** Gap between a section header and its content: 48px on phones, 64px from md. */
+export const SECTION_GAP = "gap-12 md:gap-16";
+
+/** Gap between separate cards in a grid. */
+export const CARD_GAP = "gap-5 md:gap-6";
+
+/**
+ * A separate card on a marketing page: white surface, soft line. Controls and
+ * the selected or raised object keep the 1.5px ink line instead.
+ */
+export const CARD = "border border-line-soft bg-surface";
+
+/** Page title (h1) on marketing pages: 36px on phones up to 76px, tight but not stacked. */
+export const DISPLAY = "oa-display text-[clamp(36px,5.6vw,76px)]";
+
+/** Section headings use 36/40 on desktop and step down to 30/32 on phones. */
+export const SECTION_TITLE = "oa-h1 text-[30px] leading-[32px] md:text-[36px] md:leading-[40px]";
+
+/** Small marketing copy: 13/21 (1.6). */
+export const COPY = "text-[13px] leading-[21px]";
 
 /** The docs live in this app: overview, getting started and the API reference (see docs.config.ts). */
 export const DOCS_URL = "/docs";
+
+/**
+ * Where "Chrome extension" points, on the marketing site and in the app shell:
+ * the extension section of the landing page. There is no store listing yet.
+ * When one exists, change this to its URL and mark the links `external` (the
+ * app shell and the footer already open external links in a new tab for that).
+ */
+export const EXTENSION_HREF = "/#extension";
 
 export const SALES_EMAIL = "sales@openassets.dev";
 

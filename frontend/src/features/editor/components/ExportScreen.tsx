@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Check, ChevronLeft, CircleAlert, CircleCheck, Download, ImageOff, Lock, LoaderCircle, Plus } from "lucide-react";
@@ -31,6 +31,9 @@ import { useJobPolling } from "../hooks/useJobPolling";
 import { startFinalize } from "../services/exportApi";
 import { sanitize, zipImageUrls } from "../services/localExport";
 import { isDialogOpen, isEditableTarget } from "../lib/keyboard";
+import { BackdropMenu } from "@/features/backdrop/BackdropMenu";
+import { BackdropSurface } from "@/features/backdrop/BackdropSurface";
+import { SheetBackdropContext, useGroupBackdrop } from "@/features/backdrop/useBackdrop";
 import { fileNameFromUrl } from "../lib/names";
 
 type TileSize = "s" | "m" | "l";
@@ -137,7 +140,7 @@ function AssetTile({
         className="flex w-full flex-col gap-2 text-left"
         onClick={() => onToggle(asset.id)}
       >
-        <span className="oa-tile oa-checker w-full" data-selected={selected || undefined}>
+        <BackdropSurface as="span" src={asset.cropped_url} className="oa-tile w-full" data-selected={selected || undefined}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={asset.cropped_url}
@@ -158,7 +161,7 @@ function AssetTile({
               {scale}×
             </Badge>
           )}
-        </span>
+        </BackdropSurface>
         <span className="flex min-w-0 flex-col gap-0.5 px-0.5">
           <span className="oa-value truncate text-[12.5px]" title={fileName}>
             {fileName}
@@ -204,6 +207,10 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
 
   const jobAssets = job?.assets;
   const assets = useMemo(() => jobAssets ?? [], [jobAssets]);
+  // One Backdrop for the whole grid, decided from every tile together, so the tiles never disagree.
+  const backdrop = useGroupBackdrop(assets.map((a) => a.cropped_url));
+  // Said when Auto swaps the theme backdrop for another one, so it is not a silent change.
+  const autoSwap = backdrop.mode === "auto" && backdrop.decision.backdrop ? backdrop.summary : "";
   const allIds = useMemo(() => assets.map((a) => a.id), [assets]);
   const selectedIds = useMemo(() => selection ?? new Set(allIds), [selection, allIds]);
   const selectedCount = assets.filter((a) => selectedIds.has(a.id)).length;
@@ -465,6 +472,15 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   else if (upscaleDone || lastDownload) announcement = "Download started";
   else if (localDownloading) announcement = "Building the ZIP";
 
+  // Pressing Download swaps that button for a progress or "Download started" view.
+  // When that leaves focus on nothing, put it on the download area, so a keyboard
+  // user stays where the result is announced and one Tab reaches "Download again".
+  const downloadAreaRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const active = document.activeElement;
+    if (!autoRaw && announcement && (!active || active === document.body || !active.isConnected)) downloadAreaRef.current?.focus();
+  }, [announcement, autoRaw]);
+
   let badge: React.ReactNode = null;
   if (failed) {
     badge = <StatusBadge status="failed" />;
@@ -602,6 +618,15 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                   </span>
                 </label>
                 <span className="flex-1" />
+                <BackdropMenu
+                  mode={backdrop.mode}
+                  onModeChange={backdrop.setMode}
+                  summary={backdrop.summary}
+                  variant="button"
+                />
+                <span role="status" className="sr-only">
+                  {autoSwap}
+                </span>
                 <Segmented<TileSize>
                   ariaLabel="Tile size"
                   value={tileSize}
@@ -613,25 +638,27 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                   ]}
                 />
               </div>
-              <ul
-                aria-label="Assets"
-                className="grid gap-4"
-                style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_MIN[tileSize]}, 1fr))` }}
-              >
-                {assets.map((asset) => (
-                  <AssetTile
-                    key={asset.id}
-                    asset={asset}
-                    fileName={tileFileName(asset)}
-                    selected={selectedIds.has(asset.id)}
-                    upscaled={upscaledIds.has(asset.id)}
-                    scale={job.upscaleScale ?? upscaleScale}
-                    dims={dims[asset.id]}
-                    onToggle={handleToggle}
-                    onMeasure={handleMeasure}
-                  />
-                ))}
-              </ul>
+              <SheetBackdropContext.Provider value={backdrop.backdrop}>
+                <ul
+                  aria-label="Assets"
+                  className="grid gap-4"
+                  style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_MIN[tileSize]}, 1fr))` }}
+                >
+                  {assets.map((asset) => (
+                    <AssetTile
+                      key={asset.id}
+                      asset={asset}
+                      fileName={tileFileName(asset)}
+                      selected={selectedIds.has(asset.id)}
+                      upscaled={upscaledIds.has(asset.id)}
+                      scale={job.upscaleScale ?? upscaleScale}
+                      dims={dims[asset.id]}
+                      onToggle={handleToggle}
+                      onMeasure={handleMeasure}
+                    />
+                  ))}
+                </ul>
+              </SheetBackdropContext.Provider>
             </>
           )}
         </main>
@@ -759,7 +786,13 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
             </div>
           </div>
 
-          <div className="sticky bottom-0 flex flex-none flex-col gap-2 border-t-[1.5px] border-line bg-surface px-3.5 py-3">
+          <div
+            ref={downloadAreaRef}
+            role="group"
+            aria-label="Download"
+            tabIndex={-1}
+            className="sticky bottom-0 flex flex-none flex-col gap-2 border-t-[1.5px] border-line bg-surface px-3.5 py-3 focus-visible:[outline-offset:-3px]"
+          >
             <p role="status" className="sr-only">
               {announcement}
             </p>

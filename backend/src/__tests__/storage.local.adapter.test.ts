@@ -347,3 +347,157 @@ test('applyEnhance is not supported, with an error the AI enhance flow can recog
     return true;
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * Optional: also remove enclosed background (removeEnclosed)
+ * ------------------------------------------------------------------ */
+
+const alphaOf = (img: { data: Buffer; width: number }, x: number, y: number) => img.data[(y * img.width + x) * 4 + 3] as number;
+
+async function svgSheet(body: string, size = 120, blur = 0): Promise<Buffer> {
+  const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">${body}</svg>`);
+  const rendered = sharp(svg);
+  return (blur > 0 ? rendered.blur(blur) : rendered).png().toBuffer();
+}
+
+/** A letter "O": a thick black ring, 60 px across, centred on a flat sheet. Its inside cannot be reached from the border. */
+const RING = (bg: string) =>
+  `<rect width="120" height="120" fill="${bg}"/><circle cx="60" cy="60" r="38" fill="none" stroke="#111" stroke-width="14"/>`;
+
+async function keyed(sheet: Buffer, removeEnclosed?: boolean) {
+  const result = await keyOutFlatBackground(sheet, removeEnclosed === undefined ? undefined : { removeEnclosed });
+  assert.equal(result.kind, 'keyed');
+  if (result.kind !== 'keyed') throw new Error('not keyed');
+  return pixels(result.png);
+}
+
+test('enclosed background: switch off keeps the hole of a letter O opaque, switch on makes it transparent', async () => {
+  const sheet = await svgSheet(RING('#ffffff'));
+  for (const off of [await keyed(sheet), await keyed(sheet, false)]) {
+    assert.equal(alphaOf(off, 2, 2), 0, 'outside is background');
+    assert.equal(alphaOf(off, 60, 60), 255, 'the hole stays opaque with the switch off (the default)');
+    assert.equal(alphaOf(off, 60, 60 - 38), 255, 'the ring stays');
+  }
+  const on = await keyed(sheet, true);
+  assert.equal(alphaOf(on, 2, 2), 0, 'outside is background');
+  assert.equal(alphaOf(on, 60, 60), 0, 'the hole is transparent with the switch on');
+  assert.equal(alphaOf(on, 60 + 20, 60), 0, 'the whole inside is transparent');
+  assert.equal(alphaOf(on, 60, 60 - 38), 255, 'the ring stays opaque');
+  assert.equal(alphaOf(on, 60 - 38, 60), 255, 'the ring stays opaque on the other side');
+});
+
+test('enclosed background: with the switch on the new edges fade like the outer ones, no halo in the hole', async () => {
+  const sheet = await svgSheet(RING('#ffffff'), 120, 0.9);
+  const off = await keyed(sheet, false);
+  const on = await keyed(sheet, true);
+  // Pixels along a line across the inner edge of the ring (it starts 31 px from the centre): alpha ramps up instead of jumping from 0 to 255.
+  const ramp = Array.from({ length: 16 }, (_, i) => alphaOf(on, 60 + 24 + i, 60)).filter((a) => a > 0 && a < 255);
+  assert.ok(ramp.length > 0, 'the inner edge has partly transparent pixels');
+  assert.equal(alphaOf(on, 60, 60), 0);
+  // Nothing visible is left looking white inside the hole: every kept pixel there is dark ring colour or faded.
+  let whiteKept = 0;
+  for (let y = 40; y < 80; y++) {
+    for (let x = 40; x < 80; x++) {
+      const o = (y * on.width + x) * 4;
+      if (Math.hypot(x - 60, y - 60) < 20 && (on.data[o + 3] as number) > 200 && (on.data[o] as number) > 200) whiteKept++;
+    }
+  }
+  assert.equal(whiteKept, 0);
+  // The outer edge is the same as without the switch: only the hole changed.
+  for (const [x, y] of [[2, 2], [60, 10], [60 + 38 + 8, 60], [100, 100]] as const) assert.equal(alphaOf(on, x, y), alphaOf(off, x, y));
+});
+
+test('enclosed background: works for a key hole and for any flat colour', async () => {
+  const key =
+    '<rect width="120" height="120" fill="#e8e0c8"/><rect x="20" y="30" width="80" height="60" fill="#222"/><circle cx="60" cy="60" r="12" fill="#e8e0c8"/>';
+  const sheet = await svgSheet(key);
+  assert.equal(alphaOf(await keyed(sheet, false), 60, 60), 255);
+  const on = await keyed(sheet, true);
+  assert.equal(alphaOf(on, 60, 60), 0);
+  assert.equal(alphaOf(on, 30, 40), 255, 'the key body stays');
+});
+
+test('enclosed background: a pocket of another colour is art and stays, even with the switch on', async () => {
+  // A ring around a light blue pocket, far from the white background colour.
+  const body =
+    '<rect width="120" height="120" fill="#ffffff"/><circle cx="60" cy="60" r="38" fill="#9ec5f0" stroke="#111" stroke-width="14"/>';
+  const on = await keyed(await svgSheet(body), true);
+  assert.equal(alphaOf(on, 2, 2), 0);
+  assert.equal(alphaOf(on, 60, 60), 255, 'light blue is not the background colour');
+});
+
+test('enclosed background: a smooth gradient in the art is not eaten', async () => {
+  // A sphere shaded from a white highlight to navy, on white. Its centre is within tolerance of white,
+  // but it fades into the rest of the sphere with no edge, so it is not a pocket.
+  const body =
+    '<defs><radialGradient id="g" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#14286e"/></radialGradient></defs>' +
+    '<rect width="160" height="160" fill="#ffffff"/><circle cx="80" cy="80" r="64" fill="url(#g)"/>';
+  const sheet = await svgSheet(body, 160);
+  const off = await keyed(sheet, false);
+  const on = await keyed(sheet, true);
+  assert.equal(alphaOf(on, 80, 80), 255, 'the highlight at the centre is kept');
+  assert.equal(alphaOf(on, 2, 2), 0);
+  // Every pixel of the sphere is exactly as opaque as with the switch off.
+  let changed = 0;
+  for (let y = 0; y < 160; y++) {
+    for (let x = 0; x < 160; x++) if (alphaOf(on, x, y) !== alphaOf(off, x, y)) changed++;
+  }
+  assert.equal(changed, 0, 'the switch changes nothing on art without an enclosed pocket');
+});
+
+test('enclosed background: a gradient background still fails the flat check, with the switch on or off', async () => {
+  // Top white to bottom mid grey: the border is nowhere near one colour.
+  const body =
+    '<defs><linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#707070"/></linearGradient></defs>' +
+    '<rect width="120" height="120" fill="url(#b)"/><circle cx="60" cy="60" r="38" fill="none" stroke="#111" stroke-width="14"/>';
+  const sheet = await svgSheet(body);
+  for (const removeEnclosed of [false, true]) {
+    await assert.rejects(keyOutFlatBackground(sheet, { removeEnclosed }), (error: unknown) => {
+      assert.ok(error instanceof LocalTransformError);
+      assert.equal(error.code, 'BACKGROUND_NOT_FLAT');
+      return true;
+    });
+  }
+});
+
+test('enclosed background: a slightly uneven flat background still keys, and only pockets within tolerance of it go', async () => {
+  const noisy = await noisySheet([250, 250, 250], 4, '<circle cx="48" cy="48" r="30" fill="none" stroke="#111" stroke-width="10"/>');
+  assert.equal(alphaOf(await keyed(noisy, false), 48, 48), 255);
+  const on = await keyed(noisy, true);
+  assert.equal(alphaOf(on, 48, 48), 0, 'the pocket is the background colour within the same tolerance');
+  assert.equal(alphaOf(on, 48, 48 - 30), 255);
+});
+
+test('enclosed background: a pinhole of the background colour a pixel or two wide is left alone', async () => {
+  const body =
+    '<rect width="64" height="64" fill="#fff"/><rect x="10" y="10" width="40" height="28" fill="#c00"/><rect x="28" y="22" width="1" height="2" fill="#fff"/>';
+  const on = await keyed(await svgSheet(body, 64), true);
+  assert.equal(alphaOf(on, 28, 22), 255, 'pinholes under the minimum size are art');
+});
+
+test('enclosed background: on a chroma-key sheet the switch changes nothing, pockets already go', async () => {
+  const sheet = await svgSheet(
+    '<rect width="120" height="120" fill="#ff00ff"/><circle cx="60" cy="60" r="38" fill="none" stroke="#111" stroke-width="14"/>',
+  );
+  const off = await keyed(sheet, false);
+  const on = await keyed(sheet, true);
+  assert.equal(alphaOf(off, 60, 60), 0);
+  assert.deepEqual(on.data, off.data);
+});
+
+test('applyBackgroundRemoval honours removeEnclosed and caches each result under its own file', async () => {
+  const stored = await adapter.upload(await svgSheet(RING('#ffffff')), { folder: 'originals', publicId: 'job-ring' });
+  const read = async (url: string) => pixels(await fs.readFile(path.join(dir, decodeURIComponent(url.slice(`${BASE}/storage/`.length)))));
+
+  const plain = await adapter.applyBackgroundRemoval(stored.publicId);
+  const same = await adapter.applyBackgroundRemoval(stored.publicId, { removeEnclosed: false });
+  assert.equal(same, plain, 'false is the same as no option');
+  const enclosed = await adapter.applyBackgroundRemoval(stored.publicId, { removeEnclosed: true });
+  assert.notEqual(enclosed, plain);
+  assert.match(enclosed, /nobg-enclosed\.png$/);
+  assert.equal(alphaOf(await read(plain), 60, 60), 255);
+  assert.equal(alphaOf(await read(enclosed), 60, 60), 0);
+  // Asking again for either gives the cached file.
+  assert.equal(await adapter.applyBackgroundRemoval(stored.publicId, { removeEnclosed: true }), enclosed);
+  assert.equal(await adapter.applyBackgroundRemoval(stored.publicId), plain);
+});

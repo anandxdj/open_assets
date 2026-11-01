@@ -1,11 +1,18 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { LoaderCircle, Trash2 } from "lucide-react";
-import type { BoundingBox } from "@/types";
+import { Check, Info, LoaderCircle, Trash2, TriangleAlert } from "lucide-react";
+import type { BackgroundRemovalMode, BoundingBox, SheetBackground } from "@/types";
+import {
+  aiUnavailableReason,
+  describeBackground,
+  keyerMayRun,
+  type BackgroundCapabilities,
+  type StatusTone,
+} from "../lib/backgroundRemoval";
 import type { DetectionMode } from "@/features/upload/services/uploadApi";
 import { Button } from "@/components/ui/button";
-import { Range } from "@/components/ui/controls";
+import { Checkbox, Range } from "@/components/ui/controls";
 import { ProGate } from "@/features/plans/ProGate";
 import { DETECTION_LIMITS } from "@/lib/plans";
 import { Input } from "@/components/ui/input";
@@ -34,6 +41,19 @@ export interface DetectionControls {
   };
 }
 
+/** The background removal that "Name and export" runs, for the whole sheet. */
+export interface RemovalControls {
+  /** What the server can do. null until the plan has loaded. */
+  caps: BackgroundCapabilities | null;
+  /** The job's classification of the sheet's background. Undefined on jobs detected before it existed. */
+  background?: SheetBackground;
+  mode: BackgroundRemovalMode;
+  onModeChange: (mode: BackgroundRemovalMode) => void;
+  enclosed: boolean;
+  onEnclosedChange: (next: boolean) => void;
+  disabled?: boolean;
+}
+
 interface Props {
   loading: boolean;
   fileName: string;
@@ -48,6 +68,7 @@ interface Props {
   onDeleteBox: (id: string) => void;
   onDeleteSelected: () => void;
   detection: DetectionControls;
+  removal: RemovalControls;
   className?: string;
 }
 
@@ -235,7 +256,7 @@ function BoxProperties({
           <BoundInput axis="W" label="Width" value={box.width} min={1} onBeginEdit={onBeginEdit} onCommit={(width) => onEdit(box.id, { width })} />
           <BoundInput axis="H" label="Height" value={box.height} min={1} onBeginEdit={onBeginEdit} onCommit={(height) => onEdit(box.id, { height })} />
         </div>
-        <p className="text-[11px] leading-4 text-ink-3">Arrow keys nudge 1 px, Shift 10 px.</p>
+        <p className="text-[11px] leading-4 text-ink-3">Arrow keys nudge 1 px, Shift 10 px. Alt+Arrow resizes.</p>
       </div>
       <div className="oa-panel-sec border-b-0">
         <Button variant="danger" size="sm" className="self-start" onClick={() => onDeleteBox(box.id)}>
@@ -261,6 +282,7 @@ export function PropertiesPanel({
   onDeleteBox,
   onDeleteSelected,
   detection,
+  removal,
   className,
 }: Props) {
   const selected = boxes.filter((b) => selectedIds.has(b.id));
@@ -292,7 +314,7 @@ export function PropertiesPanel({
               <p className="text-xs">
                 <span className="tabular-nums">{selected.length}</span> boxes selected
               </p>
-              <p className="text-[11px] leading-4 text-ink-3">Arrow keys nudge them together: 1 px, Shift 10 px.</p>
+              <p className="text-[11px] leading-4 text-ink-3">Arrow keys nudge them together: 1 px, Shift 10 px. Alt+Arrow resizes them. Shift+drag adds another area.</p>
             </div>
             <div className="oa-panel-sec border-b-0">
               <Button variant="danger" size="sm" className="self-start" onClick={onDeleteSelected}>
@@ -338,7 +360,8 @@ export function PropertiesPanel({
                 variant="secondary"
                 size="sm"
                 className="self-start"
-                disabled={detection.redetecting}
+                aria-disabled={detection.redetecting || undefined}
+                aria-busy={detection.redetecting || undefined}
                 onClick={detection.onRedetect}
               >
                 {detection.redetecting && <LoaderCircle aria-hidden className="animate-spin" />}
@@ -346,11 +369,105 @@ export function PropertiesPanel({
               </Button>
             </div>
             <div className="oa-panel-sec border-b-0">
-              <p className="text-[11px] leading-4 text-ink-2">Select a box to edit its label and bounds. Ctrl+A selects all.</p>
+              <p className="text-[11px] leading-4 text-ink-2">Select a box to edit its label and bounds. Drag on empty space to select an area; Shift+drag adds an area, even over boxes. M turns every drag into an area. Ctrl+A selects all, N adds a box.</p>
             </div>
           </>
         )}
       </div>
+      {!loading && <RemovalOptions removal={removal} />}
     </aside>
+  );
+}
+
+const STATUS_ICON: Record<StatusTone, { Icon: typeof Check; className: string }> = {
+  ok: { Icon: Check, className: "text-success" },
+  note: { Icon: Info, className: "text-info" },
+  warn: { Icon: TriangleAlert, className: "text-warning" },
+};
+
+/**
+ * Docked under the scrolling list so it stays in view whatever is selected. It is about the whole sheet, so
+ * it is the same for every provider: what will happen to the background, and how to change it.
+ */
+function RemovalOptions({ removal }: { removal: RemovalControls }) {
+  const id = useId();
+  const { caps, background, mode } = removal;
+  const status = describeBackground(background, mode, caps);
+  const { Icon, className: iconClass } = STATUS_ICON[status.tone];
+  const aiReason = aiUnavailableReason(caps);
+  const showEnclosed = keyerMayRun(background, mode, caps);
+  const hintId = `${id}-enclosed-hint`;
+
+  const options: { value: BackgroundRemovalMode; label: string; tag?: string; disabledReason?: string | null }[] = [
+    { value: "auto", label: "Auto", tag: "Recommended" },
+    { value: "flat", label: "Flat colour", tag: "Free" },
+    { value: "ai", label: "AI removal", disabledReason: aiReason },
+    { value: "none", label: "Keep background" },
+  ];
+
+  return (
+    <div className="oa-panel-sec max-h-[55%] flex-none overflow-y-auto border-b-0 border-t-[1.5px] border-line">
+      <h3 className="oa-panel-title">Background removal</h3>
+      <p id={`${id}-status`} role="status" className="flex items-start gap-2 text-xs leading-[18px]">
+        <Icon aria-hidden className={cn("mt-0.5 size-3.5 flex-none", iconClass)} />
+        <span>{status.text}</span>
+      </p>
+      <fieldset className="flex min-w-0 flex-col gap-1" disabled={removal.disabled} aria-describedby={`${id}-status`}>
+        <legend className="sr-only">How to remove the background</legend>
+        {options.map((option) => {
+          const unavailable = Boolean(option.disabledReason);
+          const reasonId = `${id}-${option.value}-reason`;
+          return (
+            <label
+              key={option.value}
+              className={cn(
+                "flex items-start gap-2.5 border-[1.5px] border-line px-2 py-1.5 text-xs leading-[18px]",
+                "has-[:checked]:border-brand has-[:checked]:bg-brand-soft",
+                unavailable || removal.disabled ? "cursor-not-allowed text-ink-3" : "cursor-pointer",
+              )}
+            >
+              <input
+                type="radio"
+                name={`${id}-mode`}
+                value={option.value}
+                checked={mode === option.value}
+                disabled={unavailable}
+                aria-describedby={unavailable ? reasonId : undefined}
+                onChange={() => removal.onModeChange(option.value)}
+                className="oa-checkbox mt-px"
+              />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold">{option.label}</span>
+                  {option.tag && <span className="oa-value text-[10.5px] uppercase tracking-[0.05em] text-ink-2">{option.tag}</span>}
+                </span>
+                {unavailable && (
+                  <span id={reasonId} className="text-[11px] leading-4">
+                    {option.disabledReason}
+                  </span>
+                )}
+              </span>
+            </label>
+          );
+        })}
+      </fieldset>
+      {showEnclosed && (
+        <>
+          <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[18px]">
+            <Checkbox
+              checked={removal.enclosed}
+              disabled={removal.disabled}
+              aria-describedby={hintId}
+              onChange={(event) => removal.onEnclosedChange(event.target.checked)}
+              className="mt-px"
+            />
+            <span>Also remove enclosed background</span>
+          </label>
+          <p id={hintId} className="text-[11px] leading-4 text-ink-3">
+            For letters, rings and key holes. Art in the background colour goes too.
+          </p>
+        </>
+      )}
+    </div>
   );
 }

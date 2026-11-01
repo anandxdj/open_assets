@@ -20,6 +20,12 @@ class DetectedBox(BaseModel):
     name: str           # e.g. "asset_001"
 
 
+class BackgroundInfo(BaseModel):
+    """What the sheet's background is, so the crop step can pick free keying or paid AI removal."""
+    kind: Literal["transparent", "flat", "chroma", "complex"]
+    color: Optional[str] = None   # "#rrggbb" for flat and chroma
+
+
 class DetectResponse(BaseModel):
     boxes: list[DetectedBox]
     image_width: int
@@ -27,6 +33,7 @@ class DetectResponse(BaseModel):
     detection_mode: str = "auto"
     detection_confidence: float = 0.0
     detection_warning: Optional[str] = None
+    background: Optional[BackgroundInfo] = None
 
 
 class TransparencyResponse(BaseModel):
@@ -105,6 +112,7 @@ class DetectUploadResponse(BaseModel):
     detection_mode: str = "auto"
     detection_confidence: float = 0.0
     detection_warning: Optional[str] = None
+    background: Optional[BackgroundInfo] = None
 
 
 class ExcaliburRecipe(BaseModel):

@@ -29,6 +29,8 @@ export interface DetectResult {
   detection_mode: string;
   detection_confidence: number;
   detection_warning?: string | null;
+  /** What the sheet's background is (see lib/background.ts). Absent from an older py_backend. */
+  background?: { kind: 'transparent' | 'flat' | 'chroma' | 'complex'; color?: string | null } | null;
 }
 
 export interface TransparencyResult {

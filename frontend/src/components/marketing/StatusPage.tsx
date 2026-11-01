@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { MarketingFooter } from "./MarketingFooter";
 import { MarketingHeader } from "./MarketingHeader";
-import { WRAP } from "./site";
+import { CARD_GAP, DISPLAY, NARROW } from "./site";
 
 /**
  * Full public page for a dead end (not found, unexpected error): the marketing
@@ -25,14 +25,14 @@ export function StatusPage({
     <div className="flex min-h-screen flex-col bg-page text-ink">
       <MarketingHeader />
       <main className="flex-1">
-        <section aria-labelledby="status-title" className={`${WRAP} flex flex-col gap-10 py-12 md:py-[72px]`}>
+        <section aria-labelledby="status-title" className={`${NARROW} flex flex-col gap-12 py-16 md:gap-14 md:py-24`}>
           <div className="flex flex-col gap-6">
             <span className="oa-eyebrow">{eyebrow}</span>
-            <h1 id="status-title" className="oa-display text-[clamp(36px,6.4vw,88px)] leading-[.95]">
+            <h1 id="status-title" className={DISPLAY}>
               {title}
             </h1>
           </div>
-          <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-6">
+          <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8">
             <div className="flex max-w-[560px] flex-col gap-3">{description}</div>
             <div className="flex flex-wrap gap-3.5 max-sm:w-full max-sm:flex-col">{actions}</div>
           </div>
@@ -53,11 +53,11 @@ export function StatusLinks({
   links: { label: string; hint: string; href: string; external?: boolean }[];
 }) {
   const cell =
-    "flex h-full flex-col gap-1 bg-surface px-[18px] py-3.5 hover:bg-inverse hover:text-inverse-fg focus-visible:outline-offset-[-4px]";
+    "flex h-full flex-col gap-1.5 border border-line-soft bg-surface px-6 py-5 hover:bg-inverse hover:text-inverse-fg focus-visible:outline-offset-[-4px]";
   return (
     <nav aria-label={label} className="flex flex-col gap-3">
       <h2 className="oa-label text-ink-3">{label}</h2>
-      <ul className="grid gap-[1.5px] border-2 border-line-strong bg-line-strong sm:grid-cols-2 lg:grid-cols-4">
+      <ul className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
         {links.map((link) => {
           const content = (
             <>

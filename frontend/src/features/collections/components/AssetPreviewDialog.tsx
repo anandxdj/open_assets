@@ -5,7 +5,8 @@ import { Download, LoaderCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Checker } from "@/components/ui/feedback";
+import { BackdropSurface } from "@/features/backdrop/BackdropSurface";
+import { SafeImage } from "@/components/ui/safe-image";
 import type { CollectionImage } from "@/features/collections/api";
 import { formatBytes } from "@/features/collections/format";
 
@@ -62,10 +63,14 @@ export function AssetPreviewDialog({
           className="w-[min(760px,calc(100%-32px))]"
         >
           <div className="mt-4 grid min-h-0 overflow-y-auto border-t-[1.5px] border-line md:grid-cols-[minmax(0,1fr)_240px]">
-            <Checker className="flex min-h-[220px] items-center justify-center p-6 md:min-h-[320px]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={image.cloudinaryUrl} alt={image.name} className="max-h-[50dvh] max-w-full object-contain" />
-            </Checker>
+            <BackdropSurface independent src={image.cloudinaryUrl} className="flex min-h-[220px] items-center justify-center p-6 md:min-h-[320px]">
+              <SafeImage
+                src={image.cloudinaryUrl}
+                alt={image.name}
+                className="max-h-[50dvh] max-w-full object-contain"
+                fallbackClassName="size-40"
+              />
+            </BackdropSurface>
             <div className="flex flex-col gap-4 border-t-[1.5px] border-line p-5 md:border-l-[1.5px] md:border-t-0">
               <dl className="flex flex-col gap-2">
                 <Meta

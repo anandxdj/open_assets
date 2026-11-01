@@ -8,6 +8,7 @@ import { createDeformer, STRETCH_WARNING } from "@/features/anibuddy/lib/deform"
 import { loadImageElement } from "@/features/anibuddy/lib/raster";
 import { Timeline, keyAtFrame } from "@/features/anibuddy/components/Timeline";
 import { Badge } from "@/components/ui/badge";
+import { DemoModeNotice, PlaceholderLabel } from "@/components/ui/demo-mode";
 import { Button } from "@/components/ui/button";
 import { Range, Switch } from "@/components/ui/controls";
 import { Notice } from "@/components/ui/feedback";
@@ -194,6 +195,7 @@ export function AnimateStep({ prepared, rig, clips, activeClipId, fps, frameCoun
               Animate by hand
             </Button>
           </div>
+          <DemoModeNotice />
           {error && (
             <Notice tone="danger" role="alert">
               {error}
@@ -202,7 +204,12 @@ export function AnimateStep({ prepared, rig, clips, activeClipId, fps, frameCoun
         </PanelSection>
 
         {active && (
-          <PanelSection title="Clip" aside={<Badge>{active.source === "model" ? "Generated" : "Edited"}</Badge>}>
+          <PanelSection title="Clip" aside={
+              <span className="flex items-center gap-1.5">
+                {active.source === "model" && <PlaceholderLabel />}
+                <Badge>{active.source === "model" ? "Generated" : "Edited"}</Badge>
+              </span>
+            }>
             <Prop label="Name" htmlFor={`${id}-name`}>
               {onRename ? (
                 <Input id={`${id}-name`} size="sm" value={active.name} maxLength={80} onChange={(event) => onRename(active.id, event.target.value)} />

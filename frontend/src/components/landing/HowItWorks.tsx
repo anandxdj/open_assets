@@ -1,8 +1,9 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { ArrowRight, Folder } from "lucide-react";
+import { Reveal } from "@/components/marketing/Reveal";
 import { SectionHeader } from "@/components/marketing/SectionHeader";
-import { WRAP } from "@/components/marketing/site";
+import { CARD, CARD_GAP, COPY, SECTION_GAP, SECTION_Y, WRAP } from "@/components/marketing/site";
 import { BoundingBox } from "./ProductShot";
 
 const RENAMES = [
@@ -11,7 +12,7 @@ const RENAMES = [
   ["asset_008", "spell_book"],
 ];
 
-const VISUAL = "flex h-[168px] flex-col justify-center border-b-[1.5px] border-line-strong";
+const VISUAL = "flex h-[168px] flex-col justify-center border-b border-line-soft";
 
 const STEPS: { title: string; body: ReactNode; visual: ReactNode }[] = [
   {
@@ -75,27 +76,27 @@ const STEPS: { title: string; body: ReactNode; visual: ReactNode }[] = [
 
 export function HowItWorks() {
   return (
-    <section id="how" aria-labelledby="how-title" className={`${WRAP} flex scroll-mt-16 flex-col gap-8 py-16 md:py-[88px]`}>
+    <section id="how" aria-labelledby="how-title" className={`${WRAP} flex scroll-mt-16 flex-col ${SECTION_GAP} ${SECTION_Y}`}>
       <SectionHeader
         eyebrow="How it works"
         titleId="how-title"
         title="Packed image in. Named PNGs out."
         aside={<span className="oa-value text-ink-2">4 steps</span>}
       />
-      <ol className="grid gap-[1.5px] border-2 border-line-strong bg-line-strong sm:grid-cols-2 lg:grid-cols-4">
+      <Reveal as="ol" stagger className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
         {STEPS.map((step, i) => (
-          <li key={step.title} className="flex flex-col bg-surface">
+          <li key={step.title} className={`flex flex-col ${CARD}`}>
             <div aria-hidden>{step.visual}</div>
-            <div className="flex flex-col gap-2 p-[18px]">
+            <div className="flex flex-col gap-2.5 p-6">
               <span aria-hidden className="oa-h2 text-brand-text">
                 {String(i + 1).padStart(2, "0")}
               </span>
               <h3 className="oa-section">{step.title}</h3>
-              <p className="text-xs leading-[18px] text-ink-2">{step.body}</p>
+              <p className={`${COPY} text-ink-2`}>{step.body}</p>
             </div>
           </li>
         ))}
-      </ol>
+      </Reveal>
     </section>
   );
 }

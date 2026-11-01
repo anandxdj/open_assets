@@ -1,0 +1,128 @@
+[
+  {
+    "file": "white.png",
+    "kind": "flat",
+    "color": "#ffffff",
+    "note": "plain white"
+  },
+  {
+    "file": "off-white.png",
+    "kind": "flat",
+    "color": "#f5f5f2",
+    "note": "off-white, a generated logo sheet on off-white paper"
+  },
+  {
+    "file": "black.png",
+    "kind": "flat",
+    "color": "#000000",
+    "note": "plain black"
+  },
+  {
+    "file": "grey.png",
+    "kind": "flat",
+    "color": "#808080",
+    "note": "mid grey"
+  },
+  {
+    "file": "cream-flat.png",
+    "kind": "flat",
+    "color": "#f4e4c8",
+    "note": "coloured but muted: spread 44, below the chroma line"
+  },
+  {
+    "file": "spread-59.png",
+    "kind": "flat",
+    "color": "#c88d96",
+    "note": "spread 59: one under the chroma line"
+  },
+  {
+    "file": "spread-60.png",
+    "kind": "chroma",
+    "color": "#c88c96",
+    "note": "spread 60: on the chroma line"
+  },
+  {
+    "file": "chroma-green.png",
+    "kind": "chroma",
+    "color": "#00ff00",
+    "note": "green screen"
+  },
+  {
+    "file": "chroma-magenta.png",
+    "kind": "chroma",
+    "color": "#ff00ff",
+    "note": "magenta screen"
+  },
+  {
+    "file": "chroma-blue.png",
+    "kind": "chroma",
+    "color": "#0047bb",
+    "note": "blue screen"
+  },
+  {
+    "file": "near-white-noisy.png",
+    "kind": "flat",
+    "color": "#f5f5f5",
+    "note": "JPEG-like noise of +-3 on off-white"
+  },
+  {
+    "file": "noisy-12.png",
+    "kind": "flat",
+    "color": "#ebebeb",
+    "note": "noise of +-12, inside the tolerance of 24"
+  },
+  {
+    "file": "uneven-magenta.png",
+    "kind": "complex",
+    "color": null,
+    "note": "magenta that darkens to the corners"
+  },
+  {
+    "file": "gradient-horizontal.png",
+    "kind": "complex",
+    "color": null,
+    "note": "left to right ramp"
+  },
+  {
+    "file": "gradient-vertical.png",
+    "kind": "complex",
+    "color": null,
+    "note": "top to bottom ramp"
+  },
+  {
+    "file": "texture.png",
+    "kind": "complex",
+    "color": null,
+    "note": "noisy texture"
+  },
+  {
+    "file": "stripe-10pc.png",
+    "kind": "flat",
+    "color": "#ffffff",
+    "note": "a tenth of the top and bottom edge is something else (about 6% of the ring): still flat"
+  },
+  {
+    "file": "stripe-30pc.png",
+    "kind": "complex",
+    "color": null,
+    "note": "30% of the top and bottom edge is something else (about 17% of the ring): not flat"
+  },
+  {
+    "file": "tiny-white.png",
+    "kind": "flat",
+    "color": "#ffffff",
+    "note": "30 px sheet: a one-pixel ring"
+  },
+  {
+    "file": "transparent.png",
+    "kind": "transparent",
+    "color": null,
+    "note": "an alpha channel with the background cut out"
+  },
+  {
+    "file": "opaque-rgba.png",
+    "kind": "flat",
+    "color": "#000000",
+    "note": "an RGBA file with alpha 255 everywhere is not transparent: it is a black sheet"
+  }
+]

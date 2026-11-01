@@ -13,6 +13,18 @@ export type JobStatus =
   | "ready"
   | "failed";
 
+/** What a sheet's background is (detection's answer). `color` is set for flat and chroma. */
+export interface SheetBackground {
+  kind: "transparent" | "flat" | "chroma" | "complex";
+  color?: string;
+}
+
+/** How "Name and export" treats the background. */
+export type BackgroundRemovalMode = "auto" | "flat" | "ai" | "none";
+
+/** Which method ran: nothing, our free server keyer, or the provider's paid AI. */
+export type BackgroundMethod = "none" | "server" | "ai";
+
 export interface BoundingBox {
   id: string;
   x: number;
@@ -37,6 +49,14 @@ export interface JobResponse {
   detectionMode?: string;
   detectionConfidence?: number;
   detectionWarning?: string;
+  /** What the sheet's background is, from detection. Absent on jobs detected before this existed. */
+  background?: SheetBackground;
+  /** The mode the crop was asked to use, once it has started. */
+  backgroundRemoval?: BackgroundRemovalMode;
+  /** Which method removed the background: nothing, our free server keyer, or the provider's paid AI. */
+  backgroundMethod?: BackgroundMethod;
+  /** Why the background was kept, when it was. */
+  backgroundReason?: string;
   boxes: BoundingBox[];
   assets?: Asset[];
   downloadUrl?: string;

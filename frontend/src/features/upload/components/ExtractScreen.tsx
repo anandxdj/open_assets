@@ -13,6 +13,7 @@ import { useJobList } from "@/features/jobs/useJobList";
 import { DropZone, PHASE_TEXT } from "@/features/upload/components/DropZone";
 import { UsageMeter, useSheetLimitReached } from "@/features/upload/components/UsageMeter";
 import { useFileUpload } from "@/features/upload/hooks/useFileUpload";
+import { isBusy } from "@/features/upload/lib/uploadController";
 import { createSampleFile, SAMPLES, type Sample, type SampleId } from "@/features/upload/samples";
 
 const SAMPLE_ICON: Record<SampleId, LucideIcon> = {
@@ -68,11 +69,11 @@ function RecentExtractions() {
 }
 
 export function ExtractScreen() {
-  const { upload, cancel, status, progress, error, errorCode, file } = useFileUpload();
+  const { upload, cancel, status, progress, error, errorCode, file, cancelled } = useFileUpload();
   const { plan, refresh: refreshPlan } = usePlan();
   const limitReached = useSheetLimitReached();
   const [localError, setLocalError] = useState<{ title: string; message: string } | null>(null);
-  const busy = status === "uploading" || status === "processing" || status === "success";
+  const busy = isBusy(status);
   // The server refusing an upload for the monthly limit is explained by the usage
   // notice, so it is not shown a second time as a generic failure (and does not
   // linger once the plan changes). Without a plan to explain it, the error stays.
@@ -93,22 +94,22 @@ export function ExtractScreen() {
     void upload(next);
   }
 
-  async function handleSample(sample: Sample) {
+  // Drawing the sample is the client side step before any byte is sent: it shows as
+  // "Preparing" with a Cancel, and a cancel there means nothing is ever uploaded.
+  function handleSample(sample: Sample) {
     if (busy || limitReached) return;
     setLocalError(null);
-    try {
-      const sampleFile = await createSampleFile(sample);
-      await upload(sampleFile);
-    } catch (err) {
-      setLocalError({
-        title: "Upload failed.",
-        message: err instanceof Error ? err.message : "Could not create the sample image.",
-      });
-    }
+    void upload(() => createSampleFile(sample), { name: sample.fileName });
   }
 
-  const liveText =
-    busy && file ? (status === "success" ? PHASE_TEXT.success.hint : `${PHASE_TEXT[status].verb} ${file.name}`) : "";
+  // A cancel is not a failure: no error, no toast. It is said once in the live region.
+  const liveText = busy && file
+    ? status === "success"
+      ? PHASE_TEXT.success.hint
+      : `${PHASE_TEXT[status].verb} ${file.name}`
+    : cancelled
+      ? "Upload cancelled. Nothing was uploaded. Choose a file to start again."
+      : "";
 
   return (
     <>
