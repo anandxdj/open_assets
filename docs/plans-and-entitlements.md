@@ -84,10 +84,11 @@ true when `STORAGE_PROVIDER` is `cloudinary` or `imagekit` (the export's upscale
 upscaler), false on `local`, where it is a plain Lanczos resize. The export screen words its switch from it
 ("Upscale 2× with AI" only when true) and shows plain "Upscale 2×" while the plan is loading.
 
-`capabilities.enclosedBackground` is the mirror image: true only on `local`, where the crop's background
-removal is the app's own keying and can also clear pockets of the background colour that the sheet border
-cannot reach (`removeEnclosedBackground` on the crop request). On Cloudinary and ImageKit it is false, the
-provider's AI cut-out has no such option, the editor hides the switch and the API ignores the field.
+`capabilities.backgroundRemoval` says how the crop can remove a sheet's background: `server` is always true
+(the app's own flat and chroma-key keyer, free, on every provider) and `ai` is true on Cloudinary and ImageKit
+only (their paid AI removal; `aiProvider` names whose, for the editor's cost note). The editor's Background
+removal section words itself from it. `capabilities.enclosedBackground` is kept for older clients and is now
+always true: the keyer's `removeEnclosedBackground` option applies on every provider.
 
 Upscale factors: the storage providers' AI upscale is a fixed 4x. The extract export (`finalize`)
 resizes to exactly `scale` times the cropped width (2x is the 4x result scaled down), and AI enhance

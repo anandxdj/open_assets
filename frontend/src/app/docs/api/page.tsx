@@ -304,6 +304,8 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
     "createdAt": "2026-10-30T09:14:02.511Z",
     "image": { "url": "https://…", "width": 2048, "height": 2048 },
     "detection": { "mode": "dark-background", "confidence": 0.93, "warning": null },
+    "background": { "kind": "flat", "color": "#f7f6f2" },
+    "backgroundRemoval": { "mode": "auto", "method": "server", "reason": null },
     "boxes": [
       { "id": "box_1", "x": 32, "y": 40, "width": 180, "height": 210, "label": "asset_001" }
     ],
@@ -325,6 +327,23 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
               columns={["Field", "Meaning"]}
               rows={[
                 [<Ic key="a">boxes</Ic>, <>What detection found, in pixels. <Ic>label</Ic> is its placeholder name.</>],
+                [
+                  <Ic key="bg">background</Ic>,
+                  <>
+                    What the sheet&apos;s background is: <Ic>kind</Ic> is <Ic>transparent</Ic>, <Ic>flat</Ic> (white, black,
+                    a plain colour), <Ic>chroma</Ic> (magenta, green) or <Ic>complex</Ic> (gradient, texture), and{" "}
+                    <Ic>color</Ic> is the <Ic>#rrggbb</Ic> value for flat and chroma. <Ic>null</Ic> for sheets detected
+                    before this existed.
+                  </>,
+                ],
+                [
+                  <Ic key="br">backgroundRemoval</Ic>,
+                  <>
+                    <Ic>null</Ic> until the crop has run. Then <Ic>mode</Ic> (what was asked), <Ic>method</Ic>{" "}
+                    (<Ic>server</Ic>: removed on our server, free; <Ic>ai</Ic>: the provider&apos;s paid AI;{" "}
+                    <Ic>none</Ic>: kept) and <Ic>reason</Ic> when the background was kept.
+                  </>,
+                ],
                 [<Ic key="b">assets</Ic>, <>Empty until the crop finishes. <Ic>id</Ic> is the id of the box it was cut from; <Ic>name</Ic> is the file name used in the ZIP.</>],
                 [<Ic key="c">assets[].upscaledUrl</Ic>, "Set per asset once the export has upscaled it."],
                 [<Ic key="g">assets[].fileName</Ic>, <>The file name (with <Ic>.png</Ic>) the export gave the asset. <Ic>null</Ic> until the export has started.</>],
@@ -359,9 +378,25 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
                   <Ic key="e">removeEnclosedBackground</Ic>,
                   <>
                     Optional boolean, default <Ic>false</Ic>. <Ic>true</Ic> also removes background inside an asset,
-                    such as the hole of a ring or a letter. Only the server&apos;s local storage acts on it, and it
-                    removes every pocket that matches the background colour. Other values answer{" "}
+                    such as the hole of a ring or a letter. It applies whenever the server removes the background
+                    itself (see <Ic>backgroundRemoval</Ic>), on any storage provider, and it removes every pocket
+                    that matches the background colour. The AI cut-out ignores it. Other values answer{" "}
                     <Ic>400 VALIDATION_ERROR</Ic>.
+                  </>,
+                ],
+                [
+                  <Ic key="r">backgroundRemoval</Ic>,
+                  <>
+                    Optional, default <Ic>&quot;auto&quot;</Ic>. <Ic>&quot;auto&quot;</Ic> removes a flat or
+                    chroma-key background on the server for free and uses the provider&apos;s paid AI only for a gradient
+                    or texture. <Ic>&quot;flat&quot;</Ic> removes a flat background on the server and keeps the
+                    background of any other sheet. <Ic>&quot;ai&quot;</Ic> always uses the provider&apos;s AI (not
+                    available on local storage, where the background is kept). <Ic>&quot;none&quot;</Ic> keeps the
+                    background. A transparent sheet needs nothing in any mode. Any other value answers{" "}
+                    <Ic>400 VALIDATION_ERROR</Ic>. The job reports <Ic>background</Ic> (<Ic>kind</Ic>{" "}
+                    <Ic>transparent</Ic>, <Ic>flat</Ic>, <Ic>chroma</Ic> or <Ic>complex</Ic>, and <Ic>color</Ic>) after
+                    detection, and <Ic>backgroundRemoval.method</Ic> (<Ic>server</Ic>, <Ic>ai</Ic> or <Ic>none</Ic>) with a{" "}
+                    <Ic>reason</Ic> when the background was kept, after the crop.
                   </>,
                 ],
               ]}

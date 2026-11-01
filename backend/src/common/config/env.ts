@@ -221,13 +221,13 @@ export function checkEnv(env: Env = process.env): EnvReport {
         }
         warnings.push(
           'STORAGE_PROVIDER=local in production: files live on this server only (run one API instance and back up LOCAL_STORAGE_DIR), ' +
-            'and AI upscale and background removal are replaced by a plain resize and flat-colour keying',
+            'and AI upscale and background removal are replaced by a plain resize and flat-colour keying (a gradient or texture sheet keeps its background)',
         );
       }
     } else {
       warnings.push(
         `STORAGE_PROVIDER=local: files are stored in ${dir} and served from ${baseUrl}/storage. ` +
-          'Upscale is a plain resize, background removal only handles flat-colour sheets, and AI enhance is not available',
+          'Upscale is a plain resize, flat and chroma-key sheets are keyed for free but a gradient or texture sheet keeps its background, and AI enhance is not available',
       );
     }
   } else {

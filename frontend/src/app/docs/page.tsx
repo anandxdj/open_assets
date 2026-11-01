@@ -32,10 +32,14 @@ export default function DocsOverviewPage() {
               before the assets are cut.
             </p>
             <p>
-              With local storage, removal clears the flat background that touches the edge of the sheet. Background inside an asset, such as the hole of a ring or the inside of
-              a letter, stays unless you turn on <strong>Also remove enclosed background</strong> in the editor.
-              It removes every pocket that matches the background colour, so leave it off if your art has that colour
-              on purpose. Cloudinary and ImageKit cut the subject out with AI and have no such option.
+              OpenAssets checks the background when it detects the assets. A plain colour (white, black, a solid
+              colour) or a chroma-key green or magenta is removed on our server, which costs nothing. Only a
+              gradient or textured background goes to AI removal, where the server has it. The editor&apos;s{" "}
+              <strong>Background removal</strong> section says which will happen and lets you choose Auto, Flat colour,
+              AI removal or Keep background. Background inside an asset, such as the hole of a ring or the inside of
+              a letter, stays unless you turn on <strong>Also remove enclosed background</strong>. It removes every
+              pocket that matches the background colour, so leave it off if your art has that colour on purpose.
+              A server without AI removal keeps the background of a gradient or textured sheet.
             </p>
             <p>
               Around extraction sit three more tools. <strong>Enhance</strong> cleans up and upscales an image,{" "}

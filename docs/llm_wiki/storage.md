@@ -3,7 +3,19 @@
 > The notes below describe the Cloudinary provider. `STORAGE_PROVIDER` can also be `imagekit`, or
 > `local` (files under `LOCAL_STORAGE_DIR`, served by the API at `/storage/<key>`; for development
 > and self-hosting without cloud keys). See "Local storage" in the root README for what the local
-> provider can and cannot do (flat-background keying, with an opt-in `removeEnclosedBackground` for pockets the border cannot reach, resize instead of AI upscale, no AI enhance).
+> provider can and cannot do (resize instead of AI upscale, no AI enhance, no AI background removal).
+>
+> **Background removal runs on every provider.** Detection (py_backend `classify_background`) stores
+> `background: { kind: transparent | flat | chroma | complex, color? }` on the job. The crop worker
+> (`backend/src/modules/workers/cropBackground.ts`) takes `backgroundRemoval: auto | flat | ai | none`
+> (absent = auto): flat and chroma sheets are keyed by `keyOutFlatBackground` on our server for free
+> (it downloads the stored sheet, keys it, uploads the PNG through the adapter, `originals/<jobId>_nobg`,
+> and crops from that), and `adapter.applyBackgroundRemoval` (Cloudinary `e_background_removal`,
+> ImageKit `e-bgremove`, paid) is only called for a complex sheet in `auto`, or for `ai`. Local storage has
+> no AI: it keeps the background and the job records `backgroundReason`. The job records
+> `backgroundMethod` (`none | server | ai`). `removeEnclosedBackground` applies whenever the keyer runs.
+> The flat/chroma rule lives in `py_backend/app/services/detection.py` and `backend/src/lib/background.ts`,
+> pinned by `backend/src/__tests__/fixtures/background-cases`.
 > With `local`, py_backend's `/crop` is called with `inline: true` and returns the PNGs, which the
 > backend stores under `crops/<jobId>/` (`backend/src/lib/cropStore.ts`).
 
