@@ -49,8 +49,9 @@ Small copy on marketing pages is 13/21.
   plan card) keep the 1.5px ink line, so control boundaries stay at 3:1 or more
   (WCAG 1.4.11). Inverted bands (Tools, startup programme, careers contact) are a
   fixed dark band (`--oa-band`, `--oa-band-fg`) in both themes; hard shadows inside
-  a band are paper-coloured. The hero has a masked dot grid and no glow. The app
-  keeps 1.5px ink lines everywhere.
+  a band are paper-coloured. The hero has a dot grid and one soft accent glow behind the copy (the only glow on the site, static). Its
+  headline box (ink inversion, hard accent shadow) is the one tilted object, -1deg, flat on hover over
+  `--oa-dur-3`. The app keeps 1.5px ink lines everywhere.
 - Docked surfaces are flat. Only floating things cast a hard offset shadow:
   3px (tool bar, primary button), 6px (menus, toasts), 8px (dialogs).
 - Primary buttons press into their shadow on click.
