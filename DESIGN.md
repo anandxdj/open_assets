@@ -220,9 +220,10 @@ What animates:
   and under reduced motion it shows a static final frame. Its easing uses
   `--oa-ease-out`.
 
-No decorative motion anywhere else. What never animates: `width`, `height` and
+No decorative motion anywhere else (the marketing scroll-in reveal above is the
+one exception to "scrolling"). What never animates: `width`, `height` and
 `all` in new rules (the progress fill's `width` and Sonner's stacking are the
-two older exceptions), page loads, route changes, scrolling, infinite loops
+two older exceptions), page loads, route changes, the app while scrolling, infinite loops
 other than status spinners, glows, cursor effects, anything on the editor
 canvas, and anything that carries meaning without also being visible when it
 stops.
