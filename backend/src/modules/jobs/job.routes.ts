@@ -5,6 +5,7 @@ import type { AuthRequest } from '../auth/auth.middleware';
 import { clearUserJobs, getJob, listUserJobs, parseBoxes, parseAssets, removeUserJob, updateJob } from './job.store';
 import { parseListQuery } from './job.list';
 import { detectAssets, type DetectionOptions } from '../../lib/py.client';
+import { parseBackground, serializeBackground } from '../../lib/background';
 import { ApiError } from '../../common/utils/ApiError';
 import { ApiResponse } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
@@ -67,6 +68,10 @@ router.get('/jobs/:jobId', authenticate(), asyncHandler(async (req: AuthRequest,
     detectionMode: job.detectionMode || undefined,
     detectionConfidence: job.detectionConfidence ? Number(job.detectionConfidence) : undefined,
     detectionWarning: job.detectionWarning || undefined,
+    background: parseBackground(job.background),
+    backgroundRemoval: job.backgroundRemoval || undefined,
+    backgroundMethod: job.backgroundMethod || undefined,
+    backgroundReason: job.backgroundReason || undefined,
     boxes: parseBoxes(job.boxes),
     assets: parseAssets(job.assets),
     downloadUrl: job.downloadUrl || undefined,
@@ -125,6 +130,7 @@ router.post('/jobs/:jobId/redetect', authenticate(), asyncHandler(async (req: Au
     detectionMode: result.detection_mode,
     detectionConfidence: String(result.detection_confidence),
     detectionWarning: result.detection_warning ?? '',
+    background: serializeBackground(result.background),
   });
 
   ApiResponse.ok(res, 'Assets re-detected', {
@@ -132,6 +138,7 @@ router.post('/jobs/:jobId/redetect', authenticate(), asyncHandler(async (req: Au
     detectionMode: result.detection_mode,
     detectionConfidence: result.detection_confidence,
     detectionWarning: result.detection_warning ?? undefined,
+    background: parseBackground(serializeBackground(result.background)),
   });
 }));
 

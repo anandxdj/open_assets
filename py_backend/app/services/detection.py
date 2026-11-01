@@ -64,19 +64,33 @@ def _clean_mask(mask: np.ndarray) -> np.ndarray:
 
 DEFAULT_THRESHOLD = 50
 
-# A sheet's background counts as flat when this share of its outer border is within
-# FLAT_BORDER_TOLERANCE (per channel) of the border's median colour. Gradients, photos
-# and textures fail it, and detection on them is a guess.
+# --- Background classification --------------------------------------------------------------
+#
+# ONE rule, shared with the Node backend's flat-colour keyer (backend/src/lib/background.ts). The
+# two implementations are held together by backend/src/__tests__/fixtures/background-cases/ (PNG
+# sheets with the expected answer), which both test suites read. Change one, change the other.
+#
+#   ring    the outermost RING pixels of the sheet, RING = max(1, min(4, h // 40, w // 40))
+#   colour  the per-channel median of the ring (the mean of the two middle values when the count
+#           is even), rounded half up for the #rrggbb form
+#   share   how much of the ring is within FLAT_BORDER_TOLERANCE (largest channel difference) of
+#           that colour
+#   kind    transparent  an alpha channel with at least 1% of its pixels below 250
+#           flat         share >= FLAT_BORDER_MIN_SHARE (white, black, grey, a plain colour)
+#           chroma       flat, and the colour's channels differ by CHROMA_SPREAD or more
+#                        (magenta, green, blue screen): artwork does not contain it on purpose
+#           complex      anything else: gradient, texture, photo
 FLAT_BORDER_TOLERANCE = 24
 FLAT_BORDER_MIN_SHARE = 0.85
+CHROMA_SPREAD = 60
+
+BackgroundKind = Literal["transparent", "flat", "chroma", "complex"]
 
 
-def border_flatness(img: np.ndarray) -> float:
-    """Share (0 to 1) of the outer ring of pixels that is close to the ring's median colour."""
-    bgr = img[:, :, :3] if img.ndim == 3 else cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+def _border_ring(bgr: np.ndarray) -> np.ndarray:
     h, w = bgr.shape[:2]
     ring = max(1, min(4, h // 40, w // 40))
-    pixels = np.concatenate(
+    return np.concatenate(
         (
             bgr[:ring].reshape(-1, 3),
             bgr[-ring:].reshape(-1, 3),
@@ -84,9 +98,33 @@ def border_flatness(img: np.ndarray) -> float:
             bgr[ring:-ring, -ring:].reshape(-1, 3),
         )
     ).astype(np.int16)
+
+
+def _as_bgr(img: np.ndarray) -> np.ndarray:
+    return img[:, :, :3] if img.ndim == 3 else cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+
+def border_flatness(img: np.ndarray) -> float:
+    """Share (0 to 1) of the outer ring of pixels that is close to the ring's median colour."""
+    pixels = _border_ring(_as_bgr(img))
     median = np.median(pixels, axis=0)
     near = np.abs(pixels - median).max(axis=1) <= FLAT_BORDER_TOLERANCE
     return float(near.mean())
+
+
+def classify_background(img: np.ndarray) -> dict:
+    """The sheet's background: {"kind": transparent | flat | chroma | complex, "color": "#rrggbb" or None}."""
+    if is_transparent(img):
+        return {"kind": "transparent", "color": None}
+    pixels = _border_ring(_as_bgr(img))
+    median = np.median(pixels, axis=0)
+    share = float((np.abs(pixels - median).max(axis=1) <= FLAT_BORDER_TOLERANCE).mean())
+    if share < FLAT_BORDER_MIN_SHARE:
+        return {"kind": "complex", "color": None}
+    # Round half up (floor(x + 0.5)), the same as JavaScript's Math.round, not numpy's half to even.
+    b, g, r = (int(np.floor(v + 0.5)) for v in median)
+    kind: BackgroundKind = "chroma" if max(r, g, b) - min(r, g, b) >= CHROMA_SPREAD else "flat"
+    return {"kind": kind, "color": f"#{r:02x}{g:02x}{b:02x}"}
 
 
 def _cutoff(base: float, threshold: int) -> float:
@@ -185,6 +223,35 @@ def _merge_detached_parts(
     return boxes
 
 
+ROW_CENTRE_REACH = 0.5
+
+
+def reading_order(boxes: list[tuple[int, int, int, int]]) -> list[tuple[int, int, int, int]]:
+    """
+    Sort boxes the way a person reads a grid: row by row, left to right in each row.
+
+    A row is a group of boxes whose vertical centres lie within half the median box height of the
+    row's own mean centre (so logos of different heights, or a grid drawn a few pixels off, stay one
+    row, while chained drift down a slanted sheet does not merge two rows). Rows go top to bottom.
+    """
+    if len(boxes) < 2:
+        return list(boxes)
+    reach = float(np.median([h for _, _, _, h in boxes])) * ROW_CENTRE_REACH
+    by_centre = sorted(boxes, key=lambda b: (b[1] + b[3] / 2, b[0]))
+    rows: list[list[tuple[int, int, int, int]]] = []
+    centres: list[float] = []  # running mean centre of each row
+    for box in by_centre:
+        centre = box[1] + box[3] / 2
+        if rows and abs(centre - centres[-1]) <= reach:
+            rows[-1].append(box)
+            centres[-1] += (centre - centres[-1]) / len(rows[-1])
+        else:
+            rows.append([box])
+            centres.append(centre)
+    order = sorted(range(len(rows)), key=lambda i: centres[i])
+    return [box for i in order for box in sorted(rows[i], key=lambda b: (b[0], b[1]))]
+
+
 def _boxes_from_mask(mask: np.ndarray) -> list[tuple[int, int, int, int]]:
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     boxes: list[tuple[int, int, int, int]] = []
@@ -246,7 +313,7 @@ def find_bounding_boxes(
         evaluated, key=lambda candidate: _score_candidate(candidate[1], candidate[2])
     )
     score = _score_candidate(mask, raw_boxes)
-    raw_boxes.sort(key=lambda box: (box[1] // 50, box[0]))
+    raw_boxes = reading_order(raw_boxes)
     boxes = [
         DetectedBox(
             id=str(uuid.uuid4()),
@@ -281,4 +348,5 @@ def find_bounding_boxes(
         "detection_mode": name,
         "detection_confidence": confidence,
         "detection_warning": warning,
+        "background": classify_background(img),
     }

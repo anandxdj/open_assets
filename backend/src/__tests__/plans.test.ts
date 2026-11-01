@@ -274,7 +274,11 @@ test('plan status: AI upscale is reported for Cloudinary and ImageKit, a plain r
   ];
   for (const [provider, aiUpscale] of cases) {
     const storage = getStorageStatus({ STORAGE_PROVIDER: provider } as NodeJS.ProcessEnv);
-    assert.deepEqual(buildPlanStatus(FREE, 0, NOW, storage).capabilities, { aiUpscale, enclosedBackground: !aiUpscale }, provider);
+    assert.deepEqual(
+      buildPlanStatus(FREE, 0, NOW, storage).capabilities,
+      { aiUpscale, enclosedBackground: true, backgroundRemoval: { server: true, ai: aiUpscale } },
+      provider,
+    );
   }
   // The default provider is Cloudinary.
   assert.equal(buildPlanStatus(FREE, 0, NOW, getStorageStatus({} as NodeJS.ProcessEnv)).capabilities.aiUpscale, true);

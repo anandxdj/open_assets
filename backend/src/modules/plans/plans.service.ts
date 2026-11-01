@@ -59,10 +59,17 @@ export interface PlanStatus {
      */
     aiUpscale: boolean;
     /**
-     * True when the crop can also remove background pockets the sheet border cannot reach (local storage's
-     * keying). False for Cloudinary and ImageKit: their AI cut-out has no such option, so the editor hides the switch.
+     * Kept for older clients: true when the crop can remove background pockets the sheet border cannot reach.
+     * That is the server keyer's option and the keyer runs on every provider now, so this is always true. New
+     * code reads `backgroundRemoval.server`.
      */
     enclosedBackground: boolean;
+    /**
+     * How the crop can remove a sheet's background here. `server`: our own flat and chroma-key keyer, free, on
+     * every provider (always true). `ai`: the provider's AI removal (Cloudinary, ImageKit), a paid call; false
+     * on local storage, where a sheet with a gradient or texture background keeps its background.
+     */
+    backgroundRemoval: { server: boolean; ai: boolean };
   };
 }
 
@@ -107,8 +114,12 @@ export function buildPlanStatus(
       daysLeft: trialActive && endsAt ? Math.max(1, Math.ceil((endsAt.getTime() - now.getTime()) / DAY_MS)) : null,
     },
     proEndsAt: iso(proEndsAt),
-    // supportsAi is false exactly when the provider is local, the only one that keys the background itself.
-    capabilities: { aiUpscale: storage.supportsAi, enclosedBackground: !storage.supportsAi },
+    // Our keyer runs on every provider; only Cloudinary and ImageKit have the AI add-ons (supportsAi).
+    capabilities: {
+      aiUpscale: storage.supportsAi,
+      enclosedBackground: true,
+      backgroundRemoval: { server: true, ai: storage.supportsAi },
+    },
   };
 }
 

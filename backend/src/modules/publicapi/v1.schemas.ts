@@ -21,9 +21,17 @@ export const cropBodySchema = z.object({
   boxes: z.array(boxSchema).min(1).max(1000).optional(),
   /**
    * Also remove background-coloured pockets the sheet border cannot reach (the hole of a ring, the inside of a
-   * letter). Default false. Only used when the server's storage is local; Cloudinary and ImageKit ignore it.
+   * letter). Default false. Used whenever the server keys the background itself (any storage provider); the
+   * AI cut-out ignores it.
    */
   removeEnclosedBackground: z.boolean().optional(),
+  /**
+   * How the background is removed. `auto` (default) keys a flat or chroma-key background on our server for
+   * free and uses the provider's AI only for a gradient or texture; `flat` keys on our server or keeps the
+   * background when the sheet is not flat; `ai` always uses the provider's AI (not available on local
+   * storage); `none` keeps the background.
+   */
+  backgroundRemoval: z.enum(['auto', 'flat', 'ai', 'none']).optional(),
 });
 export type CropBody = z.infer<typeof cropBodySchema>;
 

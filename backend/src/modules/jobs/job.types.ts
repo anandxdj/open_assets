@@ -1,3 +1,5 @@
+import type { BackgroundMethod, BackgroundRemovalMode, JobBackground } from '../../lib/background';
+
 export type JobStatus =
   | 'uploaded'
   | 'queued'
@@ -42,7 +44,12 @@ export interface JobHash {
   detectionMode: string;
   detectionConfidence: string;
   detectionWarning: string;
-  boxes: string;          // JSON.stringify(BoundingBox[])
+  background?: string;    // JSON.stringify(JobBackground), set by detection; absent on jobs from before it existed
+  backgroundRemoval?: BackgroundRemovalMode; // what the crop asked for; absent = auto
+  backgroundMethod?: BackgroundMethod;       // which method the crop ran
+  backgroundReason?: string;                 // why the background was kept, when it was
+  workingPublicId?: string;                  // storage id of the keyed sheet the crop cut from, when the server keyed it
+  boxes: string;         // JSON.stringify(BoundingBox[])
   nameMap: string;        // JSON.stringify(Record<string,string>)
   assets: string;         // JSON.stringify(Asset[])
   assetCount?: string;    // length of assets, kept in step by updateJob() so lists need not parse them
@@ -69,6 +76,14 @@ export interface JobResponse {
   detectionMode?: string;
   detectionConfidence?: number;
   detectionWarning?: string;
+  /** What the sheet's background is, from detection. Absent on jobs detected before this existed. */
+  background?: JobBackground;
+  /** The mode the crop was asked to use ('auto' when the request sent none), once the crop has started. */
+  backgroundRemoval?: BackgroundRemovalMode;
+  /** Which method ran: nothing, our free server keyer, or the provider's AI (paid). Set once the crop has run. */
+  backgroundMethod?: BackgroundMethod;
+  /** Why the background was kept, when it was. */
+  backgroundReason?: string;
   boxes: BoundingBox[];
   assets: Asset[];
   downloadUrl?: string;

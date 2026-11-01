@@ -82,6 +82,10 @@ export class LocalStorageAdapter implements StorageAdapter {
     await pruneEmptyParents(path.dirname(target), this.root);
   }
 
+  readBuffer(publicId: string): Promise<Buffer> {
+    return this.read(publicId);
+  }
+
   async applyBackgroundRemoval(publicId: string, options: BackgroundRemovalOptions = {}): Promise<string> {
     const source = await this.read(publicId);
     const removeEnclosed = options.removeEnclosed === true;

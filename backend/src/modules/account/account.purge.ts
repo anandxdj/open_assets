@@ -69,14 +69,15 @@ export async function purgeUserRedisData(userId: string, deps: PurgeDeps = {}): 
     const jobIds = await client.zrange(userJobsKey(userId), 0, -1);
     if (jobIds.length > 0) {
       const pipeline = client.pipeline();
-      for (const id of jobIds) pipeline.hmget(jobKey(id), 'userId', 'publicId', 'assets');
+      for (const id of jobIds) pipeline.hmget(jobKey(id), 'userId', 'publicId', 'assets', 'workingPublicId');
       const rows = (await pipeline.exec()) ?? [];
       const owned: string[] = [];
       rows.forEach(([err, values], i) => {
-        const [owner, publicId, assets] = (values ?? []) as (string | null)[];
+        const [owner, publicId, assets, workingPublicId] = (values ?? []) as (string | null)[];
         if (err || owner !== userId) return;
         owned.push(jobKey(jobIds[i] as string));
         if (publicId) publicIds.add(publicId);
+        if (workingPublicId) publicIds.add(workingPublicId);
         for (const id of parseAssetIds(assets ?? null)) publicIds.add(id);
       });
       if (owned.length > 0) await client.del(...owned);
@@ -93,14 +94,15 @@ export async function purgeUserRedisData(userId: string, deps: PurgeDeps = {}): 
       jobCursor = next;
       if (keys.length === 0) continue;
       const pipeline = client.pipeline();
-      for (const k of keys) pipeline.hmget(k, 'userId', 'publicId', 'assets');
+      for (const k of keys) pipeline.hmget(k, 'userId', 'publicId', 'assets', 'workingPublicId');
       const rows = (await pipeline.exec()) ?? [];
       const owned: string[] = [];
       rows.forEach(([err, values], i) => {
-        const [owner, publicId, assets] = (values ?? []) as (string | null)[];
+        const [owner, publicId, assets, workingPublicId] = (values ?? []) as (string | null)[];
         if (err || owner !== userId) return;
         owned.push(keys[i] as string);
         if (publicId) publicIds.add(publicId);
+        if (workingPublicId) publicIds.add(workingPublicId);
         for (const id of parseAssetIds(assets ?? null)) publicIds.add(id);
       });
       if (owned.length > 0) await client.del(...owned);

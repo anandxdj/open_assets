@@ -801,6 +801,135 @@ test('POST /api/crop (the web route): removeEnclosedBackground is optional, a bo
 });
 
 /* ------------------------------------------------------------------ *
+ * backgroundRemoval on the crop, and the background on the job
+ * ------------------------------------------------------------------ */
+
+test('crop (v1): backgroundRemoval accepts auto, flat, ai and none, reaches the queue, and is stored on the job', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const { key } = await ctx.makeKey(user.id);
+  for (const mode of ['auto', 'flat', 'ai', 'none']) {
+    const jobId = await ctx.seedJob(user.id, 'detected', { boxes: JSON.stringify(BOXES) });
+    const before = ctx.queued.length;
+    const res = await send('POST', `/api/v1/jobs/${jobId}/crop`, { key, body: { backgroundRemoval: mode } });
+    assert.equal(res.status, 201, `${mode}: ${JSON.stringify(res.json)}`);
+    assert.deepEqual(ctx.queued.slice(before), [{ queue: 'crop', data: { jobId, isRaw: undefined, backgroundRemoval: mode } }], mode);
+    assert.equal((await ctx.getJob(jobId))?.backgroundRemoval, mode);
+  }
+});
+
+test('crop (v1): without backgroundRemoval the queue payload is as before, and the job records auto', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const { key } = await ctx.makeKey(user.id);
+  const jobId = await ctx.seedJob(user.id, 'detected', { boxes: JSON.stringify(BOXES) });
+  const before = ctx.queued.length;
+  const res = await send('POST', `/api/v1/jobs/${jobId}/crop`, { key });
+  assert.equal(res.status, 201);
+  assert.deepEqual(ctx.queued.slice(before), [{ queue: 'crop', data: { jobId, isRaw: undefined } }]);
+  assert.equal((await ctx.getJob(jobId))?.backgroundRemoval, 'auto');
+});
+
+test('crop (v1): backgroundRemoval must be one of the four modes (400 VALIDATION_ERROR), and nothing is queued', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const { key } = await ctx.makeKey(user.id);
+  const jobId = await ctx.seedJob(user.id, 'detected', { boxes: JSON.stringify(BOXES) });
+  const before = ctx.queued.length;
+  for (const value of ['server', 'AUTO', '', true, 1, null, {}, []]) {
+    const res = await send('POST', `/api/v1/jobs/${jobId}/crop`, { key, body: { backgroundRemoval: value } });
+    assert.equal(res.status, 400, JSON.stringify(value));
+    assert.equal(res.json.code, 'VALIDATION_ERROR');
+    assert.match(res.json.message, /backgroundRemoval/);
+  }
+  assert.equal(ctx.queued.length, before);
+  assert.equal((await ctx.getJob(jobId))?.status, 'detected');
+});
+
+test('POST /api/crop (the web route): backgroundRemoval is optional, one of four modes when sent, and reaches the queue', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const post = async (body: Record<string, unknown>) => {
+    const jobId = await ctx.seedJob(user.id, 'detected', { boxes: JSON.stringify(BOXES) });
+    const before = ctx.queued.length;
+    const res = await send('POST', '/api/crop', { key: user.sessionToken, body: { jobId, boxes: BOXES, ...body } });
+    return { res, jobId, queued: ctx.queued.slice(before) };
+  };
+
+  for (const mode of ['auto', 'flat', 'ai', 'none']) {
+    const ok = await post({ backgroundRemoval: mode, removeEnclosedBackground: true });
+    assert.equal(ok.res.status, 201, mode);
+    assert.deepEqual(ok.queued, [{ queue: 'crop', data: { jobId: ok.jobId, isRaw: undefined, removeEnclosedBackground: true, backgroundRemoval: mode } }], mode);
+  }
+
+  for (const value of ['server', 'Flat', '', 1, true, null, {}]) {
+    const bad = await post({ backgroundRemoval: value });
+    assert.equal(bad.res.status, 400, JSON.stringify(value));
+    assert.match(bad.res.json.message, /backgroundRemoval must be one of auto, flat, ai, none/);
+    assert.equal(bad.queued.length, 0, 'nothing is queued');
+    assert.equal((await ctx.getJob(bad.jobId))?.status, 'detected', 'the job is untouched');
+    assert.equal((await ctx.getJob(bad.jobId))?.backgroundRemoval, undefined, 'and nothing was stored');
+  }
+});
+
+test('GET /api/jobs/:id returns the background classification, the mode, the method that ran and why', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const withBackground = await ctx.seedJob(user.id, 'cropped', {
+    boxes: JSON.stringify(BOXES),
+    background: JSON.stringify({ kind: 'flat', color: '#f7f6f2' }),
+    backgroundRemoval: 'auto',
+    backgroundMethod: 'server',
+  });
+  const res = await send('GET', `/api/jobs/${withBackground}`, { key: user.sessionToken });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.json.data.background, { kind: 'flat', color: '#f7f6f2' });
+  assert.equal(res.json.data.backgroundRemoval, 'auto');
+  assert.equal(res.json.data.backgroundMethod, 'server');
+  assert.equal(res.json.data.backgroundReason, undefined);
+
+  const kept = await ctx.seedJob(user.id, 'cropped', {
+    boxes: JSON.stringify(BOXES),
+    background: JSON.stringify({ kind: 'complex' }),
+    backgroundRemoval: 'auto',
+    backgroundMethod: 'none',
+    backgroundReason: 'AI removal is not available on this server.',
+  });
+  const keptRes = await send('GET', `/api/jobs/${kept}`, { key: user.sessionToken });
+  assert.deepEqual(keptRes.json.data.background, { kind: 'complex' });
+  assert.equal(keptRes.json.data.backgroundMethod, 'none');
+  assert.equal(keptRes.json.data.backgroundReason, 'AI removal is not available on this server.');
+
+  // A job detected before the classification existed, or a corrupt value, has none rather than an error.
+  const legacy = await ctx.seedJob(user.id, 'detected', { boxes: JSON.stringify(BOXES) });
+  const legacyRes = await send('GET', `/api/jobs/${legacy}`, { key: user.sessionToken });
+  assert.equal(legacyRes.status, 200);
+  assert.equal(legacyRes.json.data.background, undefined);
+  const corrupt = await ctx.seedJob(user.id, 'detected', { boxes: JSON.stringify(BOXES), background: 'not json' });
+  assert.equal((await send('GET', `/api/jobs/${corrupt}`, { key: user.sessionToken })).json.data.background, undefined);
+});
+
+test('GET /api/v1/jobs/:id returns background and backgroundRemoval, null until they exist', { skip }, async () => {
+  const user = await ctx.makeUser();
+  const { key } = await ctx.makeKey(user.id);
+  const detected = await ctx.seedJob(user.id, 'detected', {
+    boxes: JSON.stringify(BOXES),
+    background: JSON.stringify({ kind: 'chroma', color: '#00ff00' }),
+  });
+  const first = await send('GET', `/api/v1/jobs/${detected}`, { key });
+  assert.deepEqual(first.json.data.background, { kind: 'chroma', color: '#00ff00' });
+  assert.equal(first.json.data.backgroundRemoval, null);
+
+  const cropped = await ctx.seedJob(user.id, 'cropped', {
+    boxes: JSON.stringify(BOXES),
+    background: JSON.stringify({ kind: 'complex' }),
+    backgroundRemoval: 'ai',
+    backgroundMethod: 'ai',
+  });
+  const second = await send('GET', `/api/v1/jobs/${cropped}`, { key });
+  assert.deepEqual(second.json.data.background, { kind: 'complex', color: null });
+  assert.deepEqual(second.json.data.backgroundRemoval, { mode: 'ai', method: 'ai', reason: null });
+
+  const legacy = await ctx.seedJob(user.id, 'detected', { boxes: JSON.stringify(BOXES) });
+  assert.equal((await send('GET', `/api/v1/jobs/${legacy}`, { key })).json.data.background, null);
+});
+
+/* ------------------------------------------------------------------ *
  * POST /jobs/:id/export
  * ------------------------------------------------------------------ */
 
