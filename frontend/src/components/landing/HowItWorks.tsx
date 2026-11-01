@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { ArrowRight, Folder } from "lucide-react";
+import { Reveal } from "@/components/marketing/Reveal";
 import { SectionHeader } from "@/components/marketing/SectionHeader";
 import { CARD, CARD_GAP, COPY, SECTION_GAP, SECTION_Y, WRAP } from "@/components/marketing/site";
 import { BoundingBox } from "./ProductShot";
@@ -82,7 +83,7 @@ export function HowItWorks() {
         title="Packed image in. Named PNGs out."
         aside={<span className="oa-value text-ink-2">4 steps</span>}
       />
-      <ol className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
+      <Reveal as="ol" stagger className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
         {STEPS.map((step, i) => (
           <li key={step.title} className={`flex flex-col ${CARD}`}>
             <div aria-hidden>{step.visual}</div>
@@ -95,7 +96,7 @@ export function HowItWorks() {
             </div>
           </li>
         ))}
-      </ol>
+      </Reveal>
     </section>
   );
 }

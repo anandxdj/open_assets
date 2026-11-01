@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Reveal } from "@/components/marketing/Reveal";
 import { SectionHeader } from "@/components/marketing/SectionHeader";
 import { CARD, CARD_GAP, WRAP, SECTION_GAP, SECTION_Y } from "@/components/marketing/site";
 
@@ -29,7 +30,7 @@ export function GallerySection() {
           </Button>
         }
       />
-      <ul className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
+      <Reveal as="ul" stagger className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
         {PACKS.map((pack) => (
           <li key={pack.name}>
             <Link href="/collections" className={`oa-lift group flex h-full flex-col text-ink ${CARD}`}>
@@ -52,7 +53,7 @@ export function GallerySection() {
             </Link>
           </li>
         ))}
-      </ul>
+      </Reveal>
     </section>
   );
 }

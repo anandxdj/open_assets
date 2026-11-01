@@ -1,3 +1,4 @@
+import { Reveal } from "@/components/marketing/Reveal";
 import { CARD, CARD_GAP, COPY, WRAP } from "@/components/marketing/site";
 import { ProductShot } from "./ProductShot";
 
@@ -16,7 +17,7 @@ const SPECS = [
 export function ProductSection() {
   return (
     <section aria-label="What OpenAssets takes and returns" className={`${WRAP} flex flex-col gap-10 pb-20 md:gap-12 md:pb-28`}>
-      <dl className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
+      <Reveal as="dl" stagger className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
         {SPECS.map((spec) => (
           <div
             key={spec.label}
@@ -30,9 +31,11 @@ export function ProductSection() {
             <dd className={COPY}>{spec.value}</dd>
           </div>
         ))}
-      </dl>
+      </Reveal>
 
-      <ProductShot />
+      <Reveal>
+        <ProductShot />
+      </Reveal>
     </section>
   );
 }

@@ -4,6 +4,7 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingHeader } from "@/components/marketing/MarketingHeader";
+import { Reveal } from "@/components/marketing/Reveal";
 import { SectionHeader } from "@/components/marketing/SectionHeader";
 import {
   CARD,
@@ -131,7 +132,7 @@ export default function CareersPage() {
             </Button>
           </div>
 
-          <dl className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
+          <Reveal as="dl" stagger className={`grid ${CARD_GAP} sm:grid-cols-2 lg:grid-cols-4`}>
             {FACTS.map((fact) => (
               <div
                 key={fact.label}
@@ -145,7 +146,7 @@ export default function CareersPage() {
                 <dd className={`${COPY} font-bold`}>{fact.value}</dd>
               </div>
             ))}
-          </dl>
+          </Reveal>
         </section>
 
         <section
@@ -154,7 +155,7 @@ export default function CareersPage() {
         >
           <div className={`${WRAP} flex flex-col ${SECTION_GAP} ${SECTION_Y}`}>
             <SectionHeader eyebrow="Open ideas" titleId="projects-title" title="Projects looking for builders" />
-            <ul className={`grid ${CARD_GAP} lg:grid-cols-3`}>
+            <Reveal as="ul" stagger className={`grid ${CARD_GAP} lg:grid-cols-3`}>
               {PROJECTS.map((project) => {
                 const Icon = project.icon;
                 const status = STATUS[project.status];
@@ -220,7 +221,7 @@ export default function CareersPage() {
                   </li>
                 );
               })}
-            </ul>
+            </Reveal>
           </div>
         </section>
 
@@ -228,7 +229,7 @@ export default function CareersPage() {
           aria-labelledby="contact-title"
           className="bg-band text-band-fg [--oa-shadow-ink:var(--oa-band-fg)]"
         >
-          <div className={`${WRAP} flex flex-wrap items-end justify-between gap-10 ${SECTION_Y}`}>
+          <Reveal stagger className={`${WRAP} flex flex-wrap items-end justify-between gap-10 ${SECTION_Y}`}>
             <div className="flex max-w-[640px] flex-col gap-4">
               <span className="oa-eyebrow">Get in touch</span>
               <h2 id="contact-title" className={SECTION_TITLE}>
@@ -251,7 +252,7 @@ export default function CareersPage() {
                 <NewTab />
               </a>
             </Button>
-          </div>
+          </Reveal>
         </section>
       </main>
       <MarketingFooter />

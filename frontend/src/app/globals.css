@@ -468,7 +468,32 @@ html[data-session="1"] [data-auth="out"] { display: none; }
   .oa-vsep { width: var(--oa-bw); height: 20px; flex: none; margin: 0 4px; background: var(--oa-border-strong); }
 }
 
+/* Scroll-in reveal (components/marketing/Reveal.tsx). Content is visible unless script marks a block below the fold
+   as pending after hydration; it then fades up once (--i is the 0..3 stagger step). Only the pending and shown states
+   carry the attribute: it is removed when the reveal ends, so the block's own transitions come back. */
+[data-reveal="pending"] { opacity: 0; transform: translateY(16px); }
+[data-reveal="shown"] {
+  transition: opacity var(--oa-dur-3) var(--oa-ease-out) calc(var(--i, 0) * 60ms),
+    transform var(--oa-dur-3) var(--oa-ease-out) calc(var(--i, 0) * 60ms);
+}
+
+/* Reduced motion and print never hide anything, whatever script did. */
+@media (prefers-reduced-motion: reduce), print {
+  [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
+
+/* Rows of a list on the dark band (marketing tools): a quiet plate and the arrow nudging right, instead of the card lift. */
+.oa-row { transition: background-color var(--oa-dur-1) var(--oa-ease); }
+.oa-row-arrow { transition: transform var(--oa-dur-2) var(--oa-ease-out); }
+.oa-row:focus-visible { background-color: color-mix(in srgb, var(--oa-band-fg) 8%, transparent); }
+.oa-row:focus-visible .oa-row-arrow { transform: translateX(4px); }
+@media (hover: hover) {
+  .oa-row:hover { background-color: color-mix(in srgb, var(--oa-band-fg) 8%, transparent); }
+  .oa-row:hover .oa-row-arrow { transform: translateX(4px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .oa-row:hover .oa-row-arrow, .oa-row:focus-visible .oa-row-arrow { transform: none; }
   *, *::before, *::after {
     transition: none !important;
     animation: none !important;

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Faq } from "@/components/marketing/Faq";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { MarketingHeader } from "@/components/marketing/MarketingHeader";
+import { Reveal } from "@/components/marketing/Reveal";
 import { PricingTiers } from "@/components/marketing/PricingTiers";
 import { SectionHeader } from "@/components/marketing/SectionHeader";
 import {
@@ -80,56 +81,58 @@ export default function PricingPage() {
         >
           <div className={`${NARROW} flex flex-col ${SECTION_GAP} ${SECTION_Y}`}>
             <SectionHeader eyebrow="Compare" titleId="compare-title" title="Every feature, side by side" />
-            <div
-              role="region"
-              aria-labelledby="compare-title"
-              tabIndex={0}
-              className="oa-table-box border-line-soft"
-            >
-              <table className="oa-table min-w-[560px] [&_tbody_tr:last-child>th]:border-b-0">
-                <caption className="sr-only">Features included in each plan</caption>
-                <thead>
-                  <tr>
-                    <th scope="col" className="w-[40%]">
-                      Feature
-                    </th>
-                    {PLANS.map((plan) => (
-                      <th key={plan.id} scope="col">
-                        {plan.name}
-                        <span className="oa-value ml-2 text-ink-3">
-                          {plan.price}
-                          {plan.period === "Per month" ? "/mo" : ""}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                {COMPARISON.map((group) => (
-                  <tbody key={group.label}>
+            <Reveal>
+              <div
+                role="region"
+                aria-labelledby="compare-title"
+                tabIndex={0}
+                className="oa-table-box border-line-soft"
+              >
+                <table className="oa-table min-w-[560px] [&_tbody_tr:last-child>th]:border-b-0">
+                  <caption className="sr-only">Features included in each plan</caption>
+                  <thead>
                     <tr>
-                      <th scope="rowgroup" colSpan={PLANS.length + 1} className="text-ink">
-                        {group.label}
+                      <th scope="col" className="w-[40%]">
+                        Feature
                       </th>
-                    </tr>
-                    {group.rows.map((row) => (
-                      <tr key={row.feature}>
-                        <th
-                          scope="row"
-                          className="border-b border-rule bg-transparent text-[13px] font-normal normal-case leading-[21px] tracking-normal text-ink"
-                        >
-                          {row.feature}
+                      {PLANS.map((plan) => (
+                        <th key={plan.id} scope="col">
+                          {plan.name}
+                          <span className="oa-value ml-2 text-ink-3">
+                            {plan.price}
+                            {plan.period === "Per month" ? "/mo" : ""}
+                          </span>
                         </th>
-                        {PLANS.map((plan) => (
-                          <td key={plan.id}>
-                            <Cell value={row.values[plan.id]} />
-                          </td>
-                        ))}
+                      ))}
+                    </tr>
+                  </thead>
+                  {COMPARISON.map((group) => (
+                    <tbody key={group.label}>
+                      <tr>
+                        <th scope="rowgroup" colSpan={PLANS.length + 1} className="text-ink">
+                          {group.label}
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                ))}
-              </table>
-            </div>
+                      {group.rows.map((row) => (
+                        <tr key={row.feature}>
+                          <th
+                            scope="row"
+                            className="border-b border-rule bg-transparent text-[13px] font-normal normal-case leading-[21px] tracking-normal text-ink"
+                          >
+                            {row.feature}
+                          </th>
+                          {PLANS.map((plan) => (
+                            <td key={plan.id}>
+                              <Cell value={row.values[plan.id]} />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  ))}
+                </table>
+              </div>
+            </Reveal>
           </div>
         </section>
 
@@ -138,7 +141,7 @@ export default function PricingPage() {
           aria-labelledby="startups-title"
           className="scroll-mt-16 bg-band text-band-fg [--oa-shadow-ink:var(--oa-band-fg)]"
         >
-          <div className={`${NARROW} grid gap-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-16 ${SECTION_Y}`}>
+          <Reveal stagger className={`${NARROW} grid gap-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-16 ${SECTION_Y}`}>
             <div className="flex flex-col gap-4">
               <span className="oa-eyebrow">Startup program</span>
               <h2 id="startups-title" className={SECTION_TITLE}>
@@ -166,7 +169,7 @@ export default function PricingPage() {
                 </a>
               </Button>
             </div>
-          </div>
+          </Reveal>
         </section>
 
         <section aria-labelledby="faq-title" className={`${NARROW} flex flex-col ${SECTION_GAP} ${SECTION_Y}`}>

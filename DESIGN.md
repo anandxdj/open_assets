@@ -167,7 +167,7 @@ Tokens (`globals.css`):
 |---|---|---|
 | `--oa-dur-1` | 120ms | colour, background and border changes, press |
 | `--oa-dur-2` | 200ms | shadows, lift, switch thumb |
-| `--oa-dur-3` | 320ms | reserved for larger travel (nothing uses it yet) |
+| `--oa-dur-3` | 320ms | larger travel: the marketing scroll-in reveal |
 | `--oa-ease` | `cubic-bezier(.2,.8,.2,1)` | state changes |
 | `--oa-ease-out` | `cubic-bezier(.16,1,.3,1)` | things that travel: lift, switch thumb, overlays, theme reveal |
 | `--oa-t-state` | colour, background, border 120ms, shadow 200ms | the shared `transition` of interactive classes |
@@ -183,6 +183,24 @@ What animates:
   button. The focus ring moves with the card. Hover applies only where the
   device has hover. A Tailwind shadow utility on the card wins over the lift
   shadow (the card then only moves).
+- **Link rows** (`oa-row`, the borderless tool list on the dark band): a plain
+  full-width row cannot carry an offset shadow, so hover and keyboard focus
+  tint it with a paper-coloured plate (8%) and slide its arrow 4px right
+  (`--oa-dur-2`, `--oa-ease-out`). Plan cards are not links and do not lift;
+  Pro stays the one raised card through its static `shadow-pop`.
+- **Scroll-in reveal** (marketing pages: landing sections after the hero,
+  `/pricing`, `/careers`; `Reveal`, `lib/reveal.ts`): content is visible in the
+  server HTML. After hydration, and only with IntersectionObserver and no
+  reduced-motion preference, blocks below the fold at that moment get
+  `data-reveal="pending"` (opacity 0, 16px down). Each fades up once over
+  `--oa-dur-3` on `--oa-ease-out` when 15% of it clears the bottom 10% of the
+  viewport, children entering together stepping by 60ms (at most 4 steps), and
+  then it is left alone. Never hidden: the hero and anything in view at load,
+  a section a hash link points at (loaded with `/#pricing` or followed on the
+  page), anything above a restored scroll position, and print. A block that
+  receives keyboard focus appears at once, and so does everything if the
+  visitor switches to reduced motion. Wrap section headers and card lists, not
+  words; the wrapper keeps the semantic tag (`ul`, `ol`, `dl`).
 - **Overlays**: scrim fades in 150ms. Dialog fades, scales from 98% and slides
   4px up in 160ms. Menu fades and slides 4px away from its trigger in 120ms.
   Exits mirror the entrances. Radix keeps the node mounted until the exit ends,

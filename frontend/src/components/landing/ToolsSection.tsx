@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { Reveal } from "@/components/marketing/Reveal";
 import { COPY, SECTION_GAP, SECTION_TITLE, SECTION_Y, WRAP } from "@/components/marketing/site";
 
 const TOOLS = [
@@ -15,7 +16,9 @@ const FOCUS = "focus-visible:outline-band-fg";
 /**
  * Fixed dark band (the same in light and dark): the tool list plus the
  * extension and API. Hard shadows inside it are paper-coloured, so the
- * primary button and lifted rows keep their offset on the dark ground.
+ * primary button keeps its offset on the dark ground. Tool rows are borderless
+ * full-width lines, so they get a paper-tinted plate and a nudged arrow
+ * (`oa-row`) instead of the card lift.
  */
 export function ToolsSection() {
   return (
@@ -25,7 +28,7 @@ export function ToolsSection() {
       className="scroll-mt-16 bg-band text-band-fg [--oa-shadow-ink:var(--oa-band-fg)]"
     >
       <div className={`${WRAP} flex flex-col ${SECTION_GAP} ${SECTION_Y}`}>
-        <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+        <Reveal className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
           <div className="flex flex-col gap-4">
             <span className="oa-eyebrow">One workspace</span>
             <h2 id="tools-title" className={SECTION_TITLE}>
@@ -37,14 +40,14 @@ export function ToolsSection() {
           <p className={`max-w-[400px] ${COPY} opacity-75`}>
             Every tool shares one library, so an extracted sprite goes straight to cleanup, a collection or animation.
           </p>
-        </div>
+        </Reveal>
 
-        <ul className="flex flex-col border-t border-band-fg/20">
+        <Reveal as="ul" stagger className="-mx-4 flex flex-col border-t border-band-fg/20">
           {TOOLS.map((tool, i) => (
             <li key={tool.name}>
               <Link
                 href={tool.href}
-                className={`oa-lift group grid grid-cols-[32px_minmax(0,1fr)_20px] items-center gap-x-4 gap-y-2 border-b border-band-fg/20 py-7 md:grid-cols-[64px_minmax(0,1fr)_minmax(0,1.4fr)_28px] ${FOCUS}`}
+                className={`oa-row group grid grid-cols-[32px_minmax(0,1fr)_20px] items-center gap-x-4 gap-y-2 border-b border-band-fg/20 px-4 py-7 md:grid-cols-[64px_minmax(0,1fr)_minmax(0,1.4fr)_28px] ${FOCUS}`}
               >
                 <span aria-hidden className="oa-value opacity-60">
                   {String(i + 1).padStart(2, "0")}
@@ -55,13 +58,13 @@ export function ToolsSection() {
                 <span className={`col-start-2 col-end-4 row-start-2 ${COPY} opacity-75 md:col-auto md:row-auto`}>
                   {tool.desc}
                 </span>
-                <ArrowRight aria-hidden className="col-start-3 row-start-1 size-5 md:col-auto md:row-auto" />
+                <ArrowRight aria-hidden className="oa-row-arrow col-start-3 row-start-1 size-5 md:col-auto md:row-auto" />
               </Link>
             </li>
           ))}
-        </ul>
+        </Reveal>
 
-        <div className="grid gap-5 md:grid-cols-2 md:gap-6">
+        <Reveal stagger className="grid gap-5 md:grid-cols-2 md:gap-6">
           <div id="extension" className="flex scroll-mt-20 flex-col gap-4 border border-band-fg/25 p-6 md:p-8">
             <span className="oa-label text-inherit opacity-70">Chrome extension</span>
             <h3 className="oa-h3">Right-click any image on the web</h3>
@@ -96,7 +99,7 @@ export function ToolsSection() {
               <ArrowRight aria-hidden className="size-3.5" />
             </Link>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   );

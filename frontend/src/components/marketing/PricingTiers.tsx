@@ -4,6 +4,7 @@ import { FreeCta } from "@/features/plans/FreeCta";
 import { ProTrialCta } from "@/features/plans/ProTrialCta";
 import { cn } from "@/lib/utils";
 import { PLANS, type Plan } from "./pricing";
+import { Reveal } from "./Reveal";
 import { CARD_GAP, COPY } from "./site";
 
 function PlanCta({ plan }: { plan: Plan }) {
@@ -24,12 +25,12 @@ function PlanCta({ plan }: { plan: Plan }) {
 export function PricingTiers({ headingLevel = "h3" }: { headingLevel?: "h2" | "h3" }) {
   const Heading = headingLevel;
   return (
-    <ul className={`grid ${CARD_GAP} lg:grid-cols-3`}>
+    <Reveal as="ul" stagger className={`grid ${CARD_GAP} lg:grid-cols-3`}>
       {PLANS.map((plan) => (
         <li
           key={plan.id}
           className={cn(
-            "oa-lift flex flex-col bg-surface",
+            "flex flex-col bg-surface",
             plan.featured ? "border-[1.5px] border-line-strong shadow-pop" : "border border-line-soft"
           )}
         >
@@ -61,6 +62,6 @@ export function PricingTiers({ headingLevel = "h3" }: { headingLevel?: "h2" | "h
           </div>
         </li>
       ))}
-    </ul>
+    </Reveal>
   );
 }
