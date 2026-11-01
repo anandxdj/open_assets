@@ -49,8 +49,8 @@ export function SettingsDrawer({
       }}
     >
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="oa-scrim fixed inset-0 z-50" />
-        <DialogPrimitive.Content className="oa-dialog fixed inset-y-0 right-0 z-50 flex w-[min(400px,100%)] flex-col border-y-0 border-r-0 outline-none">
+        <DialogPrimitive.Overlay className="oa-scrim fixed inset-0 z-50 duration-150 ease-(--oa-ease-out) data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+        <DialogPrimitive.Content className="oa-dialog fixed inset-y-0 right-0 z-50 flex w-[min(400px,100%)] flex-col border-y-0 border-r-0 outline-none duration-200 ease-(--oa-ease-out) data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right">
           <div className="flex h-14 flex-none items-center justify-between gap-3 border-b-[1.5px] border-line pl-5 pr-3">
             <DialogPrimitive.Title className="oa-h3">Studio settings</DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">

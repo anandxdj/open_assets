@@ -183,11 +183,20 @@ What animates:
   (`document.startViewTransition`, helper in `lib/theme-reveal.ts`). Where the
   API is missing the theme switches at once. Focus stays on the toggle.
 
-What never animates: `width`, `height` and `all` in new rules (the progress
-fill's `width` and Sonner's stacking are the two older exceptions), page loads,
-route changes, scrolling, infinite loops other than status spinners, glows,
-cursor effects, anything on the editor canvas, and anything that carries
-meaning without also being visible when it stops.
+- **The landing product shot is the one sanctioned demo.** It may play
+  because it is honest, and only on these terms: it replays real product
+  states (what the app actually shows, never an invented console or pipeline);
+  it plays at most 3 loops and then rests on the final frame; it has a visible
+  Pause/Play control; it pauses while it is off-screen or the tab is hidden;
+  and under reduced motion it shows a static final frame. Its easing uses
+  `--oa-ease-out`.
+
+No decorative motion anywhere else. What never animates: `width`, `height` and
+`all` in new rules (the progress fill's `width` and Sonner's stacking are the
+two older exceptions), page loads, route changes, scrolling, infinite loops
+other than status spinners, glows, cursor effects, anything on the editor
+canvas, and anything that carries meaning without also being visible when it
+stops.
 
 Reduced motion: one global `prefers-reduced-motion: reduce` rule in
 `globals.css` sets `transition: none` and `animation: none` on everything,
