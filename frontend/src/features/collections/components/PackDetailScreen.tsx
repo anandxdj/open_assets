@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Loading, Notice } from "@/components/ui/feedback";
 import { SafeImage } from "@/components/ui/safe-image";
+import { BackdropSurface } from "@/features/backdrop/BackdropSurface";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import {
   collectionDownloadUrl,
@@ -139,15 +140,17 @@ function FolderSection({
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3">
             {folder.images.map((img) => (
               <li key={img._id} className="flex min-w-0 flex-col gap-1.5">
-                <button
+                <BackdropSurface
+                  as="button"
+                  src={img.cloudinaryUrl}
                   type="button"
                   onClick={() => onPreview(img)}
                   data-selected={previewId === img._id || undefined}
-                  className="oa-tile oa-checker w-full cursor-zoom-in p-0 hover:border-line-strong"
+                  className="oa-tile w-full cursor-zoom-in p-0 hover:border-line-strong"
                   aria-label={`Preview ${img.name}`}
                 >
                   <SafeImage src={img.cloudinaryUrl} loading="lazy" className="h-[70%] w-[70%] object-contain" />
-                </button>
+                </BackdropSurface>
                 <span className="flex items-center gap-1">
                   <span className="oa-value min-w-0 flex-1 truncate text-[11.5px]" title={img.name}>
                     {img.name}

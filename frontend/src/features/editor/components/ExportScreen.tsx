@@ -31,6 +31,10 @@ import { useJobPolling } from "../hooks/useJobPolling";
 import { startFinalize } from "../services/exportApi";
 import { sanitize, zipImageUrls } from "../services/localExport";
 import { isDialogOpen, isEditableTarget } from "../lib/keyboard";
+import { BackdropMenu } from "@/features/backdrop/BackdropMenu";
+import { BackdropSurface } from "@/features/backdrop/BackdropSurface";
+import { BACKDROP_LABEL } from "@/features/backdrop/lib/decide";
+import { useBackdropMode } from "@/features/backdrop/useBackdrop";
 import { fileNameFromUrl } from "../lib/names";
 
 type TileSize = "s" | "m" | "l";
@@ -137,7 +141,7 @@ function AssetTile({
         className="flex w-full flex-col gap-2 text-left"
         onClick={() => onToggle(asset.id)}
       >
-        <span className="oa-tile oa-checker w-full" data-selected={selected || undefined}>
+        <BackdropSurface as="span" src={asset.cropped_url} className="oa-tile w-full" data-selected={selected || undefined}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={asset.cropped_url}
@@ -158,7 +162,7 @@ function AssetTile({
               {scale}×
             </Badge>
           )}
-        </span>
+        </BackdropSurface>
         <span className="flex min-w-0 flex-col gap-0.5 px-0.5">
           <span className="oa-value truncate text-[12.5px]" title={fileName}>
             {fileName}
@@ -179,6 +183,7 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
   // null = everything selected (the default once assets arrive).
   const [selection, setSelection] = useState<Set<string> | null>(null);
   const [tileSize, setTileSize] = useState<TileSize>("m");
+  const [backdropMode, setBackdropMode] = useBackdropMode();
   const [dims, setDims] = useState<Record<string, { w: number; h: number }>>({});
   const [upscaleOn, setUpscaleOn] = useState(false);
   // 2× for everyone; 4× is a Pro entitlement (the server enforces it too).
@@ -611,6 +616,16 @@ export function ExportScreen({ jobId, autoRaw = false }: Props) {
                   </span>
                 </label>
                 <span className="flex-1" />
+                <BackdropMenu
+                  mode={backdropMode}
+                  onModeChange={setBackdropMode}
+                  summary={
+                    backdropMode === "auto"
+                      ? "Auto: each tile gets the backdrop that shows its art best"
+                      : BACKDROP_LABEL[backdropMode]
+                  }
+                  variant="button"
+                />
                 <Segmented<TileSize>
                   ariaLabel="Tile size"
                   value={tileSize}

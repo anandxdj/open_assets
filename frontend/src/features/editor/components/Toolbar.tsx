@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import { SquareDashedMousePointer, Contrast, Hand, MousePointer2, SquareDashed, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tool } from "../hooks/useCanvasEditor";
@@ -18,6 +17,7 @@ export function Toolbar({
   onToolChange,
   dimOutside,
   onDimOutsideChange,
+  extra,
   className,
 }: {
   activeTool: Tool;
@@ -25,20 +25,21 @@ export function Toolbar({
   /** Shade everything outside the boxes. */
   dimOutside: boolean;
   onDimOutsideChange: (on: boolean) => void;
+  /** More buttons at the end of the bar (the Backdrop menu). Keep each one a plain `button` with tabIndex -1. */
+  extra?: React.ReactNode;
   className?: string;
 }) {
-  const count = TOOLS.length + 1;
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
-
   function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    // Menus open from the bar render elsewhere in the DOM but bubble here; leave their keys alone.
+    if (!e.currentTarget.contains(e.target as Node)) return;
     // Keep the arrow from nudging selected boxes.
     e.preventDefault();
     e.stopPropagation();
-    const current = refs.current.findIndex((el) => el === document.activeElement);
+    const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+    const current = buttons.findIndex((el) => el === document.activeElement);
     const step = e.key === "ArrowRight" ? 1 : -1;
-    const next = (Math.max(current, 0) + step + count) % count;
-    refs.current[next]?.focus();
+    buttons[(Math.max(current, 0) + step + buttons.length) % buttons.length]?.focus();
   }
 
   return (
@@ -50,15 +51,12 @@ export function Toolbar({
       className={cn("oa-float", className)}
       onKeyDown={onKeyDown}
     >
-      {TOOLS.map((tool, i) => {
+      {TOOLS.map((tool) => {
         const Icon = tool.icon;
         const active = activeTool === tool.id;
         return (
           <button
             key={tool.id}
-            ref={(el) => {
-              refs.current[i] = el;
-            }}
             type="button"
             className="oa-tool"
             aria-label={`${tool.label} (${tool.key})`}
@@ -73,9 +71,6 @@ export function Toolbar({
       })}
       <span aria-hidden className="oa-vsep" />
       <button
-        ref={(el) => {
-          refs.current[TOOLS.length] = el;
-        }}
         type="button"
         className="oa-tool"
         aria-label="Dim outside boxes"
@@ -86,6 +81,7 @@ export function Toolbar({
       >
         <Contrast aria-hidden />
       </button>
+      {extra}
     </div>
   );
 }

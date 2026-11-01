@@ -1,7 +1,8 @@
 import type { BoundingBox } from "@/types";
 import { cn } from "@/lib/utils";
+import { BackdropSurface } from "@/features/backdrop/BackdropSurface";
 
-/** Live crop of one box from the sheet, scaled to fit `size`, on the checkerboard. */
+/** Live crop of one box from the sheet, scaled to fit `size`, on the sheet's Backdrop. */
 export function CropThumb({
   imageUrl,
   box,
@@ -19,7 +20,7 @@ export function CropThumb({
 }) {
   const scale = Math.min(size / (box.width || 1), size / (box.height || 1));
   return (
-    <span className={cn("oa-checker flex flex-none items-center justify-center overflow-hidden", className)}>
+    <BackdropSurface as="span" className={cn("flex flex-none items-center justify-center overflow-hidden", className)}>
       <span className="relative block overflow-hidden" style={{ width: box.width * scale, height: box.height * scale }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -36,6 +37,6 @@ export function CropThumb({
           }}
         />
       </span>
-    </span>
+    </BackdropSurface>
   );
 }

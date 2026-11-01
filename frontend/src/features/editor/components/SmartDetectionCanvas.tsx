@@ -6,6 +6,7 @@ import type { Camera, DraftBox, Tool } from "../hooks/useCanvasEditor";
 import { useCanvasColors } from "../hooks/useCanvasColors";
 import { isSpaceForControl } from "../lib/keyboard";
 import { boxName } from "../lib/names";
+import { BACKDROP_PALETTE, type Backdrop } from "@/features/backdrop/lib/decide";
 import {
   applyMarquee,
   boxesAtPoint,
@@ -88,6 +89,8 @@ interface Props {
   onSaveHistory?: () => void;
   /** Shade everything outside the boxes. */
   dimOutside?: boolean;
+  /** Backdrop behind transparent parts of the sheet; null keeps the theme's checkerboard. */
+  backdrop?: Backdrop | null;
   /** Spoken by the polite live region, for example after a marquee. */
   onAnnounce?: (message: string) => void;
 }
@@ -328,6 +331,7 @@ export function SmartDetectionCanvas({
   onDeleteBox,
   onSaveHistory,
   dimOutside = false,
+  backdrop = null,
   onAnnounce,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -729,6 +733,8 @@ export function SmartDetectionCanvas({
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const checkerId = `oa-checker-${uid}`;
   const dimMaskId = `oa-dim-${uid}`;
+  const checkerA = backdrop ? BACKDROP_PALETTE[backdrop].a : colors.checkerA;
+  const checkerB = backdrop ? BACKDROP_PALETTE[backdrop].b : colors.checkerB;
 
   const zoom = camera.zoom;
   const h = HANDLE_PX / zoom;
@@ -792,9 +798,9 @@ export function SmartDetectionCanvas({
       >
         <defs>
           <pattern id={checkerId} x={camera.x} y={camera.y} width={16} height={16} patternUnits="userSpaceOnUse">
-            <rect width={16} height={16} style={{ fill: colors.checkerA }} />
-            <rect width={8} height={8} style={{ fill: colors.checkerB }} />
-            <rect x={8} y={8} width={8} height={8} style={{ fill: colors.checkerB }} />
+            <rect width={16} height={16} style={{ fill: checkerA }} />
+            <rect width={8} height={8} style={{ fill: checkerB }} />
+            <rect x={8} y={8} width={8} height={8} style={{ fill: checkerB }} />
           </pattern>
           {/* White keeps the shade, black boxes cut it out, so overlapping boxes stay clear. */}
           <mask id={dimMaskId} maskUnits="userSpaceOnUse" x={0} y={0} width={imageWidth} height={imageHeight}>

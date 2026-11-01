@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Check } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,26 @@ export function MenuItem({
       className={cn("oa-menu-item", danger && "oa-menu-item-danger", className)}
       {...props}
     />
+  );
+}
+
+export const MenuRadioGroup = DropdownMenu.RadioGroup;
+
+/** One choice of a group. The chosen one carries a check; the group announces it as a radio. */
+export function MenuRadioItem({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof DropdownMenu.RadioItem>) {
+  return (
+    <DropdownMenu.RadioItem className={cn("oa-menu-item", className)} {...props}>
+      <span aria-hidden className="inline-flex size-4 flex-none items-center justify-center">
+        <DropdownMenu.ItemIndicator>
+          <Check strokeWidth={3} />
+        </DropdownMenu.ItemIndicator>
+      </span>
+      {children}
+    </DropdownMenu.RadioItem>
   );
 }
 
