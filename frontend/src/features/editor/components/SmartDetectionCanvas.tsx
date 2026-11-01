@@ -927,6 +927,9 @@ export function SmartDetectionCanvas({
             const tagX = box.x;
             const tagY = box.y - tagH - 1.5 * px;
             const lit = state !== "idle";
+            // Zoomed far out, idle tags would pile on top of each other and hide the boxes.
+            // Selected and hovered boxes always show theirs; the Detections list names the rest.
+            if (!lit && box.width * zoom < name.length * TAG_CHAR_W + TAG_PAD * 2) return null;
             return (
               <g key={`tag-${box.id}`} pointerEvents="none">
                 <rect
