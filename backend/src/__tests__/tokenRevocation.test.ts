@@ -57,6 +57,7 @@ describe('token revocation (MongoDB)', { skip: needsMongo }, () => {
   let mongoose: typeof import('mongoose').default;
   let UserModel: typeof import('../modules/auth/auth.model').UserModel;
   let AuthService: typeof import('../modules/auth/auth.service').AuthService;
+  let addRefreshSession: typeof import('../modules/auth/refreshSessions').addRefreshSession;
   let ExtensionSessionModel: typeof import('../modules/auth/extensionSession.model').ExtensionSessionModel;
   let server: TestServer;
   const userIds: string[] = [];
@@ -65,6 +66,7 @@ describe('token revocation (MongoDB)', { skip: needsMongo }, () => {
     mongoose = (await import('mongoose')).default;
     ({ UserModel } = await import('../modules/auth/auth.model'));
     ({ AuthService } = await import('../modules/auth/auth.service'));
+    ({ addRefreshSession } = await import('../modules/auth/refreshSessions'));
     ({ ExtensionSessionModel } = await import('../modules/auth/extensionSession.model'));
     await mongoose.connect(process.env.MONGO_URI as string, {
       dbName: `${process.env.MONGO_DB_NAME ?? 'open_assets'}_test`,
@@ -85,7 +87,7 @@ describe('token revocation (MongoDB)', { skip: needsMongo }, () => {
     const id = String(user._id);
     userIds.push(id);
     const refresh = generateRefreshToken({ id, jti: randomUUID() });
-    await UserModel.updateOne({ _id: id }, { $set: { refreshToken: hashToken(refresh) } });
+    await addRefreshSession(id, refresh);
     return {
       id,
       email,

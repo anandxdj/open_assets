@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { UserModel } from '../auth/auth.model';
 import { ExtensionAuthService } from '../auth/extensionAuth.service';
+import { newRefreshSession } from '../auth/refreshSessions';
 import { ExtensionSessionModel } from '../auth/extensionSession.model';
 import { ExtensionAuthorizationModel } from '../auth/extensionAuthorization.model';
 import { CollectionModel } from '../collections/collection.model';
@@ -18,7 +19,6 @@ import { mapLimit } from '../../common/utils/mapLimit';
 import {
   generateAccessToken,
   generateRefreshToken,
-  hashToken,
 } from '../../common/utils/jwt.utils';
 import type { ChangePasswordInput } from './dto/account.schema';
 
@@ -74,15 +74,15 @@ const revokeAllExtensionSessions = (userId: string) => ExtensionAuthService.revo
 /**
  * Change the password, or set the first one on a Google-only account.
  *
- * Every other session is signed out at once: the single stored refresh token
- * is replaced (a new one is returned for the caller's own browser), extension
+ * Every other session is signed out at once: all stored refresh sessions are
+ * replaced by one for the caller's own browser (its new token is returned), extension
  * device sessions are revoked, and `tokensValidAfter` kills every access token
  * issued before this moment. The caller's new access token is stamped with that
  * same instant, so their own session carries on.
  */
-export async function changePassword(userId: string, input: ChangePasswordInput) {
+export async function changePassword(userId: string, input: ChangePasswordInput, userAgent?: string) {
   const user = await UserModel.findById(userId).select(
-    '+password +refreshToken +resetPasswordToken +resetPasswordExpires',
+    '+password +resetPasswordToken +resetPasswordExpires',
   );
   if (!user) throw ApiError.notFound('User not found');
 
@@ -114,7 +114,9 @@ export async function changePassword(userId: string, input: ChangePasswordInput)
 
   const hadPassword = Boolean(user.password);
   user.password = input.newPassword; // hashed by the model's pre-save hook
-  user.refreshToken = hashToken(refreshToken);
+  // Every other browser's session goes; the caller's browser gets the rotated one.
+  user.refreshSessions = [newRefreshSession(refreshToken, userAgent, now)];
+  user.refreshToken = undefined;
   user.tokensValidAfter = now;
   // An outstanding reset link must not outlive a password change.
   user.resetPasswordToken = undefined;
@@ -130,7 +132,10 @@ export async function changePassword(userId: string, input: ChangePasswordInput)
  * access token issued so far (`tokensValidAfter`), the caller's own included.
  */
 export async function logoutEverywhere(userId: string) {
-  await UserModel.updateOne({ _id: userId }, { $set: { tokensValidAfter: new Date() }, $unset: { refreshToken: 1 } });
+  await UserModel.updateOne({ _id: userId }, {
+    $set: { tokensValidAfter: new Date(), refreshSessions: [] },
+    $unset: { refreshToken: 1 },
+  });
   const extensionSessionsRevoked = await revokeAllExtensionSessions(userId);
   return { extensionSessionsRevoked };
 }

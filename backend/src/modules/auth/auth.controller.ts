@@ -19,7 +19,7 @@ export class AuthController {
 
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const { user, accessToken, refreshToken } = await AuthService.login(req.body);
+      const { user, accessToken, refreshToken } = await AuthService.login(req.body, { userAgent: req.get('user-agent') });
 
       // Set refresh token in httpOnly cookie
       res.cookie('refreshToken', refreshToken, sessionCookieOptions());
@@ -127,7 +127,9 @@ export class AuthController {
         return res.redirect(`${process.env.FRONTEND_URL}/login?error=Google authentication failed`);
       }
 
-      const { user, accessToken, refreshToken } = await AuthService.handleGoogleCallback(code as string);
+      const { user, accessToken, refreshToken } = await AuthService.handleGoogleCallback(code as string, {
+        userAgent: req.get('user-agent'),
+      });
 
       // Set refresh token in httpOnly cookie
       res.cookie('refreshToken', refreshToken, sessionCookieOptions());
