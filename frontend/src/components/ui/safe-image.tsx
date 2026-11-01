@@ -9,13 +9,14 @@ import { cn } from "@/lib/utils";
  * opaque box with a muted "no image" icon. It takes the image's own size classes, so the layout
  * around it does not move, and it carries no text, so nothing can overflow it.
  */
-export function ImageFallback({ label, className }: { label?: string; className?: string }) {
+export function ImageFallback({ label, className, background }: { label?: string; className?: string; background?: string }) {
   return (
     <span
       role={label ? "img" : undefined}
       aria-label={label || undefined}
       aria-hidden={label ? undefined : true}
       className={cn("oa-img-fallback", className)}
+      style={background ? { background } : undefined}
     >
       <ImageOff aria-hidden />
     </span>
@@ -27,15 +28,18 @@ export function ImageFallback({ label, className }: { label?: string; className?
  * deleted file, an old address whose storage is gone, a network error), instead of showing the
  * browser's broken-image icon. `className` sizes both the image and the tile; `fallbackClassName`
  * adds to the tile only (use it when the image is sized by its own content, such as `max-h-*`).
+ * `fallbackBackground` (any CSS background value) paints the tile, for a thumbnail that sits on a
+ * chosen backdrop instead of the default surface.
  */
 export function SafeImage({
   src,
   alt = "",
   className,
   fallbackClassName,
+  fallbackBackground,
   onError,
   ...rest
-}: Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src"> & { src?: string | null; fallbackClassName?: string }) {
+}: Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src"> & { src?: string | null; fallbackClassName?: string; fallbackBackground?: string }) {
   // Remember which address failed, so a new src gets a fresh try without an effect to reset state.
   const [failedSrc, setFailedSrc] = React.useState<string | null>(null);
 
@@ -48,7 +52,7 @@ export function SafeImage({
   );
 
   if (!src || failedSrc === src) {
-    return <ImageFallback label={alt} className={cn(className, fallbackClassName)} />;
+    return <ImageFallback label={alt} className={cn(className, fallbackClassName)} background={fallbackBackground} />;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
