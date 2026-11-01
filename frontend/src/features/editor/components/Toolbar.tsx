@@ -1,13 +1,13 @@
 "use client";
 
 import { useRef } from "react";
-import { BoxSelect, Contrast, Hand, MousePointer2, SquareDashed, type LucideIcon } from "lucide-react";
+import { SquareDashedMousePointer, Contrast, Hand, MousePointer2, SquareDashed, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tool } from "../hooks/useCanvasEditor";
 
 const TOOLS: { id: Tool; icon: LucideIcon; label: string; key: string }[] = [
   { id: "select", icon: MousePointer2, label: "Select", key: "V" },
-  { id: "marquee", icon: BoxSelect, label: "Select area", key: "M" },
+  { id: "marquee", icon: SquareDashedMousePointer, label: "Select area", key: "M" },
   { id: "hand", icon: Hand, label: "Hand", key: "H" },
   { id: "draw", icon: SquareDashed, label: "Draw box", key: "R" },
 ];
