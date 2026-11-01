@@ -1,0 +1,63 @@
+/*
+ * Motion for the landing product shot. Nothing here applies until
+ * `ProductShotPlayer` sets data-anim="on" on the root, so the server-rendered
+ * markup (no JS, reduced motion, print) is the finished frame.
+ *
+ * The player only toggles attributes on the data-ps elements:
+ *   box / row   data-on        drawn (absent = not drawn yet)
+ *   box / row   data-selected  the selected tile
+ *   insp        data-selected  the inspector shown for the selected tile
+ */
+
+.root {
+  /* --oa-ease-out is the house ease-out; the literal is the same curve. */
+  --ps-ease: var(--oa-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  position: relative;
+}
+
+.root[data-anim="on"] [data-ps="box"] {
+  transition:
+    opacity 240ms var(--ps-ease),
+    transform 240ms var(--ps-ease);
+}
+
+.root[data-anim="on"] [data-ps="box"]:not([data-on]) {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+.root[data-anim="on"] [data-ps="row"] {
+  transition:
+    opacity 240ms var(--ps-ease),
+    background-color 120ms var(--ps-ease),
+    border-color 120ms var(--ps-ease);
+}
+
+.root[data-anim="on"] [data-ps="row"]:not([data-on]) {
+  opacity: 0;
+}
+
+/* Inspector variants share one grid cell, so swapping them never moves the layout. */
+.insp {
+  grid-area: 1 / 1;
+  min-width: 0;
+  visibility: hidden;
+}
+
+.insp[data-selected="true"] {
+  visibility: visible;
+}
+
+/* The pause control floats over the shot, outside the aria-hidden picture. */
+.control {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 10;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root [data-ps] {
+    transition: none;
+  }
+}
