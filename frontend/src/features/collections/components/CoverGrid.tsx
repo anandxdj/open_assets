@@ -1,4 +1,5 @@
 import { Boxes } from "lucide-react";
+import { SafeImage } from "@/components/ui/safe-image";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,10 +20,7 @@ export function CoverGrid({ urls, className }: { urls: string[]; className?: str
       ) : (
         Array.from({ length: 4 }, (_, i) => (
           <span key={i} className="flex min-h-0 items-center justify-center">
-            {cells[i] && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={cells[i]} alt="" loading="lazy" className="h-[70%] w-[70%] object-contain" />
-            )}
+            {cells[i] && <SafeImage src={cells[i]} loading="lazy" className="h-[70%] w-[70%] object-contain" />}
           </span>
         ))
       )}

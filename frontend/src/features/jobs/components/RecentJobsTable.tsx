@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Ellipsis, ImageOff, SquarePen, X } from "lucide-react";
+import { Ellipsis, SquarePen, X } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
+import { SafeImage } from "@/components/ui/safe-image";
 import { formatFullDate, formatRelativeTime, useNow } from "@/features/jobs/time";
 import type { JobSummary } from "@/types";
 
@@ -79,12 +80,7 @@ export function RecentJobsTable({
                 <td>
                   <span className="flex items-center gap-3">
                     <span className="oa-checker flex h-8 w-12 flex-none items-center justify-center overflow-hidden border border-line">
-                      {job.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={job.imageUrl} alt="" loading="lazy" className="size-full object-contain" />
-                      ) : (
-                        <ImageOff aria-hidden className="size-4 text-ink-3" />
-                      )}
+                      <SafeImage src={job.imageUrl} loading="lazy" className="size-full object-contain" fallbackClassName="border-0" />
                     </span>
                     <span className="flex min-w-0 flex-col gap-1.5">
                       <span className="oa-value max-w-[104px] truncate text-[13px] sm:max-w-[240px]" title={name}>

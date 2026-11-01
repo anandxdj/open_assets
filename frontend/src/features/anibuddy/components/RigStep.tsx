@@ -21,6 +21,7 @@ import { buildRig, rebindWeights } from "@/features/anibuddy/lib/skeleton";
 import { requestRigAnalysis, AniBuddyApiError } from "@/features/anibuddy/api/anibuddyClient";
 import { MAX_STAGE_EDGE, type RigTool } from "@/features/anibuddy/components/RigCanvas";
 import { Badge } from "@/components/ui/badge";
+import { DemoModeNotice, PlaceholderLabel } from "@/components/ui/demo-mode";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/feedback";
 import { Field } from "@/components/ui/field";
@@ -332,12 +333,18 @@ export function RigStep({ prepared, rig, onRig, onContinue }: RigStepProps) {
               </Button>
             </div>
             <Hint>Find joints with vision analysis, or start from a three-joint spine and place the rest yourself.</Hint>
+            <DemoModeNotice />
           </PanelSection>
         ) : (
           <>
             <PanelSection
               title={TOOLS.find((option) => option.id === tool)?.label}
-              aside={<Badge>{rig.source === "model" ? "Model draft" : "Edited by you"}</Badge>}
+              aside={
+                <span className="flex items-center gap-1.5">
+                  {rig.source === "model" && <PlaceholderLabel />}
+                  <Badge>{rig.source === "model" ? "Model draft" : "Edited by you"}</Badge>
+                </span>
+              }
             >
               <Hint>{TOOL_HELP[tool]}</Hint>
               <span className="oa-value text-ink-3">

@@ -10,6 +10,7 @@ import { Avatar } from "@/components/layout/UserMenu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Loading, Notice } from "@/components/ui/feedback";
+import { SafeImage } from "@/components/ui/safe-image";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import {
   collectionDownloadUrl,
@@ -145,8 +146,7 @@ function FolderSection({
                   className="oa-tile oa-checker w-full cursor-zoom-in p-0 hover:border-line-strong"
                   aria-label={`Preview ${img.name}`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img.cloudinaryUrl} alt="" loading="lazy" className="h-[70%] w-[70%] object-contain" />
+                  <SafeImage src={img.cloudinaryUrl} loading="lazy" className="h-[70%] w-[70%] object-contain" />
                 </button>
                 <span className="flex items-center gap-1">
                   <span className="oa-value min-w-0 flex-1 truncate text-[11.5px]" title={img.name}>

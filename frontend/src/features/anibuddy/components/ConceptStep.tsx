@@ -5,6 +5,7 @@ import { Copy, LoaderCircle, Sparkles } from "lucide-react";
 import type { QaTurn } from "@/features/anibuddy/types";
 import { requestPromptTurn } from "@/features/anibuddy/api/anibuddyClient";
 import { Button } from "@/components/ui/button";
+import { DemoModeNotice, PlaceholderLabel } from "@/components/ui/demo-mode";
 import { Loading, Notice } from "@/components/ui/feedback";
 import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
@@ -130,6 +131,7 @@ export function ConceptStep({ idea, prompt, transcript, onIdea, onPrompt, onTran
           {question && (
             <fieldset className="flex flex-col gap-3 border-[1.5px] border-line-strong bg-surface p-4 shadow-float">
               <legend className="sr-only">{question.question}</legend>
+              <PlaceholderLabel className="self-start" />
               <p aria-hidden className="text-[13px] font-bold leading-5">
                 {question.question}
               </p>
@@ -176,7 +178,8 @@ export function ConceptStep({ idea, prompt, transcript, onIdea, onPrompt, onTran
           {prompt && (
             <section aria-labelledby={`${id}-prompt`} className="flex flex-col gap-3 border-[1.5px] border-line-strong bg-surface p-4">
               <h3 id={`${id}-prompt`} className="oa-panel-title">
-                Your prompt
+                <span>Your prompt</span>
+                <PlaceholderLabel />
               </h3>
               <p className="whitespace-pre-wrap text-[13px] leading-5">{prompt}</p>
               <Button
@@ -239,6 +242,7 @@ export function ConceptStep({ idea, prompt, transcript, onIdea, onPrompt, onTran
             )}
           </div>
           <Hint>The interview and prompt use AI. No images are made here.</Hint>
+          <DemoModeNotice />
           {error && (
             <Notice tone="danger" role="alert">
               {error}

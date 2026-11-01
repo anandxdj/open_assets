@@ -277,6 +277,7 @@ export function ParallaxScreen() {
             <RunHeader
               id={ids.scene}
               title="Scene"
+              placeholder={populatedCount > 0}
               meta={
                 <span className="text-xs text-ink-3">
                   {populatedCount}/{px.layers.length} layers
@@ -314,6 +315,7 @@ export function ParallaxScreen() {
               <RunHeader
                 id={ids.layer}
                 title={`${activeSpec.label} layer`}
+                placeholder={!isEmpty}
                 meta={
                   activeDimensions ? (
                     <Badge>

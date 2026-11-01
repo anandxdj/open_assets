@@ -6,6 +6,7 @@
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, LoaderCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PlaceholderLabel } from "@/components/ui/demo-mode";
 import { cn } from "@/lib/utils";
 import type { Direction } from "@/features/studio/lib/app";
 
@@ -75,13 +76,16 @@ export function Workspace({
 
   return (
     <div className="oa-stage flex min-h-[420px] flex-1 flex-col items-center justify-center px-4 pb-24 pt-12 md:px-6">
-      {dimensions && (
-        <Badge className="absolute left-3 top-3 bg-surface">
-          <span className="oa-value">
-            {dimensions.width} × {dimensions.height}
-          </span>
-        </Badge>
-      )}
+      <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
+        {dimensions && (
+          <Badge className="bg-surface">
+            <span className="oa-value">
+              {dimensions.width} × {dimensions.height}
+            </span>
+          </Badge>
+        )}
+        {isResult && <PlaceholderLabel className="bg-surface" />}
+      </div>
       <div className="grid max-w-full grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[auto_minmax(0,1fr)_auto] items-center justify-items-center gap-2">
         <div className="col-start-2 row-start-1 h-8">{handle("up")}</div>
         <div className="col-start-1 row-start-2 w-8">{handle("left")}</div>

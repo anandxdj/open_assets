@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -14,12 +15,24 @@ export function initials(name?: string | null) {
   return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
+/**
+ * The picture when it loads, the person's initials when there is none or it fails (a revoked
+ * Google URL, an offline CDN). The image has no alt text, so nothing but the initials can show.
+ */
 export function Avatar({ name, picture, className }: { name?: string | null; picture?: string; className?: string }) {
+  const [failedPicture, setFailedPicture] = useState<string | null>(null);
+  const check = useCallback(
+    (img: HTMLImageElement | null) => {
+      if (img && picture && img.complete && img.naturalWidth === 0) setFailedPicture(picture);
+    },
+    [picture],
+  );
+  const showPicture = Boolean(picture) && failedPicture !== picture;
   return (
     <span className={cn("oa-avatar", className)} aria-hidden>
-      {picture ? (
+      {showPicture ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={picture} alt="" referrerPolicy="no-referrer" />
+        <img ref={check} src={picture} alt="" referrerPolicy="no-referrer" onError={() => setFailedPicture(picture ?? null)} />
       ) : (
         initials(name)
       )}

@@ -7,6 +7,7 @@
 import * as React from "react";
 import { LoaderCircle, Square } from "lucide-react";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { DemoModeNotice, PlaceholderLabel } from "@/components/ui/demo-mode";
 import { getModelConfig } from "@/features/studio/lib/models";
 import { useStudioSettings } from "@/features/studio/hooks/useStudioSettings";
 import { cn } from "@/lib/utils";
@@ -115,17 +116,21 @@ export function RunHeader({
   title,
   meta,
   actions,
+  placeholder = true,
 }: {
   id?: string;
   title: React.ReactNode;
   meta?: React.ReactNode;
   actions?: React.ReactNode;
+  /** Whether this header sits over AI results; they carry a "Placeholder" label while the server is in demo mode. */
+  placeholder?: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
       <h2 id={id} className="oa-section min-w-0">
         {title}
       </h2>
+      {placeholder && <PlaceholderLabel />}
       {meta}
       <span className="flex-1" />
       {actions && <div className="flex flex-wrap items-center gap-1.5">{actions}</div>}
@@ -179,6 +184,7 @@ export function RunFooter({
   const text = message || "Working";
   return (
     <>
+      <DemoModeNotice />
       {running ? (
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 text-xs leading-[18px]">
