@@ -17,6 +17,7 @@ import { ApiRequestError } from "@/lib/api-error";
 import { DETECTION_LIMITS, isPlanErrorCode } from "@/lib/plans";
 import { useJobPolling } from "../hooks/useJobPolling";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
+import { useDimOutside } from "../hooks/useDimOutside";
 import { startExport } from "../services/exportApi";
 import { exportBoxesAsZip } from "../services/localExport";
 import { isDialogOpen, isEditableTarget } from "../lib/keyboard";
@@ -54,6 +55,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     saveHistory, undo, redo, canUndo, canRedo,
   } = useCanvasEditor();
 
+  const [dimOutside, setDimOutside] = useDimOutside();
   const stageRef = useRef<HTMLElement>(null);
   const initializedRef = useRef(false);
   const [redetecting, setRedetecting] = useState(false);
@@ -234,6 +236,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     if (!mod && !e.altKey) {
       if (key === "h") setActiveTool("hand");
       if (key === "v") setActiveTool("select");
+      if (key === "m") setActiveTool("marquee");
       if (key === "r") setActiveTool("draw");
       if (key === "n") {
         e.preventDefault();
@@ -533,7 +536,8 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                 <p id="canvas-help" className="sr-only">
                   Select boxes in the Detections list. Arrow keys move the selected boxes, Alt plus arrow keys resize
                   them, N adds a box, Control D duplicates, plus and minus zoom, and with nothing selected the arrow
-                  keys pan. Press question mark for every shortcut.
+                  keys pan. M switches to the Select area tool, where dragging the mouse selects every box inside the
+                  area. Press question mark for every shortcut.
                 </p>
                 <SmartDetectionCanvas
                   imageUrl={job.cloudinaryUrl}
@@ -554,6 +558,8 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                   onDrawingBoxChange={setDrawingBox}
                   onDeleteBox={deleteBox}
                   onSaveHistory={saveHistory}
+                  dimOutside={dimOutside}
+                  onAnnounce={announce}
                 />
 
                 {noticeShown && (
@@ -566,9 +572,12 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                   />
                 )}
 
-                <div className="pointer-events-none absolute bottom-5 left-4 z-10 hidden items-center gap-3 text-[11px] text-ink-3 md:flex lg:hidden xl:flex">
+                <div className="pointer-events-none absolute bottom-5 left-4 z-10 hidden flex-col items-start gap-1 text-[11px] text-ink-3 md:flex lg:hidden xl:flex">
                   <span className="flex items-center gap-1">
                     <Kbd>Space</Kbd> drag to pan
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Kbd>Shift</Kbd> drag to select an area
                   </span>
                   <span className="flex items-center gap-1">
                     <Kbd>Alt</Kbd> drag to duplicate
@@ -579,6 +588,8 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                   className="absolute bottom-4 left-4 z-10 sm:left-1/2 sm:-translate-x-1/2"
                   activeTool={activeTool}
                   onToolChange={setActiveTool}
+                  dimOutside={dimOutside}
+                  onDimOutsideChange={setDimOutside}
                 />
 
                 <ZoomControls

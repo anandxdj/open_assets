@@ -303,7 +303,7 @@ export function PropertiesPanel({
               <p className="text-xs">
                 <span className="tabular-nums">{selected.length}</span> boxes selected
               </p>
-              <p className="text-[11px] leading-4 text-ink-3">Arrow keys nudge them together: 1 px, Shift 10 px. Alt+Arrow resizes them.</p>
+              <p className="text-[11px] leading-4 text-ink-3">Arrow keys nudge them together: 1 px, Shift 10 px. Alt+Arrow resizes them. Shift+drag adds another area.</p>
             </div>
             <div className="oa-panel-sec border-b-0">
               <Button variant="danger" size="sm" className="self-start" onClick={onDeleteSelected}>
@@ -358,7 +358,7 @@ export function PropertiesPanel({
               </Button>
             </div>
             <div className="oa-panel-sec border-b-0">
-              <p className="text-[11px] leading-4 text-ink-2">Select a box to edit its label and bounds. Ctrl+A selects all, N adds a box.</p>
+              <p className="text-[11px] leading-4 text-ink-2">Select a box to edit its label and bounds. Drag on empty space to select an area; Shift+drag adds an area, even over boxes. M turns every drag into an area. Ctrl+A selects all, N adds a box.</p>
             </div>
           </>
         )}
