@@ -2,6 +2,14 @@ import mongoose, { Schema } from 'mongoose';
 import type { Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+export interface IRefreshSession {
+  tokenHash: string;
+  createdAt: Date;
+  lastUsedAt: Date;
+  /** Coarse label such as "Chrome on Linux". Never the raw user-agent string. */
+  userAgent: string;
+}
+
 export interface IUser extends Document {
   email: string;
   name: string;
@@ -13,6 +21,16 @@ export interface IUser extends Document {
   role: 'user' | 'admin';
   isVerified: boolean;
   verificationToken?: string;
+  /**
+   * One entry per signed-in browser/device (sha256 of its refresh token, never
+   * the token). See refreshSessions.ts for the rules (cap, migration).
+   */
+  refreshSessions?: IRefreshSession[];
+  /**
+   * LEGACY single refresh-token hash from before multi-session support. Never
+   * written any more; a user who still has one keeps that session until its
+   * first refresh, which moves it into `refreshSessions` and removes this field.
+   */
   refreshToken?: string;
   /**
    * Access tokens issued before this instant are rejected by authenticate().
@@ -40,6 +58,13 @@ export interface IUser extends Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
+const RefreshSessionSchema = new Schema<IRefreshSession>({
+  tokenHash: { type: String, required: true },
+  createdAt: { type: Date, required: true, default: Date.now },
+  lastUsedAt: { type: Date, required: true, default: Date.now },
+  userAgent: { type: String, default: 'Unknown device', maxlength: 80 },
+}, { _id: false });
+
 const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   name: { type: String, required: true, trim: true },
@@ -50,6 +75,7 @@ const UserSchema = new Schema<IUser>({
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   isVerified: { type: Boolean, default: false },
   verificationToken: { type: String, select: false },
+  refreshSessions: { type: [RefreshSessionSchema], select: false, default: undefined },
   refreshToken: { type: String, select: false },
   tokensValidAfter: { type: Date },
   resetPasswordToken: { type: String, select: false },

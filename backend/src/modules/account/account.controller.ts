@@ -35,7 +35,7 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
 export async function changePassword(req: AuthRequest, res: Response): Promise<void> {
   const user = requireUser(req);
   const { accessToken, refreshToken, passwordWasSet, extensionSessionsRevoked } =
-    await accountService.changePassword(user.id, req.body as ChangePasswordInput);
+    await accountService.changePassword(user.id, req.body as ChangePasswordInput, req.get('user-agent'));
 
   // The caller keeps their own session: swap in the rotated refresh token.
   res.cookie('refreshToken', refreshToken, sessionCookieOptions());

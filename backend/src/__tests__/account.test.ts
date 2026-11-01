@@ -153,6 +153,7 @@ describe('account API (MongoDB)', { skip: needsMongo }, () => {
   let CollectionLikeModel: typeof import('../modules/collections/collectionLike.model').CollectionLikeModel;
   let UsageEventModel: typeof import('../modules/usage/usage.model').UsageEventModel;
   let AuthService: typeof import('../modules/auth/auth.service').AuthService;
+  let addRefreshSession: typeof import('../modules/auth/refreshSessions').addRefreshSession;
   let storage: typeof import('../lib/storage').storage;
   let server: TestServer;
 
@@ -170,6 +171,7 @@ describe('account API (MongoDB)', { skip: needsMongo }, () => {
     ({ CollectionLikeModel } = await import('../modules/collections/collectionLike.model'));
     ({ UsageEventModel } = await import('../modules/usage/usage.model'));
     ({ AuthService } = await import('../modules/auth/auth.service'));
+    ({ addRefreshSession } = await import('../modules/auth/refreshSessions'));
     ({ storage } = await import('../lib/storage'));
 
     await mongoose.connect(process.env.MONGO_URI as string, process.env.MONGO_DB_NAME ? { dbName: process.env.MONGO_DB_NAME } : {});
@@ -304,7 +306,7 @@ describe('account API (MongoDB)', { skip: needsMongo }, () => {
   test('PUT /api/account/password: success hashes the new password, rotates the session and revokes extensions', async () => {
     const u = await makeUser();
     const realOld = generateRefreshToken({ id: u.id, jti: randomUUID() });
-    await UserModel.updateOne({ _id: u.id }, { $set: { refreshToken: hashToken(realOld) } });
+    await addRefreshSession(u.id, realOld);
     const ext = await addExtensionSession(u.id);
     assert.ok((await AuthService.refresh(realOld)).accessToken, 'precondition: old refresh token works');
 
@@ -381,7 +383,7 @@ describe('account API (MongoDB)', { skip: needsMongo }, () => {
   test('POST /api/account/logout-all invalidates the refresh token and every extension session', async () => {
     const u = await makeUser();
     const refresh = generateRefreshToken({ id: u.id, jti: randomUUID() });
-    await UserModel.updateOne({ _id: u.id }, { $set: { refreshToken: hashToken(refresh) } });
+    await addRefreshSession(u.id, refresh);
     const a = await addExtensionSession(u.id);
     const b = await addExtensionSession(u.id);
     const alreadyRevoked = await addExtensionSession(u.id, { revokedAt: new Date(Date.now() - 1000) });
@@ -527,7 +529,7 @@ describe('account API (MongoDB)', { skip: needsMongo }, () => {
     const u = await makeUser();
     const other = await makeUser();
     const refresh = generateRefreshToken({ id: u.id, jti: randomUUID() });
-    await UserModel.updateOne({ _id: u.id }, { $set: { refreshToken: hashToken(refresh) } });
+    await addRefreshSession(u.id, refresh);
 
     // The user's pack: 2 folders, 3 images (one shared public id), liked by someone else.
     const pack = await CollectionModel.create({ creator: u.id, name: 'My pack', isPublic: true, status: 'published', likesCount: 1 });
