@@ -30,6 +30,7 @@ import bcrypt from 'bcryptjs';
 import mongoose, { Types } from 'mongoose';
 import sharp from 'sharp';
 import { connectDB } from '../src/common/config/db';
+import { getConfig } from '../src/common/config/env';
 import { redis } from '../src/common/config/redis';
 import { hashToken } from '../src/common/utils/jwt.utils';
 import { LocalStorageAdapter } from '../src/lib/storage/local.adapter';
@@ -451,11 +452,32 @@ async function seedJobs(sheet: { url: string; publicId: string; width: number; h
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
+/**
+ * The seed stores absolute image URLs built from LOCAL_STORAGE_BASE_URL (default http://localhost:<PORT>).
+ * The suite's pages only allow images from the API origin they were built with (the CSP img-src that
+ * next.config.ts bakes in from NEXT_PUBLIC_API_URL), so URLs on any other host render as broken tiles and every
+ * screenshot with an image fails. When E2E_API_URL is set, the two must name the same origin.
+ */
+function assertImageUrlsMatchTestApi(): void {
+  const testApi = process.env['E2E_API_URL'];
+  const base = getConfig().localStorage?.baseUrl;
+  if (!testApi || !base) return;
+  const origin = (value: string) => new URL(value).origin;
+  if (origin(testApi) !== origin(base)) {
+    throw new Error(
+      `LOCAL_STORAGE_BASE_URL (${origin(base)}) must be the same origin as E2E_API_URL (${origin(testApi)}): ` +
+        'the seeded image URLs are built from it, and the web app only loads images from the API it was built with. ' +
+        'Set LOCAL_STORAGE_BASE_URL=<E2E_API_URL> in backend/.env, then seed again.',
+    );
+  }
+}
+
 async function main(): Promise<void> {
   if ((process.env['STORAGE_PROVIDER'] ?? '').toLowerCase() !== 'local') {
     throw new Error('e2e:seed needs STORAGE_PROVIDER=local (it writes images to the local storage folder).');
   }
   if (process.env['NODE_ENV'] === 'production') throw new Error('Refusing to seed with NODE_ENV=production.');
+  assertImageUrlsMatchTestApi();
   // Stop before touching Mongo, Redis or the storage folder if the password is missing or too weak.
   const password = requireE2EPassword();
 

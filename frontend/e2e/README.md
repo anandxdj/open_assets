@@ -25,7 +25,7 @@ frontend/e2e/docker.sh test
 frontend/e2e/docker.sh test --update-snapshots
 ```
 
-Defaults point at `http://oa-ui5.localhost:3105` (web) and `:4105` (API); override with `E2E_BASE_URL`, `E2E_API_URL`, `E2E_HOST` (the host name mapped to 127.0.0.1 inside the container). `NEXT_PUBLIC_API_URL` is baked into the build, so build with the API URL the tests use. `pnpm e2e` runs Playwright directly and is for accessibility runs and debugging only: **do not update baselines that way**, a developer machine renders text differently from CI.
+Defaults point at `http://oa-ui5.localhost:3105` (web) and `:4105` (API); override with `E2E_BASE_URL`, `E2E_API_URL`, `E2E_HOST` (the host name mapped to 127.0.0.1 inside the container). `NEXT_PUBLIC_API_URL` is baked into the build, so build with the API URL the tests use. **Set `LOCAL_STORAGE_BASE_URL` in `backend/.env` to that same API URL** (for example `http://oa-ui5.localhost:4105`) before seeding: the seed stores absolute image URLs built from it (default `http://localhost:<PORT>`), and the web app's CSP only lets pages load images from the API origin it was built with. With any other host every seeded image renders as a broken tile, and the editor, export, collections, community and pack screenshots all fail. The seed refuses to run when `E2E_API_URL` is exported and names a different origin. `pnpm e2e` runs Playwright directly and is for accessibility runs and debugging only: **do not update baselines that way**, a developer machine renders text differently from CI.
 
 ## Rules for baselines
 
