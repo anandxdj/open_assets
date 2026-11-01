@@ -1,26 +1,33 @@
 "use client";
 
 import { useRef } from "react";
-import { Hand, MousePointer2, SquareDashed, type LucideIcon } from "lucide-react";
+import { BoxSelect, Contrast, Hand, MousePointer2, SquareDashed, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tool } from "../hooks/useCanvasEditor";
 
 const TOOLS: { id: Tool; icon: LucideIcon; label: string; key: string }[] = [
   { id: "select", icon: MousePointer2, label: "Select", key: "V" },
+  { id: "marquee", icon: BoxSelect, label: "Select area", key: "M" },
   { id: "hand", icon: Hand, label: "Hand", key: "H" },
   { id: "draw", icon: SquareDashed, label: "Draw box", key: "R" },
 ];
 
-/** Floating tool bar at the bottom centre of the canvas. Arrow keys move between tools. */
+/** Floating tool bar at the bottom centre of the canvas. Arrow keys move between its buttons. */
 export function Toolbar({
   activeTool,
   onToolChange,
+  dimOutside,
+  onDimOutsideChange,
   className,
 }: {
   activeTool: Tool;
   onToolChange: (t: Tool) => void;
+  /** Shade everything outside the boxes. */
+  dimOutside: boolean;
+  onDimOutsideChange: (on: boolean) => void;
   className?: string;
 }) {
+  const count = TOOLS.length + 1;
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
@@ -30,7 +37,7 @@ export function Toolbar({
     e.stopPropagation();
     const current = refs.current.findIndex((el) => el === document.activeElement);
     const step = e.key === "ArrowRight" ? 1 : -1;
-    const next = (Math.max(current, 0) + step + TOOLS.length) % TOOLS.length;
+    const next = (Math.max(current, 0) + step + count) % count;
     refs.current[next]?.focus();
   }
 
@@ -64,6 +71,21 @@ export function Toolbar({
           </button>
         );
       })}
+      <span aria-hidden className="oa-vsep" />
+      <button
+        ref={(el) => {
+          refs.current[TOOLS.length] = el;
+        }}
+        type="button"
+        className="oa-tool"
+        aria-label="Dim outside boxes"
+        title="Dim outside boxes"
+        aria-pressed={dimOutside}
+        tabIndex={-1}
+        onClick={() => onDimOutsideChange(!dimOutside)}
+      >
+        <Contrast aria-hidden />
+      </button>
     </div>
   );
 }

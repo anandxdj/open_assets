@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { BoundingBox } from "@/types";
 import { nextAssetLabel } from "../lib/names";
 
-export type Tool = "hand" | "select" | "draw";
+export type Tool = "hand" | "select" | "marquee" | "draw";
 
 export interface Camera {
   x: number;

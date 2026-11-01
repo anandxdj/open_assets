@@ -6,6 +6,15 @@ import type { Camera, DraftBox, Tool } from "../hooks/useCanvasEditor";
 import { useCanvasColors } from "../hooks/useCanvasColors";
 import { isSpaceForControl } from "../lib/keyboard";
 import { boxName } from "../lib/names";
+import {
+  applyMarquee,
+  boxesAtPoint,
+  enclosedBoxIds,
+  marqueeFromPoints,
+  movedPastThreshold,
+  pressGesture,
+  selectionMessage,
+} from "../lib/canvasGeometry";
 
 const HANDLE_PX = 8;
 // Label tag above each box: 10px JetBrains Mono, whose glyphs advance 0.6em.
@@ -14,6 +23,14 @@ const TAG_FONT = 10;
 const TAG_PAD = 5;
 const TAG_CHAR_W = TAG_FONT * 0.6;
 const TAG_MAX_CHARS = 28;
+
+// Boxes sit on the user's sheet, not on the app surface, so their lines use
+// fixed colours instead of theme tokens: a dark line inside a light halo reads on
+// white, black, mid-grey and busy art alike.
+const LINE_DARK = "#0A0A0A";
+const LINE_LIGHT = "#FFFFFF";
+const DIM_FILL = "#0A0A0A";
+const DIM_OPACITY = 0.6;
 
 let boxSeq = 0;
 function makeBoxId(): string {
@@ -40,6 +57,16 @@ interface DrawState {
   startWorld: { x: number; y: number };
 }
 
+interface MarqueeState {
+  startWorld: { x: number; y: number };
+  startScreen: { x: number; y: number };
+  /** Shift was held at the press: the marquee adds to the selection. */
+  additive: boolean;
+  /** Selection when the drag began, kept so the marquee can add to it. */
+  base: Set<string>;
+  moved: boolean;
+}
+
 interface Props {
   imageUrl: string;
   imageWidth: number;
@@ -59,24 +86,10 @@ interface Props {
   onSetSelectedIds?: (ids: Set<string>) => void;
   onDeleteBox?: (id: string) => void;
   onSaveHistory?: () => void;
-}
-
-function getEnclosedBoxes(marquee: DraftBox, boxes: BoundingBox[]): string[] {
-  const mLeft = marquee.x;
-  const mRight = marquee.x + marquee.width;
-  const mTop = marquee.y;
-  const mBottom = marquee.y + marquee.height;
-
-  return boxes
-    .filter((box) => {
-      const bLeft = box.x;
-      const bRight = box.x + box.width;
-      const bTop = box.y;
-      const bBottom = box.y + box.height;
-
-      return bLeft >= mLeft && bRight <= mRight && bTop >= mTop && bBottom <= mBottom;
-    })
-    .map((box) => box.id);
+  /** Shade everything outside the boxes. */
+  dimOutside?: boolean;
+  /** Spoken by the polite live region, for example after a marquee. */
+  onAnnounce?: (message: string) => void;
 }
 
 function getHandles(box: BoundingBox, zoom: number) {
@@ -314,6 +327,8 @@ export function SmartDetectionCanvas({
   onSetSelectedIds,
   onDeleteBox,
   onSaveHistory,
+  dimOutside = false,
+  onAnnounce,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -354,7 +369,10 @@ export function SmartDetectionCanvas({
   useEffect(() => { onSaveHistoryRef.current = onSaveHistory; });
 
   const [marqueeBox, setMarqueeBox] = useState<DraftBox | null>(null);
-  const marqueeDragRef = useRef<{ startWorld: { x: number; y: number } } | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const marqueeDragRef = useRef<MarqueeState | null>(null);
+  const onAnnounceRef = useRef(onAnnounce);
+  useEffect(() => { onAnnounceRef.current = onAnnounce; });
 
   const marqueeBoxRef = useRef(marqueeBox);
   const onSetSelectedIdsRef = useRef(onSetSelectedIds);
@@ -383,7 +401,7 @@ export function SmartDetectionCanvas({
     if (spaceHeldRef.current) return "grab";
     const tool = activeToolRef.current;
     if (tool === "hand") return "grab";
-    if (tool === "draw") return "crosshair";
+    if (tool === "draw" || tool === "marquee") return "crosshair";
     return "default";
   }
 
@@ -469,14 +487,14 @@ export function SmartDetectionCanvas({
       }
 
       if (marqueeDragRef.current) {
-        const world = screenToWorld(sx, sy);
-        const start = marqueeDragRef.current.startWorld;
-        setMarqueeBox({
-          x: Math.min(start.x, world.x),
-          y: Math.min(start.y, world.y),
-          width: Math.abs(world.x - start.x),
-          height: Math.abs(world.y - start.y),
-        });
+        const drag = marqueeDragRef.current;
+        if (!drag.moved && movedPastThreshold(drag.startScreen, { x: sx, y: sy })) {
+          drag.moved = true;
+          // The click that follows the release must not toggle the box under the pointer.
+          clickBlockedRef.current = true;
+        }
+        if (!drag.moved) return;
+        setMarqueeBox(marqueeFromPoints(drag.startWorld, screenToWorld(sx, sy)));
       }
     }
 
@@ -576,13 +594,13 @@ export function SmartDetectionCanvas({
       }
 
       if (marqueeDragRef.current) {
+        const drag = marqueeDragRef.current;
         marqueeDragRef.current = null;
         const draft = marqueeBoxRef.current;
-        if (draft && draft.width >= 4 && draft.height >= 4) {
-          const enclosedIds = getEnclosedBoxes(draft, boxesRef.current);
-          if (onSetSelectedIdsRef.current) {
-            onSetSelectedIdsRef.current(new Set(enclosedIds));
-          }
+        if (drag.moved && draft && onSetSelectedIdsRef.current) {
+          const next = applyMarquee(drag.base, enclosedBoxIds(draft, boxesRef.current), drag.additive);
+          onSetSelectedIdsRef.current(next);
+          onAnnounceRef.current?.(selectionMessage(next.size));
         }
         setMarqueeBox(null);
       }
@@ -649,21 +667,26 @@ export function SmartDetectionCanvas({
       return;
     }
 
-    // select tool: clicking canvas background clears selection and starts marquee drag
-    if (tool === "select") {
-      const target = e.target as SVGElement;
-      const isBackground =
-        target === svgRef.current ||
-        target.getAttribute("data-bg") === "true" ||
-        target.tagName === "image";
-      if (isBackground) {
-        clickBlockedRef.current = false;
-        if (!e.shiftKey) {
-          onClearSelection();
-        }
-        const world = screenToWorld(sx, sy);
-        marqueeDragRef.current = { startWorld: world };
-      }
+    const world = screenToWorld(sx, sy);
+    const gesture = pressGesture({
+      tool,
+      shiftKey: e.shiftKey,
+      spaceHeld: false,
+      overBox: boxesAtPoint(boxesRef.current, world).length > 0,
+    });
+    if (gesture === "marquee") {
+      // Shift keeps the current selection and adds to it. A plain press on empty
+      // space (or any press with the Select area tool) starts a new selection.
+      clickBlockedRef.current = false;
+      const additive = e.shiftKey;
+      if (!additive) onClearSelection();
+      marqueeDragRef.current = {
+        startWorld: world,
+        startScreen: { x: sx, y: sy },
+        additive,
+        base: additive ? new Set(selectedIdsRef.current) : new Set(),
+        moved: false,
+      };
     }
   }
 
@@ -703,14 +726,34 @@ export function SmartDetectionCanvas({
   }
 
   const colors = useCanvasColors();
-  const checkerId = `oa-checker-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const checkerId = `oa-checker-${uid}`;
+  const dimMaskId = `oa-dim-${uid}`;
 
   const zoom = camera.zoom;
   const h = HANDLE_PX / zoom;
   const sheetW = imageWidth * zoom;
   const sheetH = imageHeight * zoom;
-  // Selected boxes draw last so their orange outline and handles sit on top.
-  const ordered = [
+  // One screen pixel in world units: every line is sized in screen pixels.
+  const px = 1 / zoom;
+  const selectTool = activeTool === "select";
+
+  // Boxes a running marquee would select, shown like hovered boxes while it is dragged.
+  const previewIds = new Set<string>(
+    marqueeBox ? enclosedBoxIds(marqueeBox, boxes) : []
+  );
+  const hoverId = selectTool && !marqueeBox ? hoveredId : null;
+  type BoxState = "idle" | "hover" | "selected";
+  const stateOf = (id: string): BoxState =>
+    selectedIds.has(id) ? "selected" : id === hoverId || previewIds.has(id) ? "hover" : "idle";
+
+  // Selected boxes draw last so their orange outline and handles sit on top, then hovered ones.
+  const rank: Record<BoxState, number> = { idle: 0, hover: 1, selected: 2 };
+  const ordered = boxes
+    .map((box) => ({ box, state: stateOf(box.id) }))
+    .sort((a, b) => rank[a.state] - rank[b.state]);
+  // Hit areas keep a stable order while hovering, or the box under the pointer would move in the DOM.
+  const hitOrder = [
     ...boxes.filter((b) => !selectedIds.has(b.id)),
     ...boxes.filter((b) => selectedIds.has(b.id)),
   ];
@@ -724,6 +767,14 @@ export function SmartDetectionCanvas({
     } else {
       onToggle(id);
     }
+  }
+
+  function handleBoxMouseDown(e: React.MouseEvent, box: BoundingBox, selected: boolean) {
+    // Space pans, Shift starts a marquee, and the Select area tool marquees everywhere:
+    // leave the press to the sheet handler.
+    if (!selectTool || spaceHeldRef.current || e.shiftKey) return;
+    if (!selected && !(e.ctrlKey || e.metaKey)) selectFromClick(e, box.id);
+    startBoxDrag(e, box.id, "move");
   }
 
   return (
@@ -745,6 +796,13 @@ export function SmartDetectionCanvas({
             <rect width={8} height={8} style={{ fill: colors.checkerB }} />
             <rect x={8} y={8} width={8} height={8} style={{ fill: colors.checkerB }} />
           </pattern>
+          {/* White keeps the shade, black boxes cut it out, so overlapping boxes stay clear. */}
+          <mask id={dimMaskId} maskUnits="userSpaceOnUse" x={0} y={0} width={imageWidth} height={imageHeight}>
+            <rect x={0} y={0} width={imageWidth} height={imageHeight} fill="#fff" />
+            {boxes.map((box) => (
+              <rect key={box.id} x={box.x} y={box.y} width={box.width} height={box.height} fill="#000" />
+            ))}
+          </mask>
         </defs>
 
         {/* Sheet surround: checkerboard for transparency and a 1px line, in screen space */}
@@ -769,100 +827,197 @@ export function SmartDetectionCanvas({
             style={{ imageRendering: "pixelated" }}
           />
 
-          {ordered.map((box) => {
+          {dimOutside && boxes.length > 0 && (
+            <rect
+              data-testid="dim-outside"
+              x={0}
+              y={0}
+              width={imageWidth}
+              height={imageHeight}
+              mask={`url(#${dimMaskId})`}
+              fill={DIM_FILL}
+              fillOpacity={DIM_OPACITY}
+              pointerEvents="none"
+            />
+          )}
+
+          {/* Tints, so a box reads as a region and not only as a line. */}
+          {ordered.map(({ box, state }) =>
+            state === "idle" ? null : (
+              <rect
+                key={box.id}
+                x={box.x}
+                y={box.y}
+                width={box.width}
+                height={box.height}
+                fill={colors.accent}
+                fillOpacity={state === "selected" ? 0.18 : 0.1}
+                pointerEvents="none"
+              />
+            )
+          )}
+
+          {/* Outlines are two-tone and drawn in two passes: every halo, then every line, so a
+              neighbour's halo never covers a line. Idle boxes are a dark line in a white halo;
+              hovered and selected boxes are an orange line in a dark halo. */}
+          {ordered.map(({ box, state }) => (
+            <rect
+              key={`halo-${box.id}`}
+              x={box.x}
+              y={box.y}
+              width={box.width}
+              height={box.height}
+              fill="none"
+              pointerEvents="none"
+              style={{
+                stroke: state === "idle" ? LINE_LIGHT : LINE_DARK,
+                strokeWidth: (state === "idle" ? 4 : 5) * px,
+              }}
+            />
+          ))}
+          {ordered.map(({ box, state }) => (
+            <rect
+              key={`line-${box.id}`}
+              x={box.x}
+              y={box.y}
+              width={box.width}
+              height={box.height}
+              fill="none"
+              pointerEvents="none"
+              style={{
+                stroke: state === "idle" ? LINE_DARK : colors.accent,
+                strokeWidth: (state === "selected" ? 2.5 : state === "hover" ? 2 : 1.5) * px,
+              }}
+            />
+          ))}
+
+          {/* Hit areas */}
+          {hitOrder.map((box) => {
             const selected = selectedIds.has(box.id);
-            const handles = selected ? getHandles(box, zoom) : [];
-            const strokeW = (selected ? 2 : 1.5) / zoom;
+            return (
+              <rect
+                key={`hit-${box.id}`}
+                data-box-id={box.id}
+                x={box.x}
+                y={box.y}
+                width={box.width}
+                height={box.height}
+                fill="none"
+                pointerEvents="all"
+                style={{ cursor: selectTool ? (selected ? "move" : "pointer") : "inherit" }}
+                onMouseEnter={() => setHoveredId(box.id)}
+                onMouseLeave={() => setHoveredId((current) => (current === box.id ? null : current))}
+                onClick={(e) => {
+                  if (selectTool || activeTool === "marquee") {
+                    if (!clickBlockedRef.current) selectFromClick(e, box.id);
+                    clickBlockedRef.current = false;
+                  }
+                }}
+                onMouseDown={(e) => handleBoxMouseDown(e, box, selected)}
+              />
+            );
+          })}
+
+          {/* Label tags sit above every outline, so a touching neighbour never hides one. */}
+          {ordered.map(({ box, state }) => {
             const fullName = boxName(box);
             const name = fullName.length > TAG_MAX_CHARS ? `${fullName.slice(0, TAG_MAX_CHARS - 1)}…` : fullName;
-            const tagW = (name.length * TAG_CHAR_W + TAG_PAD * 2) / zoom;
-            const tagH = TAG_H / zoom;
-            const tagX = box.x - strokeW / 2;
-            const tagY = box.y - strokeW / 2 - tagH;
+            const tagW = (name.length * TAG_CHAR_W + TAG_PAD * 2) * px;
+            const tagH = TAG_H * px;
+            const tagX = box.x;
+            const tagY = box.y - tagH - 1.5 * px;
+            const lit = state !== "idle";
             return (
-              <g key={box.id}>
-                <rect
-                  x={box.x}
-                  y={box.y}
-                  width={box.width}
-                  height={box.height}
-                  fill="none"
-                  pointerEvents="all"
-                  style={{
-                    stroke: selected ? colors.accent : colors.ink,
-                    strokeWidth: strokeW,
-                    cursor: selected && activeTool === "select" ? "move" : activeTool === "select" ? "pointer" : "default",
-                  }}
-                  onClick={(e) => {
-                    if (activeTool === "select") {
-                      if (!clickBlockedRef.current) selectFromClick(e, box.id);
-                      clickBlockedRef.current = false;
-                    }
-                  }}
-                  onMouseDown={(e) => {
-                    if (activeTool === "select") {
-                      if (!selected) selectFromClick(e, box.id);
-                      startBoxDrag(e, box.id, "move");
-                    }
-                  }}
-                />
+              <g key={`tag-${box.id}`} pointerEvents="none">
                 <rect
                   x={tagX}
                   y={tagY}
                   width={tagW}
                   height={tagH}
-                  pointerEvents="none"
-                  style={{ fill: selected ? colors.accent : colors.ink }}
+                  style={{
+                    fill: lit ? colors.accent : LINE_DARK,
+                    stroke: lit ? LINE_DARK : LINE_LIGHT,
+                    strokeWidth: px,
+                  }}
                 />
                 <text
-                  x={tagX + TAG_PAD / zoom}
-                  y={tagY + 12.5 / zoom}
-                  fontSize={TAG_FONT / zoom}
+                  x={tagX + TAG_PAD * px}
+                  y={tagY + 12.5 * px}
+                  fontSize={TAG_FONT * px}
                   fontWeight={700}
-                  pointerEvents="none"
-                  style={{ fill: selected ? colors.accentFg : colors.paper, userSelect: "none" }}
+                  style={{ fill: lit ? colors.accentFg : LINE_LIGHT, userSelect: "none" }}
                 >
                   {name}
                 </text>
-                {handles.map((handle) => (
-                  <rect
-                    key={handle.id}
-                    x={handle.x}
-                    y={handle.y}
-                    width={h}
-                    height={h}
-                    style={{ fill: colors.surface, stroke: colors.ink, strokeWidth: 1.5 / zoom, cursor: handle.cursor }}
-                    onMouseDown={(e) => startBoxDrag(e, box.id, handle.id)}
-                  />
-                ))}
               </g>
             );
           })}
 
+          {/* Handles of the selected boxes */}
+          {selectTool &&
+            ordered.map(({ box, state }) =>
+              state !== "selected"
+                ? null
+                : getHandles(box, zoom).map((handle) => (
+                    <rect
+                      key={`${box.id}-${handle.id}`}
+                      x={handle.x}
+                      y={handle.y}
+                      width={h}
+                      height={h}
+                      style={{ fill: LINE_LIGHT, stroke: LINE_DARK, strokeWidth: 1.5 * px, cursor: handle.cursor }}
+                      onMouseDown={(e) => startBoxDrag(e, box.id, handle.id)}
+                    />
+                  ))
+            )}
+
           {/* Box being drawn */}
           {drawingBox && drawingBox.width > 0 && drawingBox.height > 0 && (
-            <rect
-              x={drawingBox.x}
-              y={drawingBox.y}
-              width={drawingBox.width}
-              height={drawingBox.height}
-              fill="none"
-              pointerEvents="none"
-              style={{ stroke: colors.accent, strokeWidth: 2 / zoom, strokeDasharray: `${6 / zoom} ${3 / zoom}` }}
-            />
+            <>
+              <rect
+                x={drawingBox.x}
+                y={drawingBox.y}
+                width={drawingBox.width}
+                height={drawingBox.height}
+                fill="none"
+                pointerEvents="none"
+                style={{ stroke: LINE_DARK, strokeWidth: 5 * px }}
+              />
+              <rect
+                x={drawingBox.x}
+                y={drawingBox.y}
+                width={drawingBox.width}
+                height={drawingBox.height}
+                fill="none"
+                pointerEvents="none"
+                style={{ stroke: colors.accent, strokeWidth: 2 * px, strokeDasharray: `${6 * px} ${3 * px}` }}
+              />
+            </>
           )}
 
-          {/* Marquee selection */}
+          {/* Marquee selection: a dashed dark line in a white halo, so it shows on any sheet */}
           {marqueeBox && marqueeBox.width > 0 && marqueeBox.height > 0 && (
-            <rect
-              x={marqueeBox.x}
-              y={marqueeBox.y}
-              width={marqueeBox.width}
-              height={marqueeBox.height}
-              fill="none"
-              pointerEvents="none"
-              style={{ stroke: colors.ink, strokeWidth: 1.5 / zoom, strokeDasharray: `${4 / zoom} ${3 / zoom}` }}
-            />
+            <>
+              <rect
+                x={marqueeBox.x}
+                y={marqueeBox.y}
+                width={marqueeBox.width}
+                height={marqueeBox.height}
+                fill={colors.accent}
+                fillOpacity={0.08}
+                pointerEvents="none"
+                style={{ stroke: LINE_LIGHT, strokeWidth: 4 * px }}
+              />
+              <rect
+                x={marqueeBox.x}
+                y={marqueeBox.y}
+                width={marqueeBox.width}
+                height={marqueeBox.height}
+                fill="none"
+                pointerEvents="none"
+                style={{ stroke: LINE_DARK, strokeWidth: 1.5 * px, strokeDasharray: `${5 * px} ${3 * px}` }}
+              />
+            </>
           )}
         </g>
       </svg>

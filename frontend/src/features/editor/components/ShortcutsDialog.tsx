@@ -11,6 +11,7 @@ const GROUPS: { title: string; items: { label: string; combos: Combo[] }[] }[] =
     title: "Tools",
     items: [
       { label: "Select", combos: [["V"]] },
+      { label: "Select area (every drag is a marquee)", combos: [["M"]] },
       { label: "Hand", combos: [["H"]] },
       { label: "Draw a box with the mouse", combos: [["R"], ["R", "drag"]] },
       { label: "Add a box without the mouse", combos: [["N"]] },
@@ -21,6 +22,8 @@ const GROUPS: { title: string; items: { label: string; combos: Combo[] }[] }[] =
     title: "Boxes",
     items: [
       { label: "Duplicate a box", combos: [["Alt", "drag"], ["Ctrl", "D"]] },
+      { label: "Select an area (drag on empty space)", combos: [["drag"]] },
+      { label: "Add an area to the selection, even over boxes", combos: [["Shift", "drag"]] },
       { label: "Select all", combos: [["Ctrl", "A"]] },
       { label: "Add or remove a box", combos: [["Shift", "click"], ["Ctrl", "click"]] },
       { label: "Delete selected", combos: [["Delete"], ["Backspace"]] },
