@@ -84,8 +84,18 @@ export interface PlanStatus {
   capabilities: {
     /** The export's upscale is AI (Cloudinary, ImageKit). False on local storage: a plain resize. */
     aiUpscale: boolean;
-    /** The crop can also remove enclosed background (local storage only). False: hide the switch. */
+    /** Kept for older servers and clients: the crop can remove enclosed background. Now true everywhere the server keyer runs. */
     enclosedBackground: boolean;
+    /**
+     * How the crop can remove a sheet's background. `server`: our own flat and chroma-key keyer, free, on every
+     * provider. `ai`: the provider's AI removal, a paid call (false on local storage). Absent on an older server.
+     */
+    backgroundRemoval?: {
+      server: boolean;
+      ai: boolean;
+      /** Whose AI add-on the removal uses, for the cost note. null when `ai` is false. */
+      aiProvider: "Cloudinary" | "ImageKit" | null;
+    };
   };
 }
 

@@ -1,8 +1,15 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { LoaderCircle, Trash2 } from "lucide-react";
-import type { BoundingBox } from "@/types";
+import { Check, Info, LoaderCircle, Trash2, TriangleAlert } from "lucide-react";
+import type { BackgroundRemovalMode, BoundingBox, SheetBackground } from "@/types";
+import {
+  aiUnavailableReason,
+  describeBackground,
+  keyerMayRun,
+  type BackgroundCapabilities,
+  type StatusTone,
+} from "../lib/backgroundRemoval";
 import type { DetectionMode } from "@/features/upload/services/uploadApi";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Range } from "@/components/ui/controls";
@@ -34,10 +41,14 @@ export interface DetectionControls {
   };
 }
 
-/** Options for the background removal that "Name and export" runs. */
+/** The background removal that "Name and export" runs, for the whole sheet. */
 export interface RemovalControls {
-  /** False when the server's storage cannot do it (Cloudinary, ImageKit) or the plan has not loaded: the switch is hidden. */
-  available: boolean;
+  /** What the server can do. null until the plan has loaded. */
+  caps: BackgroundCapabilities | null;
+  /** The job's classification of the sheet's background. Undefined on jobs detected before it existed. */
+  background?: SheetBackground;
+  mode: BackgroundRemovalMode;
+  onModeChange: (mode: BackgroundRemovalMode) => void;
   enclosed: boolean;
   onEnclosedChange: (next: boolean) => void;
   disabled?: boolean;
@@ -363,30 +374,100 @@ export function PropertiesPanel({
           </>
         )}
       </div>
-      {!loading && removal.available && <RemovalOptions removal={removal} />}
+      {!loading && <RemovalOptions removal={removal} />}
     </aside>
   );
 }
 
-/** Docked under the scrolling list so it stays in view whatever is selected. */
+const STATUS_ICON: Record<StatusTone, { Icon: typeof Check; className: string }> = {
+  ok: { Icon: Check, className: "text-success" },
+  note: { Icon: Info, className: "text-info" },
+  warn: { Icon: TriangleAlert, className: "text-warning" },
+};
+
+/**
+ * Docked under the scrolling list so it stays in view whatever is selected. It is about the whole sheet, so
+ * it is the same for every provider: what will happen to the background, and how to change it.
+ */
 function RemovalOptions({ removal }: { removal: RemovalControls }) {
-  const hintId = useId();
+  const id = useId();
+  const { caps, background, mode } = removal;
+  const status = describeBackground(background, mode, caps);
+  const { Icon, className: iconClass } = STATUS_ICON[status.tone];
+  const aiReason = aiUnavailableReason(caps);
+  const showEnclosed = keyerMayRun(background, mode, caps);
+  const hintId = `${id}-enclosed-hint`;
+
+  const options: { value: BackgroundRemovalMode; label: string; tag?: string; disabledReason?: string | null }[] = [
+    { value: "auto", label: "Auto", tag: "Recommended" },
+    { value: "flat", label: "Flat colour", tag: "Free" },
+    { value: "ai", label: "AI removal", disabledReason: aiReason },
+    { value: "none", label: "Keep background" },
+  ];
+
   return (
-    <div className="oa-panel-sec flex-none border-b-0 border-t-[1.5px] border-line">
+    <div className="oa-panel-sec max-h-[55%] flex-none overflow-y-auto border-b-0 border-t-[1.5px] border-line">
       <h3 className="oa-panel-title">Background removal</h3>
-      <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[18px]">
-        <Checkbox
-          checked={removal.enclosed}
-          disabled={removal.disabled}
-          aria-describedby={hintId}
-          onChange={(event) => removal.onEnclosedChange(event.target.checked)}
-          className="mt-px"
-        />
-        <span>Also remove enclosed background</span>
-      </label>
-      <p id={hintId} className="text-[11px] leading-4 text-ink-3">
-        For letters, rings and key holes. Art in the background colour goes too.
+      <p id={`${id}-status`} role="status" className="flex items-start gap-2 text-xs leading-[18px]">
+        <Icon aria-hidden className={cn("mt-0.5 size-3.5 flex-none", iconClass)} />
+        <span>{status.text}</span>
       </p>
+      <fieldset className="flex min-w-0 flex-col gap-1" disabled={removal.disabled} aria-describedby={`${id}-status`}>
+        <legend className="sr-only">How to remove the background</legend>
+        {options.map((option) => {
+          const unavailable = Boolean(option.disabledReason);
+          const reasonId = `${id}-${option.value}-reason`;
+          return (
+            <label
+              key={option.value}
+              className={cn(
+                "flex items-start gap-2.5 border-[1.5px] border-line px-2 py-1.5 text-xs leading-[18px]",
+                "has-[:checked]:border-brand has-[:checked]:bg-brand-soft",
+                unavailable || removal.disabled ? "cursor-not-allowed text-ink-3" : "cursor-pointer",
+              )}
+            >
+              <input
+                type="radio"
+                name={`${id}-mode`}
+                value={option.value}
+                checked={mode === option.value}
+                disabled={unavailable}
+                aria-describedby={unavailable ? reasonId : undefined}
+                onChange={() => removal.onModeChange(option.value)}
+                className="oa-checkbox mt-px"
+              />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold">{option.label}</span>
+                  {option.tag && <span className="oa-value text-[10.5px] uppercase tracking-[0.05em] text-ink-3">{option.tag}</span>}
+                </span>
+                {unavailable && (
+                  <span id={reasonId} className="text-[11px] leading-4">
+                    {option.disabledReason}
+                  </span>
+                )}
+              </span>
+            </label>
+          );
+        })}
+      </fieldset>
+      {showEnclosed && (
+        <>
+          <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[18px]">
+            <Checkbox
+              checked={removal.enclosed}
+              disabled={removal.disabled}
+              aria-describedby={hintId}
+              onChange={(event) => removal.onEnclosedChange(event.target.checked)}
+              className="mt-px"
+            />
+            <span>Also remove enclosed background</span>
+          </label>
+          <p id={hintId} className="text-[11px] leading-4 text-ink-3">
+            For letters, rings and key holes. Art in the background colour goes too.
+          </p>
+        </>
+      )}
     </div>
   );
 }

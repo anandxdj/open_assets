@@ -213,7 +213,11 @@ test('GET /api/plans/me says whether the export upscale is AI, from the storage 
       assert.equal(status, 200);
       assert.deepEqual(
         json.data.capabilities,
-        { aiUpscale, enclosedBackground: true, backgroundRemoval: { server: true, ai: aiUpscale } },
+        {
+          aiUpscale,
+          enclosedBackground: true,
+          backgroundRemoval: { server: true, ai: aiUpscale, aiProvider: provider === 'local' ? null : provider === 'imagekit' ? 'ImageKit' : 'Cloudinary' },
+        },
         provider,
       );
     }

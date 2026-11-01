@@ -69,7 +69,12 @@ export interface PlanStatus {
      * every provider (always true). `ai`: the provider's AI removal (Cloudinary, ImageKit), a paid call; false
      * on local storage, where a sheet with a gradient or texture background keeps its background.
      */
-    backgroundRemoval: { server: boolean; ai: boolean };
+    backgroundRemoval: {
+      server: boolean;
+      ai: boolean;
+      /** Whose AI add-on (and credits) the AI removal uses, for the editor's cost note. null when `ai` is false. */
+      aiProvider: 'Cloudinary' | 'ImageKit' | null;
+    };
   };
 }
 
@@ -82,7 +87,7 @@ export function buildPlanStatus(
   sheetsUsed: number,
   now: Date = new Date(),
   /** Read from the environment when omitted; tests pass it to pin the provider. */
-  storage: Pick<StorageStatus, 'supportsAi'> = getStorageStatus(),
+  storage: Pick<StorageStatus, 'supportsAi' | 'provider'> = getStorageStatus(),
 ): PlanStatus {
   const effectivePlan = getEffectivePlan(user, now);
   const entitlements = getEntitlements(user, now);
@@ -118,7 +123,11 @@ export function buildPlanStatus(
     capabilities: {
       aiUpscale: storage.supportsAi,
       enclosedBackground: true,
-      backgroundRemoval: { server: true, ai: storage.supportsAi },
+      backgroundRemoval: {
+        server: true,
+        ai: storage.supportsAi,
+        aiProvider: storage.supportsAi ? (storage.provider === 'imagekit' ? 'ImageKit' : 'Cloudinary') : null,
+      },
     },
   };
 }

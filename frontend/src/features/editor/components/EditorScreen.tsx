@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, ChevronLeft, CircleAlert, Keyboard, LoaderCircle, Redo2, TriangleAlert, Undo2 } from "lucide-react";
-import type { JobStatus } from "@/types";
+import type { BackgroundRemovalMode, JobStatus } from "@/types";
 import { Crumbs, Topbar } from "@/components/layout/AppShell";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { startExport } from "../services/exportApi";
 import { exportBoxesAsZip } from "../services/localExport";
 import { isDialogOpen, isEditableTarget } from "../lib/keyboard";
 import { fileNameFromUrl } from "../lib/names";
+import { keyerMayRun, readBackgroundCapabilities } from "../lib/backgroundRemoval";
 import { SmartDetectionCanvas } from "./SmartDetectionCanvas";
 import { DetectionsPanel } from "./DetectionsPanel";
 import { PropertiesPanel, type DetectionControls, type RemovalControls } from "./PropertiesPanel";
@@ -77,8 +78,9 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   // What the last keyboard action did, read out by a polite live region.
   const [announcement, setAnnouncement] = useState("");
-  // Off by default. Used by "Name and export", which removes the background.
+  // Used by "Name and export", which removes the background. Auto keys a plain background free and uses AI only when it must.
   const [removeEnclosed, setRemoveEnclosed] = useState(false);
+  const [backgroundMode, setBackgroundMode] = useState<BackgroundRemovalMode>("auto");
 
   const status = job?.status;
 
@@ -217,7 +219,10 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     if (boxes.length === 0 || exporting) return;
     setExporting("smart");
     try {
-      await startExport(jobId, boxes, false, { removeEnclosedBackground: enclosedAvailable && removeEnclosed });
+      await startExport(jobId, boxes, false, {
+        removeEnclosedBackground: removeEnclosed && keyerMayRun(job?.background, backgroundMode, backgroundCaps),
+        backgroundRemoval: backgroundMode,
+      });
       router.push(`/editor/${jobId}/export`);
     } catch (err) {
       toast.error("Could not start the export", { description: errorMessage(err, "Try again in a moment.") });
@@ -347,8 +352,8 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     boxes.length === 1 &&
     boxes[0].width >= imageWidth * 0.9 &&
     boxes[0].height >= imageHeight * 0.9;
-  // Only local storage can do it. Until the plan has loaded the switch stays hidden, so it never flashes in and out.
-  const enclosedAvailable = plan?.capabilities?.enclosedBackground === true;
+  // Null until the plan has loaded; the Background section says so instead of guessing.
+  const backgroundCaps = readBackgroundCapabilities(plan?.capabilities);
   const warning = redetected ? redetected.warning : job?.detectionWarning;
   const needsReview = detected && (Boolean(warning) || wholeSheet);
   const noticeShown = needsReview && !reviewDismissed;
@@ -382,7 +387,10 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   };
 
   const removal: RemovalControls = {
-    available: enclosedAvailable,
+    caps: backgroundCaps,
+    background: job?.background,
+    mode: backgroundMode,
+    onModeChange: setBackgroundMode,
     enclosed: removeEnclosed,
     onEnclosedChange: setRemoveEnclosed,
     disabled: exporting !== null,

@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api-client";
-import type { BoundingBox } from "@/types";
+import type { BackgroundRemovalMode, BoundingBox } from "@/types";
 
 interface ApiEnvelope<T> {
   success: boolean;
@@ -14,6 +14,8 @@ export async function startExport(
   options: {
     /** Also remove background pockets the sheet border cannot reach. Sent only when true: a server without the option ignores it. */
     removeEnclosedBackground?: boolean;
+    /** How the sheet's background is removed. Omitted means the server's default, auto. */
+    backgroundRemoval?: BackgroundRemovalMode;
   } = {},
 ): Promise<{ jobId: string }> {
   const envelope = await apiClient.post<ApiEnvelope<{ jobId: string }>>("/api/crop", {
@@ -21,6 +23,7 @@ export async function startExport(
     boxes,
     isRaw,
     ...(options.removeEnclosedBackground ? { removeEnclosedBackground: true } : {}),
+    ...(options.backgroundRemoval ? { backgroundRemoval: options.backgroundRemoval } : {}),
   });
   return envelope.data;
 }
