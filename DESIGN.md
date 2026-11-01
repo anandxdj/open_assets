@@ -179,6 +179,11 @@ What animates:
   `oa-menu-item`, `oa-tool`, `oa-layer`, `oa-tile`, `oa-link`, table row
   cells, buttons, inputs, checkboxes, switches and the drop zone: colour,
   background, border and shadow fade (`--oa-t-state`). Nothing else changes.
+- **Marketing header mark**: the centred OA mark (the header's home link, mark
+  only) scales to 1.1 on hover over `--oa-dur-2` on `--oa-ease-out`; under
+  reduced motion it does not scale. The header is a 3-column grid (section links,
+  mark, actions) from 520px wide; below that the mark sits next to the menu
+  button, because the signed-in actions need the room.
 - **Link cards** (`oa-lift`): up and left 2px with a 4px hard shadow on hover or
   keyboard focus, flat again while pressed; the same language as the primary
   button. The focus ring moves with the card. Hover applies only where the

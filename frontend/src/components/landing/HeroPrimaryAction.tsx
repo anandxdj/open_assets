@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 const SIGNED_OUT = (
   <Button asChild variant="primary" size="lg" className="max-sm:w-full">
     <Link href="/register">
-      Start free trial
+      Get started free
       <ArrowRight aria-hidden />
     </Link>
   </Button>
