@@ -174,6 +174,11 @@ test('createApp serves old files read-only when the provider is cloudinary', asy
     assert.equal((await fetch(`${app.url}/storage/..%2Foutside%2Fsecret.txt`)).status, 404);
   } finally {
     await app?.close();
+    // Importing the app opens Redis and the BullMQ queues; close them so the test process can exit.
+    const { redis } = await import('../common/config/redis');
+    const { detectionQueue, cropQueue, finalizeQueue } = await import('../common/config/bullmq');
+    await Promise.all([detectionQueue.close(), cropQueue.close(), finalizeQueue.close()]);
+    await redis.quit();
     for (const [key, value] of [['STORAGE_PROVIDER', previous.provider], ['LOCAL_STORAGE_DIR', previous.dir], ['NODE_ENV', previous.env]] as const) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;

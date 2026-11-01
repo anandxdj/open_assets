@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { Crumbs, Topbar } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
+import { DemoModeNotice } from "@/components/ui/demo-mode";
 import { useAniBuddyProject, stepLockReason } from "@/features/anibuddy/hooks/useAniBuddyProject";
 import { STEP_ORDER, type StepId } from "@/features/anibuddy/types";
 import { StepRail } from "@/features/anibuddy/components/StepRail";
@@ -14,6 +15,8 @@ import { RigStep } from "@/features/anibuddy/components/RigStep";
 import { AnimateStep } from "@/features/anibuddy/components/AnimateStep";
 import { ExportStep } from "@/features/anibuddy/components/ExportStep";
 import { CreditsBadge, CreditsNotice } from "@/features/usage/CreditsBadge";
+
+const AI_STEPS: StepId[] = ["concept", "rig", "animate"];
 
 export function AniBuddyWorkspace() {
   const project = useAniBuddyProject();
@@ -47,6 +50,10 @@ export function AniBuddyWorkspace() {
       <CreditsNotice>
         <span className="text-xs leading-[18px] text-ink-2">AniBuddy cannot use your own key.</span>
       </CreditsNotice>
+
+      {/* The steps with an AI action (concept, rig, animate) show this by their button; the others
+          have none, so it sits here and a demo-mode project never looks silently broken. */}
+      {!AI_STEPS.includes(activeStep) && <DemoModeNotice className="mx-3 mt-3 flex-none" />}
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sunken pb-14 md:pb-0 lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden xl:flex xl:flex-row">
         <StepRail project={state} activeStep={activeStep} onSelect={setSelected} />
