@@ -14,6 +14,9 @@
 > ImageKit `e-bgremove`, paid) is only called for a complex sheet in `auto`, or for `ai`. Local storage has
 > no AI: it keeps the background and the job records `backgroundReason`. The job records
 > `backgroundMethod` (`none | server | ai`). `removeEnclosedBackground` applies whenever the keyer runs.
+> AI removal runs once on the whole sheet (one paid call), not per crop (N paid calls). The worker then checks that the
+> result is really transparent and records `backgroundReason` when the AI left it opaque (it can take the paper itself
+> for the subject).
 > The flat/chroma rule lives in `py_backend/app/services/detection.py` and `backend/src/lib/background.ts`,
 > pinned by `backend/src/__tests__/fixtures/background-cases`.
 > With `local`, py_backend's `/crop` is called with `inline: true` and returns the PNGs, which the

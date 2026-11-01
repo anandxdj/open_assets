@@ -340,7 +340,7 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
                   <Ic key="br">backgroundRemoval</Ic>,
                   <>
                     <Ic>null</Ic> until the crop has run. Then <Ic>mode</Ic> (what was asked), <Ic>method</Ic>{" "}
-                    (<Ic>server</Ic>: removed on our server, free; <Ic>ai</Ic>: the provider&apos;s paid AI;{" "}
+                    (<Ic>server</Ic>: removed on our server, free; <Ic>ai</Ic>: AI removal;{" "}
                     <Ic>none</Ic>: kept) and <Ic>reason</Ic> when the background was kept.
                   </>,
                 ],
@@ -388,9 +388,9 @@ curl -o assets.zip "$OPENASSETS_API/api/v1/jobs/$JOB/download" \\
                   <Ic key="r">backgroundRemoval</Ic>,
                   <>
                     Optional, default <Ic>&quot;auto&quot;</Ic>. <Ic>&quot;auto&quot;</Ic> removes a flat or
-                    chroma-key background on the server for free and uses the provider&apos;s paid AI only for a gradient
+                    chroma-key background on the server for free and uses AI removal only for a gradient
                     or texture. <Ic>&quot;flat&quot;</Ic> removes a flat background on the server and keeps the
-                    background of any other sheet. <Ic>&quot;ai&quot;</Ic> always uses the provider&apos;s AI (not
+                    background of any other sheet. <Ic>&quot;ai&quot;</Ic> always uses AI removal (not
                     available on local storage, where the background is kept). <Ic>&quot;none&quot;</Ic> keeps the
                     background. A transparent sheet needs nothing in any mode. Any other value answers{" "}
                     <Ic>400 VALIDATION_ERROR</Ic>. The job reports <Ic>background</Ic> (<Ic>kind</Ic>{" "}

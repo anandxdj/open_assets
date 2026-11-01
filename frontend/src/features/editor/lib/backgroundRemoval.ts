@@ -6,6 +6,7 @@ export interface BackgroundCapabilities {
   server: boolean;
   /** The provider's AI removal: paid, not on local storage. */
   ai: boolean;
+  /** Part of the API, but the UI does not name the provider. */
   aiProvider: "Cloudinary" | "ImageKit" | null;
 }
 
@@ -74,7 +75,6 @@ export function describeBackground(
 ): { text: string; tone: StatusTone } {
   if (!caps) return { text: "Checking what this server can do.", tone: "note" };
   if (background?.kind === "transparent") return { text: "Already transparent.", tone: "ok" };
-  const credits = caps.aiProvider ? `uses ${caps.aiProvider} credits` : "paid AI call";
   const plain = background?.kind === "flat" || background?.kind === "chroma";
   const sheet = plain
     ? `${colourLabel(background.kind as "flat" | "chroma", background.color)} background${background.color ? ` (${background.color.toUpperCase()})` : ""}`
@@ -86,7 +86,7 @@ export function describeBackground(
     case "server":
       return { text: `${sheet}: removed on our server, free.`, tone: "ok" };
     case "ai":
-      return { text: `${sheet}: AI removal (${credits}).`, tone: "warn" };
+      return { text: `${sheet}: AI removal.`, tone: "warn" };
     case "unknown":
       return { text: "Background not checked yet. It is checked when you export: plain colours are removed free.", tone: "note" };
     default:

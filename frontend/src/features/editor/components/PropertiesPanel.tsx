@@ -439,7 +439,7 @@ function RemovalOptions({ removal }: { removal: RemovalControls }) {
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="font-semibold">{option.label}</span>
-                  {option.tag && <span className="oa-value text-[10.5px] uppercase tracking-[0.05em] text-ink-3">{option.tag}</span>}
+                  {option.tag && <span className="oa-value text-[10.5px] uppercase tracking-[0.05em] text-ink-2">{option.tag}</span>}
                 </span>
                 {unavailable && (
                   <span id={reasonId} className="text-[11px] leading-4">

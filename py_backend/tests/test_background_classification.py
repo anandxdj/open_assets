@@ -31,6 +31,40 @@ class SharedBackgroundCases(unittest.TestCase):
                 self.assertEqual(got["color"], case["color"], case["note"])
 
 
+LOGO_GRID = CASES_DIR.parent / "logo-grid" / "logo-grid-cream.jpg"
+
+
+@unittest.skipUnless(LOGO_GRID.exists(), "logo grid fixture not checked out")
+class LogoGrid(unittest.TestCase):
+    """30 round, shield and seal marks on off-white paper with faint cell lines and JPEG-like noise: the kind of
+    sheet a provider's whole-sheet AI removal leaves opaque, and that our keyer handles for free."""
+
+    def setUp(self) -> None:
+        self.img = cv2.imdecode(np.fromfile(str(LOGO_GRID), np.uint8), cv2.IMREAD_UNCHANGED)
+
+    def test_it_is_a_flat_off_white_background_the_node_keyer_reads_the_same_way(self) -> None:
+        found = classify_background(self.img)
+        self.assertEqual(found["kind"], "flat")
+        # #f7f7f3, give or take what each JPEG decoder does to the noise.
+        r, g, b = (int(found["color"][i : i + 2], 16) for i in (1, 3, 5))
+        self.assertLessEqual(max(abs(r - 0xF7), abs(g - 0xF7), abs(b - 0xF3)), 2, found["color"])
+
+    def test_detection_numbers_its_30_boxes_row_by_row(self) -> None:
+        boxes = find_bounding_boxes(self.img)["boxes"]
+        self.assertEqual(len(boxes), 30)
+        self.assertEqual([b.name for b in boxes], [f"asset_{i:03d}" for i in range(1, 31)])
+        # Six rows of five: each group of five shares a row and the rows run top to bottom, so asset_006 is
+        # the first box of row 2.
+        previous = -1.0
+        for start in range(0, 30, 5):
+            row = boxes[start : start + 5]
+            centres = [b.y + b.height / 2 for b in row]
+            self.assertLess(max(centres) - min(centres), 60)
+            self.assertGreater(min(centres), previous)
+            previous = max(centres)
+            self.assertEqual([b.x for b in row], sorted(b.x for b in row))
+
+
 class DetectionReturnsTheBackground(unittest.TestCase):
     def _sheet(self) -> np.ndarray:
         img = np.full((340, 460, 3), 245, dtype=np.uint8)
@@ -56,8 +90,8 @@ def _grid(rows: int, cols: int, jitter: int, seed: int, size: int = 60, pitch: i
 
 class ReadingOrder(unittest.TestCase):
     def test_a_jittered_5x6_grid_comes_out_row_by_row(self) -> None:
-        # 5 rows x 6 columns of round logos, each off its grid point by up to 14 px, the way the owner's sheet
-        # had one logo of the last row sitting a little higher than its neighbours.
+        # 5 rows x 6 columns of round logos, each off its grid point by up to 14 px, the way a generated sheet
+        # has one logo of a row sitting a little higher than its neighbours.
         for seed in range(25):
             truth = _grid(5, 6, jitter=14, seed=seed)
             shuffled = truth[:]

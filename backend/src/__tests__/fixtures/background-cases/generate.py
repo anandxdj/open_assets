@@ -87,7 +87,7 @@ def add(name, img, kind, color=None, note=""):
 
 
 add("white", art(sheet((255, 255, 255))), "flat", "#ffffff", "plain white")
-add("off-white", art(sheet((245, 245, 242))), "flat", "#f5f5f2", "off-white, the owner's logo sheet")
+add("off-white", art(sheet((245, 245, 242))), "flat", "#f5f5f2", "off-white, a generated logo sheet on off-white paper")
 add("black", art(sheet((0, 0, 0))), "flat", "#000000", "plain black")
 add("grey", art(sheet((128, 128, 128))), "flat", "#808080", "mid grey")
 add("cream-flat", art(sheet((244, 228, 200))), "flat", "#f4e4c8", "coloured but muted: spread 44, below the chroma line")

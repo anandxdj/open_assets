@@ -277,7 +277,7 @@ test('a legacy job on a transparent sheet needs nothing', async () => {
   assert.deepEqual(out.background, { kind: 'transparent' });
 });
 
-/* ---------------- the owner's sheet: 5 x 6 round logos on off-white ---------------- */
+/* ---------------- a 5 x 6 grid of round logos on off-white ---------------- */
 
 test('a 5 x 6 grid of round logos on off-white is keyed for free: corners 0, every logo opaque, no AI', async () => {
   const cols = 6;
@@ -338,4 +338,22 @@ test('the methods the outcome can name are exactly none, server and ai', async (
     seen.add((await removeSheetBackground(input({ background: bg, mode }), recorder(sheet, { supportsAi }).deps)).method);
   }
   assert.deepEqual([...seen].sort(), ['ai', 'none', 'server']);
+});
+
+/* ---------------- whole-sheet AI that cut nothing out ---------------- */
+
+test('an AI result that is still opaque is reported (the call was paid for), a transparent or unreadable one is not', async () => {
+  const run = async (answer: boolean | undefined) => {
+    const rec = recorder(await gradientSheet(), { supportsAi: true });
+    rec.deps.checkTransparent = async (url) => {
+      assert.equal(url, AI_URL, 'it checks the AI result');
+      return answer;
+    };
+    return removeSheetBackground(input({ background: COMPLEX }), rec.deps);
+  };
+  const opaque = await run(false);
+  assert.equal(opaque.method, 'ai', 'the method that ran is still ai');
+  assert.match(opaque.reason ?? '', /still opaque/);
+  assert.equal((await run(true)).reason, undefined);
+  assert.equal((await run(undefined)).reason, undefined);
 });

@@ -23,7 +23,7 @@ test("status line: each classification says what will happen", () => {
   assert.equal(describeBackground(GREEN, "auto", WITH_AI).text, "Chroma-key background (#00FF00): removed on our server, free.");
   assert.equal(describeBackground({ kind: "flat", color: "#f4e4c8" }, "auto", WITH_AI).text, "Flat colour background (#F4E4C8): removed on our server, free.");
   assert.equal(describeBackground({ kind: "flat", color: "#000000" }, "auto", WITH_AI).text, "Black background (#000000): removed on our server, free.");
-  assert.equal(describeBackground(COMPLEX, "auto", WITH_AI).text, "Gradient or textured background: AI removal (uses Cloudinary credits).");
+  assert.equal(describeBackground(COMPLEX, "auto", WITH_AI).text, "Gradient or textured background: AI removal.");
   assert.equal(
     describeBackground(COMPLEX, "auto", NO_AI).text,
     "Gradient or textured background. AI removal is not available on this server; the background will be kept.",
@@ -36,10 +36,14 @@ test("status line: each classification says what will happen", () => {
 test("status line follows the chosen mode", () => {
   assert.match(describeBackground(WHITE, "none", WITH_AI).text, /kept as it is/);
   assert.match(describeBackground(COMPLEX, "flat", WITH_AI).text, /not one plain colour, so it will be kept/);
-  assert.match(describeBackground(WHITE, "ai", WITH_AI).text, /AI removal \(uses Cloudinary credits\)/);
+  assert.equal(describeBackground(WHITE, "ai", WITH_AI).text, "White background (#FFFFFF): AI removal.");
   assert.match(describeBackground(WHITE, "ai", NO_AI).text, /AI removal is not available on this server/);
   assert.equal(describeBackground(CLEAR, "ai", WITH_AI).text, "Already transparent.");
-  assert.match(describeBackground(COMPLEX, "auto", { server: true, ai: true, aiProvider: "ImageKit" }).text, /uses ImageKit credits/);
+  // The provider's name never reaches the status line.
+  for (const aiProvider of ["Cloudinary", "ImageKit", null] as const) {
+    const text = describeBackground(COMPLEX, "auto", { server: true, ai: true, aiProvider }).text;
+    assert.doesNotMatch(text, /cloudinary|imagekit|credit/i);
+  }
 });
 
 test("planned method mirrors the server routing", () => {

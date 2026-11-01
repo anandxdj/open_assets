@@ -9,7 +9,7 @@ import { storage } from '../../lib/storage';
 import { getStorageStatus } from '../../lib/storage/status';
 import { parseBackground, serializeBackground } from '../../lib/background';
 import type { BackgroundRemovalMode } from '../../lib/background';
-import { describeBackground, removeSheetBackground } from './cropBackground';
+import { describeBackground, fetchIsTransparent, removeSheetBackground } from './cropBackground';
 import { extractError } from '../../common/utils/extractError';
 import { scaffoldCollectionFromJob } from '../collections/collection.service';
 import type { ScaffoldImage } from '../collections/collection.service';
@@ -119,7 +119,7 @@ export function startCropWorker(): Worker<CropJobData> {
         };
         let outcome: Awaited<ReturnType<typeof removeSheetBackground>>;
         try {
-          outcome = await removeSheetBackground(request, { storage, supportsAi: getStorageStatus().supportsAi });
+          outcome = await removeSheetBackground(request, { storage, supportsAi: getStorageStatus().supportsAi, checkTransparent: fetchIsTransparent });
         } catch (err) {
           throw new Error(`Background removal failed: ${extractError(err)}`);
         }

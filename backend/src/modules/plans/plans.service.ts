@@ -72,7 +72,7 @@ export interface PlanStatus {
     backgroundRemoval: {
       server: boolean;
       ai: boolean;
-      /** Whose AI add-on (and credits) the AI removal uses, for the editor's cost note. null when `ai` is false. */
+      /** Whose AI add-on the AI removal uses (informational: the editor does not show it). null when `ai` is false. */
       aiProvider: 'Cloudinary' | 'ImageKit' | null;
     };
   };

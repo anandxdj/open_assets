@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { classifyImage, keyOutFlatBackground, LocalTransformError } from '../../lib/storage/local.transforms';
+import { classifyImage, keyOutFlatBackground, LocalTransformError, readPixels } from '../../lib/storage/local.transforms';
+import { hasTransparency } from '../../lib/background';
 import type { BackgroundMethod, BackgroundRemovalMode, JobBackground } from '../../lib/background';
 import type { StorageAdapter } from '../../lib/storage/interface';
 
@@ -34,6 +35,8 @@ export interface BackgroundDeps {
   supportsAi: boolean;
   /** Overrides how the stored sheet is downloaded (tests). */
   fetchOriginal?: (input: BackgroundInput) => Promise<Buffer>;
+  /** After an AI call: whether the result really is transparent (undefined: could not tell). Omitted in tests. */
+  checkTransparent?: (url: string) => Promise<boolean | undefined>;
 }
 
 const MAX_SHEET_BYTES = 100 * 1024 * 1024;
@@ -112,7 +115,36 @@ export async function removeSheetBackground(input: BackgroundInput, deps: Backgr
     );
   }
   const workingUrl = await deps.storage.applyBackgroundRemoval(input.publicId, { removeEnclosed: input.removeEnclosed === true });
-  return { workingUrl, method: 'ai', background };
+  // Whole-sheet AI can take the paper itself for the subject and cut nothing out. The call was paid for, so say so.
+  const opaque = deps.checkTransparent ? (await deps.checkTransparent(workingUrl)) === false : false;
+  return {
+    workingUrl,
+    method: 'ai',
+    background,
+    ...(opaque
+      ? {
+          reason:
+            'AI removal ran but its result is still opaque: it took the whole sheet as one subject, so the crops keep their background.',
+        }
+      : {}),
+  };
+}
+
+/**
+ * Downloads an AI result and says whether it has a transparent background (the same 1% rule as detection), or
+ * undefined when it could not be checked. Fetching the derived URL again is not a second transform.
+ */
+export async function fetchIsTransparent(url: string): Promise<boolean | undefined> {
+  try {
+    const res = await axios.get<ArrayBuffer>(url, {
+      responseType: 'arraybuffer',
+      timeout: DOWNLOAD_TIMEOUT_MS,
+      maxContentLength: MAX_SHEET_BYTES,
+    });
+    return hasTransparency(await readPixels(Buffer.from(res.data)));
+  } catch {
+    return undefined;
+  }
 }
 
 /** The one log line per crop job. */
