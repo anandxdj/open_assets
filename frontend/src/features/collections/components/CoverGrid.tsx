@@ -1,5 +1,6 @@
 import { Boxes } from "lucide-react";
 import { SafeImage } from "@/components/ui/safe-image";
+import { BackdropSurface } from "@/features/backdrop/BackdropSurface";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,9 +20,9 @@ export function CoverGrid({ urls, className }: { urls: string[]; className?: str
         </span>
       ) : (
         Array.from({ length: 4 }, (_, i) => (
-          <span key={i} className="flex min-h-0 items-center justify-center">
+          <BackdropSurface key={i} as="span" src={cells[i]} className="flex min-h-0 items-center justify-center">
             {cells[i] && <SafeImage src={cells[i]} loading="lazy" className="h-[70%] w-[70%] object-contain" />}
-          </span>
+          </BackdropSurface>
         ))
       )}
     </div>

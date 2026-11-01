@@ -18,6 +18,8 @@ import { DETECTION_LIMITS, isPlanErrorCode } from "@/lib/plans";
 import { useJobPolling } from "../hooks/useJobPolling";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { useDimOutside } from "../hooks/useDimOutside";
+import { BackdropMenu } from "@/features/backdrop/BackdropMenu";
+import { SheetBackdropContext, useBackdrop } from "@/features/backdrop/useBackdrop";
 import { startExport } from "../services/exportApi";
 import { exportBoxesAsZip } from "../services/localExport";
 import { isDialogOpen, isEditableTarget } from "../lib/keyboard";
@@ -56,6 +58,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   } = useCanvasEditor();
 
   const [dimOutside, setDimOutside] = useDimOutside();
+  const backdrop = useBackdrop(job?.cloudinaryUrl);
   const stageRef = useRef<HTMLElement>(null);
   const initializedRef = useRef(false);
   const [redetecting, setRedetecting] = useState(false);
@@ -123,6 +126,9 @@ export function EditorScreen({ jobId }: { jobId: string }) {
     // A repeated message must still be read out again.
     setAnnouncement((previous) => (previous === message ? `${message}\u00a0` : message));
   }, []);
+
+  // Said when Auto swaps the theme's backdrop for the other one, so it is not a silent change.
+  const autoSwap = backdrop.mode === "auto" && backdrop.decision.backdrop ? backdrop.summary : "";
 
   // Keyboard path for drawing a box: a small box in the middle of the view,
   // selected, to be moved and resized with the arrow keys.
@@ -412,7 +418,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
   const canExport = hasBoxes && exporting === null;
 
   return (
-    <>
+    <SheetBackdropContext.Provider value={backdrop.backdrop}>
       <Topbar className="gap-2 pl-2 md:gap-3 md:pl-2">
         <Button asChild variant="ghost" icon>
           <Link href="/upload" aria-label="Back to Extract">
@@ -491,6 +497,9 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       <p role="status" className="sr-only">
         {announcement}
       </p>
+      <p role="status" className="sr-only">
+        {autoSwap}
+      </p>
 
       {failed ? (
         <main className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-sunken p-4 md:p-6">
@@ -559,6 +568,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                   onDeleteBox={deleteBox}
                   onSaveHistory={saveHistory}
                   dimOutside={dimOutside}
+                  backdrop={backdrop.backdrop}
                   onAnnounce={announce}
                 />
 
@@ -590,6 +600,15 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                   onToolChange={setActiveTool}
                   dimOutside={dimOutside}
                   onDimOutsideChange={setDimOutside}
+                  extra={
+                    <BackdropMenu
+                      mode={backdrop.mode}
+                      onModeChange={backdrop.setMode}
+                      summary={backdrop.summary}
+                      side="top"
+                      onAnnounce={announce}
+                    />
+                  }
                 />
 
                 <ZoomControls
@@ -654,6 +673,6 @@ export function EditorScreen({ jobId }: { jobId: string }) {
       )}
 
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-    </>
+    </SheetBackdropContext.Provider>
   );
 }

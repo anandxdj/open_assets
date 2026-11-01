@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { SafeImage } from "@/components/ui/safe-image";
+import { BackdropSurface } from "@/features/backdrop/BackdropSurface";
 import { formatFullDate, formatRelativeTime, useNow } from "@/features/jobs/time";
 import type { JobSummary } from "@/types";
 
@@ -79,9 +80,9 @@ export function RecentJobsTable({
               <tr key={job.jobId}>
                 <td>
                   <span className="flex items-center gap-3">
-                    <span className="oa-checker flex h-8 w-12 flex-none items-center justify-center overflow-hidden border border-line">
+                    <BackdropSurface as="span" src={job.imageUrl} className="flex h-8 w-12 flex-none items-center justify-center overflow-hidden border border-line">
                       <SafeImage src={job.imageUrl} loading="lazy" className="size-full object-contain" fallbackClassName="border-0" />
-                    </span>
+                    </BackdropSurface>
                     <span className="flex min-w-0 flex-col gap-1.5">
                       <span className="oa-value max-w-[104px] truncate text-[13px] sm:max-w-[240px]" title={name}>
                         {name}
