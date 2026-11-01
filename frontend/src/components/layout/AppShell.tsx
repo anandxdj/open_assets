@@ -24,12 +24,11 @@ import {
   WandSparkles,
   type LucideIcon,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { Logo } from "@/components/layout/Logo";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { ThemeToggle, useThemeSwitch } from "@/components/layout/ThemeToggle";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { TrialBadge } from "@/features/plans/TrialBadge";
 import { usePlan } from "@/features/plans/PlanContext";
@@ -224,7 +223,7 @@ function MobileLink({ entry, path }: { entry: NavEntry; path: string }) {
 function MobileAccount({ path }: { path: string }) {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, toggleFromElement } = useThemeSwitch();
   const isDark = resolvedTheme === "dark";
   const { plan } = usePlan();
   const daysLeft = plan?.trial.active ? plan.trial.daysLeft : null;
@@ -292,7 +291,7 @@ function MobileAccount({ path }: { path: string }) {
           Chrome extension
         </Link>
       </MenuItem>
-      <MenuItem onSelect={() => setTheme(isDark ? "light" : "dark")}>
+      <MenuItem onSelect={(event) => toggleFromElement(event.target as Element)}>
         {isDark ? <Sun aria-hidden /> : <Moon aria-hidden />}
         {isDark ? "Light theme" : "Dark theme"}
       </MenuItem>

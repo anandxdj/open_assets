@@ -8,6 +8,10 @@ import { cn } from "@/lib/utils";
 export const Menu = DropdownMenu.Root;
 export const MenuTrigger = DropdownMenu.Trigger;
 
+// Motion (DESIGN.md, Motion): a short fade and a 4px slide away from the trigger's side, 120ms.
+const MENU_MOTION =
+  "duration-120 ease-(--oa-ease-out) data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[side=bottom]:data-[state=open]:slide-in-from-top-1 data-[side=top]:data-[state=open]:slide-in-from-bottom-1 data-[side=left]:data-[state=open]:slide-in-from-right-1 data-[side=right]:data-[state=open]:slide-in-from-left-1";
+
 export function MenuContent({
   className,
   align = "end",
@@ -22,7 +26,7 @@ export function MenuContent({
         align={align}
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
-        className={cn("oa-menu", className)}
+        className={cn("oa-menu", MENU_MOTION, className)}
         {...props}
       />
     </DropdownMenu.Portal>
