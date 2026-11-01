@@ -78,7 +78,7 @@ function sample(src: string): Promise<Entry> {
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) return resolve("unreadable");
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(analyzePixels(ctx.getImageData(0, 0, w, h).data));
+        resolve(analyzePixels(ctx.getImageData(0, 0, w, h).data, w));
       } catch {
         // A tainted canvas (no CORS headers) throws on read.
         resolve("unreadable");
