@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/feedback";
 import { AuthIntro, GoogleButton, OrDivider } from "@/components/auth/AuthParts";
 
-export function LoginForm() {
+/** `google`: whether the API can complete Google sign-in (decided on the server, see getAuthProviders). */
+export function LoginForm({ google }: { google: boolean }) {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -51,8 +52,12 @@ export function LoginForm() {
       <AuthIntro title="Welcome back">Sign in to pick up your extractions and collections.</AuthIntro>
 
       <div className="flex flex-col gap-4">
-        <GoogleButton next={searchParams.get("next")}>Continue with Google</GoogleButton>
-        <OrDivider />
+        {google && (
+          <>
+            <GoogleButton next={searchParams.get("next")}>Continue with Google</GoogleButton>
+            <OrDivider />
+          </>
+        )}
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           {error && (
