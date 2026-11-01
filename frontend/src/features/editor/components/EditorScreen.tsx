@@ -612,7 +612,7 @@ export function EditorScreen({ jobId }: { jobId: string }) {
                 />
 
                 <ZoomControls
-                  className="absolute bottom-4 right-4 z-10"
+                  className="absolute bottom-16 right-4 z-10 sm:bottom-4"
                   zoom={camera.zoom}
                   onZoom={handleZoom}
                   onFit={handleFitToScreen}

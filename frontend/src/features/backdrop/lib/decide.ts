@@ -28,11 +28,11 @@ export function isBackdropMode(value: unknown): value is BackdropMode {
 
 const BINS = 32;
 /** An art pixel counts as lost when its contrast against the backdrop is below this. */
-export const LOST_CONTRAST = 2;
+export const LOST_CONTRAST = 1.5;
 /** Auto leaves the theme backdrop alone while no more than this share of the art is lost on it. */
-export const LOST_TOLERANCE = 0.25;
+export const LOST_TOLERANCE = 0.6;
 /** The other backdrop has to do at least this much better (share of the art) to replace it. */
-export const LOST_MARGIN = 0.15;
+export const LOST_MARGIN = 0.3;
 /** Below this share of transparent pixels an image counts as opaque. */
 export const MIN_TRANSPARENT_SHARE = 0.01;
 
@@ -87,6 +87,28 @@ export function analyzePixels(data: ArrayLike<number>): PixelStats {
     opaque += 1;
     const lum = relativeLuminance(data[i], data[i + 1], data[i + 2]);
     histogram[Math.min(BINS - 1, Math.floor(Math.sqrt(lum) * BINS))] += 1;
+  }
+  return { pixels, opaque, transparentShare: pixels ? transparent / pixels : 0, histogram };
+}
+
+/**
+ * Several images as one, for a collage (a collection's cover) that gets a single backdrop.
+ * Unreadable and still-loading ones are left out; `null` when none could be read.
+ */
+export function mergeStats(list: (PixelStats | null | "pending")[]): PixelStats | null | "pending" {
+  const ready = list.filter((s): s is PixelStats => typeof s === "object" && s !== null);
+  if (ready.length === 0) return list.some((s) => s === "pending") ? "pending" : null;
+  const histogram = new Array<number>(BINS).fill(0);
+  let pixels = 0;
+  let opaque = 0;
+  let transparent = 0;
+  for (const s of ready) {
+    pixels += s.pixels;
+    opaque += s.opaque;
+    transparent += s.transparentShare * s.pixels;
+    s.histogram.forEach((count, bin) => {
+      histogram[bin] += count;
+    });
   }
   return { pixels, opaque, transparentShare: pixels ? transparent / pixels : 0, histogram };
 }

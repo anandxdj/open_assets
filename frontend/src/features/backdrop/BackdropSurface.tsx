@@ -1,7 +1,7 @@
 "use client";
 
 import { createElement, useEffect, useState, type HTMLAttributes, type Ref } from "react";
-import { useBackdrop, useSheetBackdrop } from "./useBackdrop";
+import { useBackdrop, useCollageBackdrop, useSheetBackdrop } from "./useBackdrop";
 import type { Backdrop } from "./lib/decide";
 
 /** True once the element has come near the viewport; lists only read the images they show. */
@@ -35,14 +35,17 @@ export function useImageBackdrop(src: string | null | undefined, el: Element | n
  */
 export function BackdropSurface({
   src,
+  srcs,
   as = "div",
   className,
   ...rest
-}: HTMLAttributes<HTMLElement> & { src?: string | null; as?: "div" | "span" | "button" | "li"; type?: "button" | "submit" | "reset" }) {
+}: HTMLAttributes<HTMLElement> & { src?: string | null; srcs?: (string | null | undefined)[]; as?: "div" | "span" | "button" | "li"; type?: "button" | "submit" | "reset" }) {
   const [el, setEl] = useState<HTMLElement | null>(null);
   const own = useImageBackdrop(src, el);
+  const near = useNearViewport(srcs ? el : null);
+  const collage = useCollageBackdrop(srcs ?? [], near).backdrop;
   const sheet = useSheetBackdrop();
-  const backdrop = src ? own : (sheet ?? null);
+  const backdrop = srcs ? collage : src ? own : (sheet ?? null);
   return createElement(as, {
     ...rest,
     ref: setEl as Ref<HTMLElement>,

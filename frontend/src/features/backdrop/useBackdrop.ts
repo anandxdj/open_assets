@@ -6,6 +6,7 @@ import {
   analyzePixels,
   decideAuto,
   describeBackdrop,
+  mergeStats,
   resolveBackdrop,
   type AutoDecision,
   type Backdrop,
@@ -142,11 +143,9 @@ function useThemeName(): ThemeName {
   return resolvedTheme === "dark" ? "dark" : "light";
 }
 
-/** The Backdrop for one image (a sheet, or a single asset). */
-export function useBackdrop(src: string | null | undefined, enabled = true): BackdropState {
+function useBackdropFromStats(stats: PixelStats | null | "pending"): BackdropState {
   const [mode, setMode] = useBackdropMode();
   const theme = useThemeName();
-  const stats = useImageStats(src, enabled && mode === "auto");
   const decision = useMemo(() => decideAuto(stats, theme), [stats, theme]);
   return {
     mode,
@@ -156,6 +155,25 @@ export function useBackdrop(src: string | null | undefined, enabled = true): Bac
     summary: describeBackdrop(mode, decision),
     theme,
   };
+}
+
+/** The Backdrop for one image (a sheet, or a single asset). */
+export function useBackdrop(src: string | null | undefined, enabled = true): BackdropState {
+  const [mode] = useBackdropMode();
+  return useBackdropFromStats(useImageStats(src, enabled && mode === "auto"));
+}
+
+/** One Backdrop for a collage of up to four images (a collection's cover), decided from all of them together. */
+export function useCollageBackdrop(srcs: (string | null | undefined)[], enabled = true): BackdropState {
+  const [mode] = useBackdropMode();
+  const on = enabled && mode === "auto";
+  const stats = [
+    useImageStats(srcs[0], on),
+    useImageStats(srcs[1], on),
+    useImageStats(srcs[2], on),
+    useImageStats(srcs[3], on),
+  ].filter((_, i) => srcs[i]);
+  return useBackdropFromStats(stats.length ? mergeStats(stats) : "pending");
 }
 
 /** A sheet's Backdrop shared with the panels that show crops of it, so they need no props. */

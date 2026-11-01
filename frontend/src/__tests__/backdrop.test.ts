@@ -8,6 +8,7 @@ import {
   describeBackdrop,
   lostShare,
   meanOpaqueLuminance,
+  mergeStats,
   relativeLuminance,
   resolveBackdrop,
 } from "../features/backdrop/lib/decide";
@@ -78,6 +79,23 @@ test("coloured art keeps the theme backdrop in both themes", () => {
   assert.equal(decideAuto(coloured, "dark").backdrop, null);
 });
 
+test("a colourful sheet with bright yellows and greens keeps the light theme's backdrop", () => {
+  const bright = analyzePixels(
+    pixels(
+      [[240, 200, 30, 255], 8], // yellow
+      [[120, 230, 60, 255], 8], // lime
+      [[60, 220, 230, 255], 8], // cyan
+      [[220, 40, 40, 255], 8], // red
+      [[50, 60, 200, 255], 8], // blue
+      [[150, 50, 190, 255], 8], // purple
+      [CLEAR, 52],
+    ),
+  );
+  assert.ok(lostShare(bright, "light") > 0.3 && lostShare(bright, "light") <= 0.6);
+  assert.equal(decideAuto(bright, "light").backdrop, null);
+  assert.equal(decideAuto(bright, "dark").backdrop, null);
+});
+
 test("a mixed sheet with art on both sides switches only when the other backdrop clearly does better", () => {
   // Half black, half white: each backdrop loses half of it, so nothing is gained by switching.
   const mixed = analyzePixels(pixels([BLACK, 20], [WHITE, 20], [CLEAR, 60]));
@@ -98,6 +116,22 @@ test("mid-grey art reads on both backdrops, so the theme keeps its own", () => {
 test("lostShare is the share of the art that cannot be told from the backdrop", () => {
   assert.equal(lostShare(invaders, "dark"), 1);
   assert.equal(lostShare(invaders, "light"), 0);
+});
+
+test("a collage is decided from all its images together, skipping unreadable and loading ones", () => {
+  const white = analyzePixels(pixels([WHITE, 30], [CLEAR, 70]));
+  const colour = analyzePixels(pixels([RED, 30], [[50, 60, 200, 255], 30], [CLEAR, 40]));
+  // One dark-on-light image among coloured ones does not flip a dark-theme cover.
+  const merged = mergeStats([invaders, colour, colour, white]);
+  assert.ok(merged && merged !== "pending");
+  assert.equal(merged.opaque, 28 + 60 + 60 + 30);
+  assert.equal(decideAuto(merged, "dark").backdrop, null);
+  // All black art: the merge keeps the decision of its parts.
+  assert.equal(decideAuto(mergeStats([invaders, invaders]), "dark").backdrop, "light");
+  assert.equal(mergeStats([null, "pending", invaders])?.valueOf() !== "pending", true);
+  assert.equal(mergeStats([null, null]), null);
+  assert.equal(mergeStats([null, "pending"]), "pending");
+  assert.equal(mergeStats([]), null);
 });
 
 test("opaque images, empty ones, unreadable ones and ones still loading fall back to the theme", () => {
