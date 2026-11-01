@@ -13,6 +13,9 @@ import {
 /** The longest a reveal can run (320ms travel plus the 180ms last stagger step) and some slack. */
 const CLEAN_UP_AFTER_MS = 700;
 
+/** Browsers apply a hash or restored scroll position around hydration; look again once the page has settled. */
+const SETTLE_MS = 300;
+
 function hashTarget(hash: string): HTMLElement | null {
   if (hash.length < 2) return null;
   try {
@@ -129,6 +132,28 @@ export function Reveal({
       [...pending].filter((unit) => related(unit, target)).forEach((unit) => show(unit));
     };
 
+    /** A block the visitor has already scrolled (or jumped) past needs no entrance. */
+    const showPassed = () => {
+      [...pending].filter((unit) => unit.getBoundingClientRect().bottom <= 0).forEach((unit) => show(unit));
+    };
+    const settleView = () => {
+      showRelated(hashTarget(window.location.hash));
+      showPassed();
+    };
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        showPassed();
+      });
+    };
+    let settleTimer = 0;
+    const onLoad = () => {
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(settleView, SETTLE_MS);
+    };
+
     const onFocusIn = (event: FocusEvent) => {
       const unit = units.find((candidate) => candidate.contains(event.target as Node));
       if (unit) show(unit);
@@ -144,6 +169,9 @@ export function Reveal({
     document.addEventListener("click", onClick, true);
     window.addEventListener("hashchange", onHashChange);
     reduce.addEventListener("change", onMotionChange);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    if (document.readyState === "complete") onLoad();
+    else window.addEventListener("load", onLoad);
 
     return () => {
       observer.disconnect();
@@ -151,6 +179,10 @@ export function Reveal({
       document.removeEventListener("click", onClick, true);
       window.removeEventListener("hashchange", onHashChange);
       reduce.removeEventListener("change", onMotionChange);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("load", onLoad);
+      window.clearTimeout(settleTimer);
+      window.cancelAnimationFrame(frame);
       units.forEach(settle);
     };
   }, [stagger]);
