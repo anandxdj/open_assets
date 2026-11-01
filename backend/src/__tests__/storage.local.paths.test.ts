@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { contentTypeFor, publicUrl, resolveKey, resolveLocalStorageSettings, sanitizeSegment, toSegments } from '../lib/storage/local.paths';
+import { contentTypeFor, publicUrl, resolveKey, resolveLocalStorageSettings, resolveServedStorageDir, sanitizeSegment, toSegments } from '../lib/storage/local.paths';
 
 const ROOT = path.resolve('/srv/oa-files');
 
@@ -76,4 +76,32 @@ test('content types come from the extension; unknown ones are opaque', () => {
   assert.equal(contentTypeFor('a.zip'), 'application/zip');
   assert.equal(contentTypeFor('a.svg'), 'application/octet-stream');
   assert.equal(contentTypeFor('a.bin'), 'application/octet-stream');
+});
+
+test('the local provider always serves its folder', () => {
+  assert.equal(resolveServedStorageDir({ STORAGE_PROVIDER: 'local' }, { cwd: '/work', exists: () => false }), '/work/.local-storage');
+});
+
+test('another provider still serves an existing local folder, read-only, so old /storage URLs keep loading', () => {
+  for (const provider of ['cloudinary', 'imagekit', undefined]) {
+    const env = provider ? { STORAGE_PROVIDER: provider } : {};
+    assert.equal(resolveServedStorageDir(env, { cwd: '/work', exists: (d) => d === '/work/.local-storage' }), '/work/.local-storage');
+    assert.equal(resolveServedStorageDir(env, { cwd: '/work', exists: () => false }), undefined);
+  }
+});
+
+test('an explicit LOCAL_STORAGE_DIR is served even before the folder exists', () => {
+  assert.equal(
+    resolveServedStorageDir({ STORAGE_PROVIDER: 'cloudinary', LOCAL_STORAGE_DIR: '/data/files' }, { cwd: '/work', exists: () => false }),
+    '/data/files',
+  );
+});
+
+test('production serves old local files only with ALLOW_LOCAL_STORAGE=1', () => {
+  const base = { NODE_ENV: 'production', STORAGE_PROVIDER: 'cloudinary', LOCAL_STORAGE_DIR: '/data/files' };
+  const opts = { cwd: '/work', exists: () => true };
+  assert.equal(resolveServedStorageDir(base, opts), undefined);
+  assert.equal(resolveServedStorageDir({ ...base, ALLOW_LOCAL_STORAGE: '0' }, opts), undefined);
+  assert.equal(resolveServedStorageDir({ ...base, ALLOW_LOCAL_STORAGE: '1' }, opts), '/data/files');
+  assert.equal(resolveServedStorageDir({ ...base, ALLOW_LOCAL_STORAGE: 'true' }, opts), '/data/files');
 });

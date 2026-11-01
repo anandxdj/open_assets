@@ -153,3 +153,30 @@ test('a missing file is a bare 404', async () => {
   assert.equal(res.status, 404);
   assert.equal(res.body, '');
 });
+
+test('createApp serves old files read-only when the provider is cloudinary', async () => {
+  const stored = await adapter.upload(png, { folder: 'originals', publicId: 'legacy' });
+  const previous = { provider: process.env['STORAGE_PROVIDER'], dir: process.env['LOCAL_STORAGE_DIR'], env: process.env['NODE_ENV'] };
+  process.env['STORAGE_PROVIDER'] = 'cloudinary';
+  process.env['LOCAL_STORAGE_DIR'] = dir;
+  delete process.env['NODE_ENV'];
+  let app: TestServer | undefined;
+  try {
+    const { createApp } = await import('../app');
+    const instance = createApp();
+    app = await startTestServer((root) => root.use(instance));
+    const ok = await fetch(`${app.url}/storage/${stored.publicId}`);
+    assert.equal(ok.status, 200);
+    assert.equal(ok.headers.get('content-type'), 'image/png');
+    assert.deepEqual(Buffer.from(await ok.arrayBuffer()), png);
+    // Read-only and traversal-safe, exactly like the local provider.
+    assert.equal((await fetch(`${app.url}/storage/${stored.publicId}`, { method: 'POST' })).status, 405);
+    assert.equal((await fetch(`${app.url}/storage/..%2Foutside%2Fsecret.txt`)).status, 404);
+  } finally {
+    await app?.close();
+    for (const [key, value] of [['STORAGE_PROVIDER', previous.provider], ['LOCAL_STORAGE_DIR', previous.dir], ['NODE_ENV', previous.env]] as const) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});

@@ -231,6 +231,9 @@ export function checkEnv(env: Env = process.env): EnvReport {
       );
     }
   } else {
+    if (isProduction && parseBoolean(read(env, 'ALLOW_LOCAL_STORAGE')) === true && read(env, 'LOCAL_STORAGE_DIR')) {
+      warnings.push(`LOCAL_STORAGE_DIR is served read-only at /storage so files stored before the switch to ${storageProvider} keep loading; new files go to ${storageProvider}`);
+    }
     const storageKeys =
       storageProvider === 'imagekit'
         ? ['IMAGEKIT_PRIVATE_KEY', 'IMAGEKIT_URL_ENDPOINT']

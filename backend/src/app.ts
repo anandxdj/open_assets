@@ -24,16 +24,16 @@ import { redis } from './common/config/redis';
 import { getConfig } from './common/config/env';
 import { createCorsOptions } from './common/config/cors';
 import { createHealthHandler } from './common/health';
-import { resolveProviderName } from './lib/storage/status';
-import { resolveLocalStorageSettings, LOCAL_URL_PREFIX } from './lib/storage/local.paths';
+import { resolveServedStorageDir, LOCAL_URL_PREFIX } from './lib/storage/local.paths';
 import { createLocalStorageRouter } from './lib/storage/local.router';
 
 export interface AppOptions {
   /** True once shutdown has started, so /health answers 503 and load balancers drain this instance. */
   isShuttingDown?: () => boolean;
   /**
-   * Directory the local storage provider keeps files in; they are served at /storage. Defaults to
-   * LOCAL_STORAGE_DIR when STORAGE_PROVIDER=local, and nothing is served otherwise.
+   * Directory served read-only at /storage. Defaults to resolveServedStorageDir(): the local storage
+   * folder when STORAGE_PROVIDER=local, and also when another provider is set but the folder exists
+   * (or LOCAL_STORAGE_DIR is set), so files stored before a provider switch keep loading.
    */
   localStorageDir?: string;
 }
@@ -74,10 +74,10 @@ export function createApp(options: AppOptions = {}) {
     }),
   );
 
-  // Files of the local storage provider (development and self-hosting). Outside /api on purpose: the
+  // Files of the local storage provider (development and self-hosting), also served read-only after a
+  // switch to cloudinary or imagekit so old /storage URLs do not break. Outside /api on purpose: the
   // browser, the editor canvas and py_backend fetch these URLs directly, like Cloudinary ones.
-  const localStorageDir =
-    options.localStorageDir ?? (resolveProviderName() === 'local' ? resolveLocalStorageSettings().dir : undefined);
+  const localStorageDir = options.localStorageDir ?? resolveServedStorageDir();
   if (localStorageDir) app.use(LOCAL_URL_PREFIX, createLocalStorageRouter(localStorageDir));
 
   // Bridge OAuth callback to frontend. Token goes in the fragment (#7), not the

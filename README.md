@@ -393,6 +393,14 @@ job id), with their real content type, no directory listing, and nothing outside
 `ALLOW_LOCAL_STORAGE=1` (and `LOCAL_STORAGE_BASE_URL` to the API's public URL): files then live on
 that one server only, so run a single API instance and back up the directory.
 
+**Switching provider later.** Files stored while `STORAGE_PROVIDER=local` keep their
+`/storage/<key>` URLs in the database. After a switch to `cloudinary` or `imagekit` the API still
+serves that folder **read-only** (same checks, headers and content types, nothing is ever written)
+when `LOCAL_STORAGE_DIR` is set or `./.local-storage` exists, so old collections, jobs and history
+keep their images. New files go to the new provider. In production this read-only route also needs
+`ALLOW_LOCAL_STORAGE=1`, the opt-in a deployment that stored files locally already had to set;
+without it a stray folder is never published.
+
 ### Checks
 
 | Where | Command | Does |

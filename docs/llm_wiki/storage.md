@@ -7,6 +7,21 @@
 > With `local`, py_backend's `/crop` is called with `inline: true` and returns the PNGs, which the
 > backend stores under `crops/<jobId>/` (`backend/src/lib/cropStore.ts`).
 
+**Old local files after a provider switch.** Seeded or earlier uploads made with `STORAGE_PROVIDER=local`
+are stored in the database as `<API>/storage/<key>` URLs. `createApp()` (`backend/src/app.ts`) mounts
+the read-only `/storage` route (`createLocalStorageRouter`) through `resolveServedStorageDir()`
+(`backend/src/lib/storage/local.paths.ts`) whatever the provider:
+- `local`: always, as before.
+- `cloudinary` / `imagekit`: when `LOCAL_STORAGE_DIR` is set (even if the folder does not exist yet) or
+  the default `./.local-storage` exists. The route is GET/HEAD only, with the same path-traversal checks,
+  content types, `Cache-Control: public, max-age=300`, sandboxing CSP and `nosniff` headers, and nothing
+  writable: new files still go to the active provider's adapter.
+- Production with another provider: also needs `ALLOW_LOCAL_STORAGE=1`. This keeps the existing guard
+  (files are public by URL, so a stray folder must not be published by accident); a deployment that really
+  stored files locally in production already had to set it. `checkEnv` warns when it is on with a
+  `LOCAL_STORAGE_DIR` and another provider.
+`AppOptions.localStorageDir` overrides all of this (tests).
+
 **Single storage provider for all images** (Cloudinary by default).
 
 ## SDK Init (`backend/src/common/config/cloudinary.ts`)
