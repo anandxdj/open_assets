@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
+import { useThemeSwitch } from "@/components/layout/ThemeToggle";
 import { BookOpen, ChevronsUpDown, Folder, LogOut, Moon, Settings, ShieldCheck, Sun, Tag } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
@@ -47,7 +47,7 @@ export function Avatar({ name, picture, className }: { name?: string | null; pic
 export function UserMenu({ variant = "row" }: { variant?: "row" | "compact" }) {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, toggleFromElement } = useThemeSwitch();
   if (!user) return null;
 
   const isDark = resolvedTheme === "dark";
@@ -114,7 +114,7 @@ export function UserMenu({ variant = "row" }: { variant?: "row" | "compact" }) {
             Pricing
           </Link>
         </MenuItem>
-        <MenuItem onSelect={() => setTheme(isDark ? "light" : "dark")}>
+        <MenuItem onSelect={(event) => toggleFromElement(event.target as Element)}>
           {isDark ? <Sun aria-hidden /> : <Moon aria-hidden />}
           {isDark ? "Light theme" : "Dark theme"}
         </MenuItem>

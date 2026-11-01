@@ -157,8 +157,64 @@ Tool names: Extract, Enhance (Cleanup, AI enhance), Studio, AniBuddy.
 
 ## Motion
 
-120ms ease-out for state changes; menus and panels appear instantly. No
-decorative motion. Respect `prefers-reduced-motion`.
+Motion confirms an action or a change of state and is gone in a fifth of a
+second. CSS only: transitions and `tw-animate-css` keyframes, no animation
+library.
+
+Tokens (`globals.css`):
+
+| Token | Value | Used for |
+|---|---|---|
+| `--oa-dur-1` | 120ms | colour, background and border changes, press |
+| `--oa-dur-2` | 200ms | shadows, lift, switch thumb |
+| `--oa-dur-3` | 320ms | reserved for larger travel (nothing uses it yet) |
+| `--oa-ease` | `cubic-bezier(.2,.8,.2,1)` | state changes |
+| `--oa-ease-out` | `cubic-bezier(.16,1,.3,1)` | things that travel: lift, switch thumb, overlays, theme reveal |
+| `--oa-t-state` | colour, background, border 120ms, shadow 200ms | the shared `transition` of interactive classes |
+
+What animates:
+
+- **Hover, focus and selection** on `oa-nav-item`, `oa-tab`, `oa-seg-item`,
+  `oa-menu-item`, `oa-tool`, `oa-layer`, `oa-tile`, `oa-link`, table row
+  cells, buttons, inputs, checkboxes, switches and the drop zone: colour,
+  background, border and shadow fade (`--oa-t-state`). Nothing else changes.
+- **Link cards** (`oa-lift`): up and left 2px with a 4px hard shadow on hover or
+  keyboard focus, flat again while pressed; the same language as the primary
+  button. The focus ring moves with the card. Hover applies only where the
+  device has hover. A Tailwind shadow utility on the card wins over the lift
+  shadow (the card then only moves).
+- **Overlays**: scrim fades in 150ms. Dialog fades, scales from 98% and slides
+  4px up in 160ms. Menu fades and slides 4px away from its trigger in 120ms.
+  Exits mirror the entrances. Radix keeps the node mounted until the exit ends,
+  and focus still returns to the control that opened it. Toasts keep Sonner's
+  own slide and fade (it positions and stacks them with the same `transform`,
+  so a second keyframe animation would fight it).
+- **Theme switch**: the new theme grows as a circle from the click (from the
+  toggle's centre for the keyboard), 420ms `--oa-ease-out`
+  (`document.startViewTransition`, helper in `lib/theme-reveal.ts`). Where the
+  API is missing the theme switches at once. Focus stays on the toggle.
+
+- **The landing product shot is the one sanctioned demo.** It may play
+  because it is honest, and only on these terms: it replays real product
+  states (what the app actually shows, never an invented console or pipeline);
+  it plays at most 3 loops and then rests on the final frame; it has a visible
+  Pause/Play control; it pauses while it is off-screen or the tab is hidden;
+  and under reduced motion it shows a static final frame. Its easing uses
+  `--oa-ease-out`.
+
+No decorative motion anywhere else. What never animates: `width`, `height` and
+`all` in new rules (the progress fill's `width` and Sonner's stacking are the
+two older exceptions), page loads, route changes, scrolling, infinite loops
+other than status spinners, glows, cursor effects, anything on the editor
+canvas, and anything that carries meaning without also being visible when it
+stops.
+
+Reduced motion: one global `prefers-reduced-motion: reduce` rule in
+`globals.css` sets `transition: none` and `animation: none` on everything,
+including the view-transition pseudo-elements, and `oa-lift` and the primary
+button keep their shadow but do not move. `ThemeToggle` also skips
+`startViewTransition`. New motion must be a CSS transition or animation that the
+rule covers, or check `matchMedia("(prefers-reduced-motion: reduce)")` itself.
 
 ## Accessibility
 
