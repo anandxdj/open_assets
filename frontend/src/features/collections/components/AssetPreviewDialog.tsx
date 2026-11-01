@@ -63,7 +63,7 @@ export function AssetPreviewDialog({
           className="w-[min(760px,calc(100%-32px))]"
         >
           <div className="mt-4 grid min-h-0 overflow-y-auto border-t-[1.5px] border-line md:grid-cols-[minmax(0,1fr)_240px]">
-            <BackdropSurface src={image.cloudinaryUrl} className="flex min-h-[220px] items-center justify-center p-6 md:min-h-[320px]">
+            <BackdropSurface independent src={image.cloudinaryUrl} className="flex min-h-[220px] items-center justify-center p-6 md:min-h-[320px]">
               <SafeImage
                 src={image.cloudinaryUrl}
                 alt={image.name}

@@ -1,8 +1,7 @@
 "use client";
 
-import { createElement, useEffect, useState, type HTMLAttributes, type Ref } from "react";
-import { useBackdrop, useCollageBackdrop, useSheetBackdrop } from "./useBackdrop";
-import type { Backdrop } from "./lib/decide";
+import { createElement, useEffect, useState, type HTMLAttributes, type ReactNode, type Ref } from "react";
+import { SheetBackdropContext, useBackdrop, useCollageBackdrop, useGroupBackdrop, useSheetBackdrop } from "./useBackdrop";
 
 /** True once the element has come near the viewport; lists only read the images they show. */
 function useNearViewport(el: Element | null): boolean {
@@ -22,30 +21,42 @@ function useNearViewport(el: Element | null): boolean {
   return near;
 }
 
-/** The backdrop to draw for an image: the shared setting, with Auto decided from the image's own pixels. */
-export function useImageBackdrop(src: string | null | undefined, el: Element | null): Backdrop | null {
-  const near = useNearViewport(el);
-  return useBackdrop(src, near).backdrop;
+/**
+ * Gives every BackdropSurface inside it one Backdrop, decided from all of `srcs` together: a grid, list or
+ * page of images where tiles that each decided alone would look patchy.
+ */
+export function BackdropGroup({ srcs, children }: { srcs: (string | null | undefined)[]; children: ReactNode }) {
+  const group = useGroupBackdrop(srcs);
+  return <SheetBackdropContext.Provider value={group.backdrop}>{children}</SheetBackdropContext.Provider>;
 }
 
 /**
- * A checkerboard surface (the `oa-checker` look) behind transparent art. Give it the art's `src` and it picks
- * the backdrop that reads best for that image; without `src` it follows the Backdrop of the sheet around it
- * (see SheetBackdropContext), or the theme's own checkerboard when there is none.
+ * A checkerboard surface (the `oa-checker` look) behind transparent art. Inside a BackdropGroup (or a sheet's
+ * context) it follows that one Backdrop. On its own, give it the art's `src` (or a collage's `srcs`) and it
+ * picks the backdrop that reads best for that image; with neither it uses the theme's own checkerboard.
+ * `independent` ignores the group around it, for a single-image view such as a preview dialog.
  */
 export function BackdropSurface({
   src,
   srcs,
+  independent = false,
   as = "div",
   className,
   ...rest
-}: HTMLAttributes<HTMLElement> & { src?: string | null; srcs?: (string | null | undefined)[]; as?: "div" | "span" | "button" | "li"; type?: "button" | "submit" | "reset" }) {
+}: HTMLAttributes<HTMLElement> & {
+  src?: string | null;
+  srcs?: (string | null | undefined)[];
+  independent?: boolean;
+  as?: "div" | "span" | "button" | "li";
+  type?: "button" | "submit" | "reset";
+}) {
   const [el, setEl] = useState<HTMLElement | null>(null);
-  const own = useImageBackdrop(src, el);
-  const near = useNearViewport(srcs ? el : null);
-  const collage = useCollageBackdrop(srcs ?? [], near).backdrop;
-  const sheet = useSheetBackdrop();
-  const backdrop = srcs ? collage : src ? own : (sheet ?? null);
+  const shared = useSheetBackdrop();
+  const follows = shared !== undefined && !independent;
+  const near = useNearViewport(el);
+  const own = useBackdrop(src, near && !follows).backdrop;
+  const collage = useCollageBackdrop(srcs ?? [], near && !follows).backdrop;
+  const backdrop = follows ? shared : srcs ? collage : src ? own : (shared ?? null);
   return createElement(as, {
     ...rest,
     ref: setEl as Ref<HTMLElement>,

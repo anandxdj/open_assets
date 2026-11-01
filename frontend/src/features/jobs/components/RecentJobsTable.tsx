@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { SafeImage } from "@/components/ui/safe-image";
-import { BackdropSurface } from "@/features/backdrop/BackdropSurface";
+import { BackdropGroup, BackdropSurface } from "@/features/backdrop/BackdropSurface";
 import { formatFullDate, formatRelativeTime, useNow } from "@/features/jobs/time";
 import type { JobSummary } from "@/types";
 
@@ -27,20 +27,27 @@ function primaryAction(job: JobSummary): PrimaryAction {
 
 const displayName = (job: JobSummary) => job.fileName ?? "Untitled sheet";
 
-/**
- * Table of the signed-in user's extraction jobs as the server lists them, with
- * each job's status. Removing a row only takes it off the list.
- */
-export function RecentJobsTable({
-  jobs,
-  onRemove,
-  caption,
-}: {
+type TableProps = {
   jobs: JobSummary[];
   /** Rejects when the server refused; the table then tells the user. */
   onRemove: (jobId: string) => Promise<void>;
   caption: string;
-}) {
+};
+
+/**
+ * Table of the signed-in user's extraction jobs as the server lists them, with
+ * each job's status. Removing a row only takes it off the list. The thumbnails
+ * share one Backdrop, decided from all of the sheets together.
+ */
+export function RecentJobsTable(props: TableProps) {
+  return (
+    <BackdropGroup srcs={props.jobs.map((job) => job.imageUrl)}>
+      <JobsTable {...props} />
+    </BackdropGroup>
+  );
+}
+
+function JobsTable({ jobs, onRemove, caption }: TableProps) {
   const now = useNow();
 
   function remove(job: JobSummary) {

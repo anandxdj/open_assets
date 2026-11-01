@@ -8,6 +8,7 @@ import {
   describeBackdrop,
   mergeStats,
   resolveBackdrop,
+  sampleSources,
   type AutoDecision,
   type Backdrop,
   type BackdropMode,
@@ -54,7 +55,11 @@ let running = 0;
 const MAX_PARALLEL = 4;
 const SAMPLE_EDGE = 128;
 
+/** Bumps on every finished read, so a list of images can follow the cache with one subscription. */
+let cacheVersion = 0;
+
 function notifyCache() {
+  cacheVersion += 1;
   cacheListeners.forEach((listener) => listener());
 }
 
@@ -126,6 +131,31 @@ export function useImageStats(src: string | null | undefined, enabled = true): P
   return entry === "unreadable" ? null : entry;
 }
 
+/**
+ * The pixel stats of a whole list of images as one: "pending" until every sampled image has been read
+ * (so a grid shows the theme backdrop, then changes once, instead of flickering as images arrive),
+ * null when none could be read.
+ */
+export function useGroupStats(srcs: (string | null | undefined)[], enabled = true): PixelStats | null | "pending" {
+  const key = sampleSources(srcs).join("\n");
+  const version = useSyncExternalStore(
+    subscribeCache,
+    () => cacheVersion,
+    () => 0,
+  );
+  useEffect(() => {
+    if (enabled && key) key.split("\n").forEach(request);
+  }, [enabled, key]);
+  return useMemo(() => {
+    if (!key) return "pending";
+    const entries = key.split("\n").map((src) => cache.get(src));
+    if (entries.some((entry) => entry === undefined)) return "pending";
+    return mergeStats(entries.map((entry) => (entry === "unreadable" || entry === undefined ? null : entry)));
+    // `version` is the cache's change signal: the entries above are read from the cache, not from props.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, version]);
+}
+
 // ---- Putting it together ----------------------------------------------------
 export interface BackdropState {
   mode: BackdropMode;
@@ -176,7 +206,20 @@ export function useCollageBackdrop(srcs: (string | null | undefined)[], enabled 
   return useBackdropFromStats(stats.length ? mergeStats(stats) : "pending");
 }
 
-/** A sheet's Backdrop shared with the panels that show crops of it, so they need no props. */
+/**
+ * One Backdrop for a whole grid, list or page of images (the export grid, a pack's assets, History, the
+ * collections lists), decided from all of them together so the tiles never disagree.
+ */
+export function useGroupBackdrop(srcs: (string | null | undefined)[], enabled = true): BackdropState {
+  const [mode] = useBackdropMode();
+  return useBackdropFromStats(useGroupStats(srcs, enabled && mode === "auto"));
+}
+
+/**
+ * The Backdrop the surfaces below should draw: a sheet's (shared with the panels that show crops of it, so
+ * they need no props) or a group's (shared with every tile of a grid). `undefined` means nobody decided for
+ * them, so each image decides for itself.
+ */
 export const SheetBackdropContext = createContext<Backdrop | null | undefined>(undefined);
 
 export function useSheetBackdrop(): Backdrop | null | undefined {

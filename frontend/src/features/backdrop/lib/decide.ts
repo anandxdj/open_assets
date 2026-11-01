@@ -27,12 +27,13 @@ export function isBackdropMode(value: unknown): value is BackdropMode {
 }
 
 const BINS = 32;
-/** An art pixel counts as lost when its contrast against the backdrop is below this. */
-export const LOST_CONTRAST = 1.5;
-/** Auto leaves the theme backdrop alone while no more than this share of the art is lost on it. */
-export const LOST_TOLERANCE = 0.6;
-/** The other backdrop has to do at least this much better (share of the art) to replace it. */
-export const LOST_MARGIN = 0.3;
+/** An art pixel counts as lost when its contrast against the backdrop is below this (WCAG non-text contrast). */
+export const LOST_CONTRAST = 3;
+/**
+ * A backdrop has to lose this much less of the art (a share, 0 to 1) than the one it would replace.
+ * Ties within it keep the theme backdrop, so ordinary art does not flip.
+ */
+export const LOST_MARGIN = 0.12;
 /** Below this share of transparent pixels an image counts as opaque. */
 export const MIN_TRANSPARENT_SHARE = 0.01;
 
@@ -92,7 +93,7 @@ export function analyzePixels(data: ArrayLike<number>): PixelStats {
 }
 
 /**
- * Several images as one, for a collage (a collection's cover) that gets a single backdrop.
+ * Several images as one, for a collage or a whole grid or page that gets a single backdrop.
  * Unreadable and still-loading ones are left out; `null` when none could be read.
  */
 export function mergeStats(list: (PixelStats | null | "pending")[]): PixelStats | null | "pending" {
@@ -111,6 +112,16 @@ export function mergeStats(list: (PixelStats | null | "pending")[]): PixelStats 
     });
   }
   return { pixels, opaque, transparentShare: pixels ? transparent / pixels : 0, histogram };
+}
+
+/** A grid or page reads at most this many of its images for its one decision, spread evenly across the list. */
+export const MAX_GROUP_SAMPLES = 48;
+
+/** The distinct addresses to read for a group: all of them, or an even spread of `max` when there are more. */
+export function sampleSources(srcs: (string | null | undefined)[], max = MAX_GROUP_SAMPLES): string[] {
+  const unique = Array.from(new Set(srcs.filter((src): src is string => Boolean(src))));
+  if (unique.length <= max) return unique;
+  return Array.from({ length: max }, (_, i) => unique[Math.floor((i * unique.length) / max)]);
 }
 
 /** Mean luminance of the opaque pixels, 0 to 1 (from the histogram, so to within one bin). */
@@ -141,6 +152,8 @@ export type AutoReason =
   | "dark-art"
   /** Light art on a light theme: the dark backdrop was picked. */
   | "light-art"
+  /** Art with both very dark and very light parts: mid grey keeps most of it. */
+  | "mixed-art"
   /** No transparent pixels, so a backdrop would not show. */
   | "opaque"
   | "empty"
@@ -157,8 +170,10 @@ export interface AutoDecision {
 }
 
 /**
- * Picks the backdrop for Auto. The theme's own checkerboard stays unless a real part of the art would be
- * lost on it and the other one does clearly better. `null` stats means the pixels could not be read yet or at all.
+ * Picks the backdrop for Auto: the one that loses the least art. Each candidate (the theme's own checkerboard,
+ * the opposite one, mid grey) is scored by the share of the opaque pixels under 3:1 contrast against it. The
+ * theme backdrop stays unless another candidate loses at least LOST_MARGIN less, so a tie keeps the theme;
+ * mid grey has to win by that margin too. `null` stats means the pixels could not be read.
  */
 export function decideAuto(stats: PixelStats | null | "pending", theme: ThemeName): AutoDecision {
   const own: Backdrop = theme;
@@ -168,13 +183,19 @@ export function decideAuto(stats: PixelStats | null | "pending", theme: ThemeNam
   if (stats.transparentShare < MIN_TRANSPARENT_SHARE) return stay("opaque");
   if (stats.opaque === 0) return stay("empty");
 
-  const lostOwn = lostShare(stats, own);
-  if (lostOwn <= LOST_TOLERANCE) return stay("theme");
   const other: Backdrop = own === "light" ? "dark" : "light";
-  if (lostShare(stats, other) <= lostOwn - LOST_MARGIN) {
-    return { backdrop: other, effective: other, reason: own === "dark" ? "dark-art" : "light-art" };
+  let best: Backdrop = own;
+  let bestLost = lostShare(stats, own);
+  for (const candidate of [other, "grey"] as const) {
+    const lost = lostShare(stats, candidate);
+    if (lost <= bestLost - LOST_MARGIN) {
+      best = candidate;
+      bestLost = lost;
+    }
   }
-  return stay("theme");
+  if (best === own) return stay("theme");
+  const reason: AutoReason = best === "grey" ? "mixed-art" : own === "dark" ? "dark-art" : "light-art";
+  return { backdrop: best, effective: best, reason };
 }
 
 /** What is on screen for a mode: the forced backdrop, or null for the theme's own. */
@@ -190,6 +211,8 @@ export function describeBackdrop(mode: BackdropMode, decision: AutoDecision): st
       return "Auto: light backdrop, the art is dark";
     case "light-art":
       return "Auto: dark backdrop, the art is light";
+    case "mixed-art":
+      return "Auto: mid grey backdrop, the art has both dark and light parts";
     case "theme":
       return `Auto: ${decision.effective} backdrop, the art reads on it`;
     case "opaque":

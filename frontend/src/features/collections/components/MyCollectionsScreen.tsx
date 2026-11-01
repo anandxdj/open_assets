@@ -20,6 +20,7 @@ import {
   type CollectionSummary,
 } from "@/features/collections/api";
 import { ConfirmDeleteDialog, NameDialog, PublishDialog, TagsDialog } from "@/features/collections/components/CollectionDialogs";
+import { BackdropGroup } from "@/features/backdrop/BackdropSurface";
 import { CoverGrid } from "@/features/collections/components/CoverGrid";
 import { assetsLabel, creatorName, formatCount, isUntitled, plural } from "@/features/collections/format";
 import { formatFullDate, formatRelativeTime, useNow } from "@/features/jobs/time";
@@ -617,9 +618,13 @@ export function MyCollectionsScreen() {
           {visible.length === 0 ? (
             emptyTab()
           ) : view === "grid" ? (
-            <CollectionGrid items={visible} busyId={busyId} actions={actions} now={now} />
+            <BackdropGroup srcs={visible.flatMap((c) => c.coverImageUrls)}>
+              <CollectionGrid items={visible} busyId={busyId} actions={actions} now={now} />
+            </BackdropGroup>
           ) : (
-            <CollectionTable items={visible} busyId={busyId} actions={actions} now={now} />
+            <BackdropGroup srcs={visible.flatMap((c) => c.coverImageUrls)}>
+              <CollectionTable items={visible} busyId={busyId} actions={actions} now={now} />
+            </BackdropGroup>
           )}
         </div>
       </>

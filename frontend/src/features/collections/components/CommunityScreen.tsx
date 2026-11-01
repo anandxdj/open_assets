@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState, Loading } from "@/components/ui/feedback";
 import { InputGroup, Select } from "@/components/ui/input";
 import { listCollections, type CollectionSummary, type SortKey } from "@/features/collections/api";
+import { BackdropGroup } from "@/features/backdrop/BackdropSurface";
 import { CoverGrid } from "@/features/collections/components/CoverGrid";
 import { TagChip, TagChips } from "@/features/collections/components/TagChip";
 import { assetsLabel, creatorName, creatorPicture, formatCount } from "@/features/collections/format";
@@ -156,17 +157,19 @@ export function CommunityScreen() {
       );
   } else {
     body = (
-      <ul
-        aria-busy={loading || undefined}
-        className={cn(
-          "grid grid-cols-[repeat(auto-fill,minmax(min(232px,100%),1fr))] gap-x-5 gap-y-7",
-          loading && "opacity-60"
-        )}
-      >
-        {items.map((c) => (
-          <PackCard key={c._id} collection={c} activeTag={tag} />
-        ))}
-      </ul>
+      <BackdropGroup srcs={items.flatMap((c) => c.coverImageUrls)}>
+        <ul
+          aria-busy={loading || undefined}
+          className={cn(
+            "grid grid-cols-[repeat(auto-fill,minmax(min(232px,100%),1fr))] gap-x-5 gap-y-7",
+            loading && "opacity-60"
+          )}
+        >
+          {items.map((c) => (
+            <PackCard key={c._id} collection={c} activeTag={tag} />
+          ))}
+        </ul>
+      </BackdropGroup>
     );
   }
 

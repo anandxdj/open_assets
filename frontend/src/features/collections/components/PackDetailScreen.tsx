@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Loading, Notice } from "@/components/ui/feedback";
 import { SafeImage } from "@/components/ui/safe-image";
-import { BackdropSurface } from "@/features/backdrop/BackdropSurface";
+import { BackdropGroup, BackdropSurface } from "@/features/backdrop/BackdropSurface";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import {
   collectionDownloadUrl,
@@ -428,20 +428,22 @@ export function PackDetailScreen({ id }: { id: string }) {
               description={canEdit ? "Add a folder, then save assets into it from any export." : "This collection has no folders to show."}
             />
           ) : (
-            c.folders.map((folder) => (
-              <FolderSection
-                key={folder._id}
-                packId={id}
-                folder={folder}
-                isPublic={c.isPublic}
-                canEdit={canEdit}
-                open={!closed.has(folder._id)}
-                onToggle={() => toggleFolder(folder._id)}
-                previewId={preview?._id ?? null}
-                onPreview={setPreview}
-                onDeleteImage={(f, image) => setDeleting({ folder: f, image })}
-              />
-            ))
+            <BackdropGroup srcs={c.folders.flatMap((folder) => folder.images.map((img) => img.cloudinaryUrl))}>
+              {c.folders.map((folder) => (
+                <FolderSection
+                  key={folder._id}
+                  packId={id}
+                  folder={folder}
+                  isPublic={c.isPublic}
+                  canEdit={canEdit}
+                  open={!closed.has(folder._id)}
+                  onToggle={() => toggleFolder(folder._id)}
+                  previewId={preview?._id ?? null}
+                  onPreview={setPreview}
+                  onDeleteImage={(f, image) => setDeleting({ folder: f, image })}
+                />
+              ))}
+            </BackdropGroup>
           )}
         </div>
       </div>

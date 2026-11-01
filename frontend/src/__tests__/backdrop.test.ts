@@ -5,6 +5,9 @@ import {
   backdropLuminance,
   contrastRatio,
   decideAuto,
+  LOST_MARGIN,
+  MAX_GROUP_SAMPLES,
+  sampleSources,
   describeBackdrop,
   lostShare,
   meanOpaqueLuminance,
@@ -79,31 +82,82 @@ test("coloured art keeps the theme backdrop in both themes", () => {
   assert.equal(decideAuto(coloured, "dark").backdrop, null);
 });
 
-test("a colourful sheet with bright yellows and greens keeps the light theme's backdrop", () => {
-  const bright = analyzePixels(
+test("a colourful sheet of saturated mid-tones keeps the theme backdrop in both themes", () => {
+  const saturated = analyzePixels(
     pixels(
-      [[240, 200, 30, 255], 8], // yellow
-      [[120, 230, 60, 255], 8], // lime
-      [[60, 220, 230, 255], 8], // cyan
       [[220, 40, 40, 255], 8], // red
-      [[50, 60, 200, 255], 8], // blue
+      [[40, 90, 220, 255], 8], // blue
       [[150, 50, 190, 255], 8], // purple
+      [[190, 70, 20, 255], 8], // burnt orange
+      [[20, 150, 120, 255], 8], // teal
+      [[210, 60, 130, 255], 8], // pink
       [CLEAR, 52],
     ),
   );
-  assert.ok(lostShare(bright, "light") > 0.3 && lostShare(bright, "light") <= 0.6);
-  assert.equal(decideAuto(bright, "light").backdrop, null);
-  assert.equal(decideAuto(bright, "dark").backdrop, null);
+  assert.equal(lostShare(saturated, "light"), 0);
+  assert.equal(decideAuto(saturated, "light").backdrop, null);
+  assert.equal(decideAuto(saturated, "dark").backdrop, null);
 });
 
-test("a mixed sheet with art on both sides switches only when the other backdrop clearly does better", () => {
-  // Half black, half white: each backdrop loses half of it, so nothing is gained by switching.
+// A logo sheet like the export grid's: navy lettering and shields, gold wreaths, cream and white interiors.
+const NAVY: Rgba = [29, 43, 69, 255];
+const GOLD: Rgba = [201, 162, 39, 255];
+const CREAM: Rgba = [247, 244, 232, 255];
+const logos = analyzePixels(pixels([NAVY, 45], [GOLD, 25], [CREAM, 30], [CLEAR, 100]));
+
+test("navy, gold and white logos: dark loses the lettering, light loses the gold and the white, mid grey keeps most", () => {
+  assert.ok(lostShare(logos, "dark") >= 0.4, "navy is lost on the dark backdrop");
+  assert.ok(lostShare(logos, "light") >= 0.5, "gold and cream are lost on the light backdrop");
+  assert.ok(lostShare(logos, "grey") <= 0.3, "only the gold is lost on mid grey");
+  for (const theme of ["dark", "light"] as const) {
+    const decision = decideAuto(logos, theme);
+    assert.equal(decision.backdrop, "grey", theme);
+    assert.equal(decision.reason, "mixed-art");
+    assert.equal(decision.effective, "grey");
+  }
+  assert.equal(describeBackdrop("auto", decideAuto(logos, "dark")), "Auto: mid grey backdrop, the art has both dark and light parts");
+});
+
+test("art with both black and white parts goes to mid grey, which keeps all of it", () => {
   const mixed = analyzePixels(pixels([BLACK, 20], [WHITE, 20], [CLEAR, 60]));
-  assert.equal(decideAuto(mixed, "dark").backdrop, null);
-  assert.equal(decideAuto(mixed, "light").backdrop, null);
-  // Mostly black with a little white: the dark theme still switches.
+  assert.equal(lostShare(mixed, "grey"), 0);
+  assert.equal(decideAuto(mixed, "dark").backdrop, "grey");
+  assert.equal(decideAuto(mixed, "light").backdrop, "grey");
+});
+
+test("mostly black art with a little white still takes the light backdrop, not mid grey", () => {
+  // Light loses the 10% white, mid grey loses nothing but does not win by the margin over the light one.
   const mostlyBlack = analyzePixels(pixels([BLACK, 36], [WHITE, 4], [CLEAR, 60]));
   assert.equal(decideAuto(mostlyBlack, "dark").backdrop, "light");
+  assert.equal(decideAuto(mostlyBlack, "light").backdrop, null);
+});
+
+test("the tie margin keeps the theme backdrop unless another one loses clearly less", () => {
+  // 90% black, 10% white on a dark theme: light loses 10%, dark loses 90%: switch.
+  assert.equal(decideAuto(analyzePixels(pixels([BLACK, 90], [WHITE, 10], [CLEAR, 100])), "dark").backdrop, "light");
+  // Dark theme, 5% of the art black (lost on dark), the rest coloured: switching would gain only 5%, so stay.
+  const nearlyTied = analyzePixels(pixels([BLACK, 5], [RED, 95], [CLEAR, 100]));
+  assert.equal(lostShare(nearlyTied, "dark"), 0.05);
+  assert.equal(decideAuto(nearlyTied, "dark").backdrop, null);
+  // The same art with 20% black: the gain passes the margin.
+  const clear = analyzePixels(pixels([BLACK, 20], [RED, 80], [CLEAR, 100]));
+  assert.ok(lostShare(clear, "dark") - lostShare(clear, "light") > LOST_MARGIN);
+  assert.equal(decideAuto(clear, "dark").backdrop, "light");
+});
+
+test("a grid is decided once from all its images, so tiles with different art share one backdrop", () => {
+  const shield = analyzePixels(pixels([NAVY, 80], [CLEAR, 20])); // the mostly navy tile
+  const wreath = analyzePixels(pixels([GOLD, 40], [CREAM, 30], [NAVY, 10], [CLEAR, 20]));
+  // Decided alone, the navy shield and its neighbour disagree on the dark theme...
+  assert.equal(decideAuto(shield, "dark").backdrop, "light");
+  assert.equal(decideAuto(wreath, "dark").backdrop, null);
+  // ...decided together, every tile gets the same answer.
+  const grid = mergeStats([shield, wreath, logos, logos, wreath]);
+  assert.ok(grid && grid !== "pending");
+  const together = decideAuto(grid, "dark");
+  assert.equal(together.backdrop, "grey");
+  assert.equal(decideAuto(grid, "dark").backdrop, together.backdrop);
+  assert.equal(decideAuto(grid, "light").backdrop, "grey");
 });
 
 test("mid-grey art reads on both backdrops, so the theme keeps its own", () => {
@@ -120,7 +174,7 @@ test("lostShare is the share of the art that cannot be told from the backdrop", 
 
 test("a collage is decided from all its images together, skipping unreadable and loading ones", () => {
   const white = analyzePixels(pixels([WHITE, 30], [CLEAR, 70]));
-  const colour = analyzePixels(pixels([RED, 30], [[50, 60, 200, 255], 30], [CLEAR, 40]));
+  const colour = analyzePixels(pixels([RED, 30], [[210, 60, 130, 255], 30], [CLEAR, 40]));
   // One dark-on-light image among coloured ones does not flip a dark-theme cover.
   const merged = mergeStats([invaders, colour, colour, white]);
   assert.ok(merged && merged !== "pending");
@@ -132,6 +186,16 @@ test("a collage is decided from all its images together, skipping unreadable and
   assert.equal(mergeStats([null, null]), null);
   assert.equal(mergeStats([null, "pending"]), "pending");
   assert.equal(mergeStats([]), null);
+});
+
+test("a group reads each distinct image once, and an even spread of them when there are many", () => {
+  assert.deepEqual(sampleSources(["a", "b", "a", null, undefined, "c"]), ["a", "b", "c"]);
+  const many = Array.from({ length: 200 }, (_, i) => `img-${i}`);
+  const sampled = sampleSources(many);
+  assert.equal(sampled.length, MAX_GROUP_SAMPLES);
+  assert.equal(sampled[0], "img-0");
+  assert.ok(Number(sampled[sampled.length - 1].slice(4)) >= 190, "the spread reaches the end of the list");
+  assert.deepEqual(sampleSources([]), []);
 });
 
 test("opaque images, empty ones, unreadable ones and ones still loading fall back to the theme", () => {
