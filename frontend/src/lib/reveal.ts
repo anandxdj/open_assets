@@ -45,8 +45,25 @@ export function startsPending(input: {
   if (!input.armed) return false;
   if (input.relatedToHashTarget) return false;
   if (input.bottom <= 0) return false;
-  if (input.top < input.viewportHeight) return false;
+  if (isInViewOrAbove(input)) return false;
   return true;
+}
+
+/**
+ * Whether a block is in view or above the viewport: its top edge is above the viewport's bottom edge. This is
+ * the rule for a restored scroll position (nothing there waits for a reveal), and the same rule applies when
+ * the browser restores the whole page from the back/forward cache.
+ */
+export function isInViewOrAbove(input: { top: number; viewportHeight: number }): boolean {
+  return input.top < input.viewportHeight;
+}
+
+/**
+ * Whether a pending block is revealed at once when the page comes back from the back/forward cache
+ * (`pageshow` with `persisted`). Same rule as scroll restoration: everything in view or above the viewport.
+ */
+export function revealsOnRestore(input: { top: number; viewportHeight: number }): boolean {
+  return isInViewOrAbove(input);
 }
 
 /**

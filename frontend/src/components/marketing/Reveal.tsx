@@ -6,6 +6,7 @@ import {
   isRevealTarget,
   REVEAL_ROOT_MARGIN,
   REVEAL_THRESHOLD,
+  revealsOnRestore,
   staggerStep,
   startsPending,
 } from "@/lib/reveal";
@@ -136,6 +137,18 @@ export function Reveal({
     const showPassed = () => {
       [...pending].filter((unit) => unit.getBoundingClientRect().bottom <= 0).forEach((unit) => show(unit));
     };
+    /**
+     * A page restored from the back/forward cache keeps its pending blocks and its observer, and the browser
+     * has put the scroll position back without telling the observer. Reveal what is in view or above the
+     * viewport at once, by the rule scroll restoration uses at load; blocks further down still wait.
+     */
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      const viewportHeight = window.innerHeight;
+      [...pending]
+        .filter((unit) => revealsOnRestore({ top: unit.getBoundingClientRect().top, viewportHeight }))
+        .forEach((unit) => show(unit));
+    };
     const settleView = () => {
       showRelated(hashTarget(window.location.hash));
       showPassed();
@@ -170,6 +183,7 @@ export function Reveal({
     window.addEventListener("hashchange", onHashChange);
     reduce.addEventListener("change", onMotionChange);
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pageshow", onPageShow);
     if (document.readyState === "complete") onLoad();
     else window.addEventListener("load", onLoad);
 
@@ -180,6 +194,7 @@ export function Reveal({
       window.removeEventListener("hashchange", onHashChange);
       reduce.removeEventListener("change", onMotionChange);
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("load", onLoad);
       window.clearTimeout(settleTimer);
       window.cancelAnimationFrame(frame);

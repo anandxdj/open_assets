@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   canArmReveal,
+  isInViewOrAbove,
   isRevealTarget,
   REVEAL_MAX_STEPS,
   REVEAL_ROOT_MARGIN,
   REVEAL_THRESHOLD,
+  revealsOnRestore,
   staggerDelayMs,
   staggerStep,
   startsPending,
@@ -73,4 +75,24 @@ test("hash targets: sections count, the whole page does not", () => {
   assert.equal(isRevealTarget("HTML"), false);
   assert.equal(isRevealTarget(null), false);
   assert.equal(isRevealTarget(undefined), false);
+});
+
+test("a page restored from the bfcache reveals what is in view or above, and keeps the rest pending", () => {
+  const viewportHeight = 900;
+  assert.equal(revealsOnRestore({ top: -1400, viewportHeight }), true);
+  assert.equal(revealsOnRestore({ top: 0, viewportHeight }), true);
+  assert.equal(revealsOnRestore({ top: 700, viewportHeight }), true);
+  assert.equal(revealsOnRestore({ top: 899.5, viewportHeight }), true);
+  assert.equal(revealsOnRestore({ top: 900, viewportHeight }), false);
+  assert.equal(revealsOnRestore({ top: 2400, viewportHeight }), false);
+});
+
+test("the restore rule is the one scroll restoration uses at load", () => {
+  const viewportHeight = 900;
+  for (const top of [-1400, -1, 0, 450, 899, 900, 901, 3000]) {
+    assert.equal(isInViewOrAbove({ top, viewportHeight }), revealsOnRestore({ top, viewportHeight }));
+    // Pending at load (below the fold, no hash) exactly when the restore rule would not reveal it.
+    const pending = startsPending({ armed: true, top, bottom: top + 400, viewportHeight, relatedToHashTarget: false });
+    assert.equal(pending, !revealsOnRestore({ top, viewportHeight }));
+  }
 });

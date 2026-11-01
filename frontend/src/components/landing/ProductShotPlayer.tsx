@@ -92,13 +92,35 @@ export function ProductShotPlayer({ children }: { children: ReactNode }) {
       }
     };
 
+    /**
+     * Print shows the finished frame whatever the clock says (the CSS makes everything visible; this puts the
+     * selection, name and counts on the final frame too). The clock's frame is restored afterwards.
+     */
+    let printing = false;
+    let beforePrint: Frame | null = null;
+    const onBeforePrint = () => {
+      if (printing) return;
+      printing = true;
+      beforePrint = last;
+      paint(FINAL_FRAME);
+    };
+    const onAfterPrint = () => {
+      if (!printing) return;
+      printing = false;
+      const resume = beforePrint ?? frameAt(locate(elapsed()).t);
+      beforePrint = null;
+      last = null;
+      paint(resume);
+    };
+
     const elapsed = () => played + (startedAt === null ? 0 : performance.now() - startedAt);
 
     const tick = () => {
       timer = undefined;
       const total = elapsed();
       const at = locate(total);
-      paint(frameAt(at.t));
+      if (printing) beforePrint = frameAt(at.t);
+      else paint(frameAt(at.t));
       if (at.done) {
         played = total;
         startedAt = null;
@@ -181,11 +203,15 @@ export function ProductShotPlayer({ children }: { children: ReactNode }) {
     if (!reduced.matches) arm();
     reduced.addEventListener("change", onReducedChange);
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeprint", onBeforePrint);
+    window.addEventListener("afterprint", onAfterPrint);
     observer.observe(root);
 
     return () => {
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeprint", onBeforePrint);
+      window.removeEventListener("afterprint", onAfterPrint);
       reduced.removeEventListener("change", onReducedChange);
       pressRef.current = () => {};
       disarm();

@@ -56,6 +56,28 @@
   z-index: 10;
 }
 
+/*
+ * Print shows the finished frame. While the animation runs, boxes and rows
+ * not drawn yet sit at opacity 0, so printing mid-animation would drop them.
+ * Same selectors as above (so they win by order), forced visible and still.
+ * The selection is put on the final tile by the player on `beforeprint`.
+ */
+@media print {
+  .root[data-anim="on"] [data-ps] {
+    transition: none;
+  }
+
+  .root[data-anim="on"] [data-ps="box"]:not([data-on]),
+  .root[data-anim="on"] [data-ps="row"]:not([data-on]) {
+    opacity: 1;
+    transform: none;
+  }
+
+  .control {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .root [data-ps] {
     transition: none;
