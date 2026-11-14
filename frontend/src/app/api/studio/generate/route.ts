@@ -2,8 +2,15 @@
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  mockLayer,
+  mockPropSheet,
+  mockSingleProp,
+  mockSingleTile,
+  mockSpriteSheet,
+  mockTileSheet,
+} from '../_lib/mockArt'
+import {
   isMockMode,
-  mockKeyedPngDataUrl,
   mockPngDataUrl,
   refundCredits,
   resolveKeyAndCredits,
@@ -100,7 +107,29 @@ export async function POST(request: NextRequest) {
         tileSheet === true || spriteSheet === true || propSheet === true ||
         propMode === true || tileMode === true ||
         (typeof layerRole === 'string' && layerRole !== 'sky')
-      const imageUrl = keyed ? mockKeyedPngDataUrl(width, height) : mockPngDataUrl(width, height)
+      // Draw something on the key colour so the client pipeline has frames to show.
+      const gridOf = (c: unknown, r: unknown, dc: number, dr: number): [number, number] => [
+        Math.max(1, Math.round(Number(c) || dc)),
+        Math.max(1, Math.round(Number(r) || dr)),
+      ]
+      let imageUrl: string
+      if (spriteSheet === true) {
+        const [c, r] = gridOf(spriteGridCols, spriteGridRows, 4, 2)
+        imageUrl = mockSpriteSheet(width, height, c, r)
+      } else if (propSheet === true) {
+        const [c, r] = gridOf(propCols, propRows, 4, 2)
+        imageUrl = mockPropSheet(width, height, c, r)
+      } else if (propMode === true) {
+        imageUrl = mockSingleProp(width, height)
+      } else if (tileSheet === true) {
+        imageUrl = mockTileSheet(width, height)
+      } else if (tileMode === true) {
+        imageUrl = mockSingleTile(width, height)
+      } else if (keyed) {
+        imageUrl = mockLayer(width, height, layerRole === 'far' ? 0 : layerRole === 'mid' ? 1 : 2)
+      } else {
+        imageUrl = mockPngDataUrl(width, height)
+      }
       const names =
         propSheet === true || propMode === true
           ? Array.from({ length: typeof propCount === 'number' ? propCount : 8 }, (_, i) => `mock prop ${i + 1}`)

@@ -1,12 +1,25 @@
+import type { Types } from 'mongoose';
 import { CollectionModel } from './collection.model';
 import type { ICollection } from './collection.model';
 import { FolderModel } from './folder.model';
 import { ImageModel } from './image.model';
 import type { IImage } from './image.model';
 import { CollectionLikeModel } from './collectionLike.model';
+import { MAX_TAGS, checkTags, normalizeTags, sanitizeTags } from './tags';
 import { storage } from '../../lib/storage';
 import { ApiError } from '../../common/utils/ApiError';
-import { assertOwner } from '../../common/utils/authz';
+import { assertEntitled } from '../plans/entitlements';
+import { TEAM_ERROR, getTeamState } from '../teams/team.access';
+import { TeamModel } from '../teams/team.model';
+import {
+  accessSummary,
+  assertCanEdit,
+  assertCanManage,
+  assertCanView,
+  idOf,
+  resolveCollectionAccess,
+} from './collection.access';
+import type { CollectionAccess } from './collection.access';
 
 /* ------------------------------------------------------------------ *
  * Types
@@ -50,13 +63,15 @@ export interface ListParams {
 }
 
 const DEFAULT_FOLDER = 'Assets';
-const UNTITLED_NAME = 'Untitled pack';
+export const UNTITLED_NAME = 'Untitled collection';
+/** Placeholder written before the word "pack" was retired; stored data may still carry it. */
+const LEGACY_UNTITLED_NAME = 'Untitled pack';
 const MAX_COVERS = 4;
 
-/** A pack is "unnamed" if it is blank or still the auto-scaffold placeholder. */
+/** A collection is "unnamed" if it is blank or still the auto-scaffold placeholder (current or legacy). */
 export function isUntitled(name?: string): boolean {
   const n = (name ?? '').trim().toLowerCase();
-  return n === '' || n === UNTITLED_NAME.toLowerCase();
+  return n === '' || n === UNTITLED_NAME.toLowerCase() || n === LEGACY_UNTITLED_NAME.toLowerCase();
 }
 
 /* ------------------------------------------------------------------ *
@@ -77,7 +92,7 @@ export async function scaffoldCollectionFromJob(params: ScaffoldParams): Promise
     name: (params.collectionName || UNTITLED_NAME).slice(0, 120),
     isPublic: false,
     status: 'draft',
-    tags: dedupe(params.collectionTags ?? []),
+    tags: sanitizeTags(params.collectionTags ?? []),
     sourceJobId: params.jobId,
     coverImageUrls: params.images.slice(0, MAX_COVERS).map((i) => i.cloudinaryUrl),
   });
@@ -146,9 +161,46 @@ export async function replaceImageWithUpscaled(
  * Reads (P3)
  * ------------------------------------------------------------------ */
 
-/** Every collection owned by a user (drafts + published) for their manager view. */
+/**
+ * Every collection a user can work with: the ones they own (drafts + published)
+ * and the ones shared with their team. Each carries `access` so the UI knows
+ * what to offer without asking per collection.
+ */
 export async function listMyCollections(userId: string) {
-  return CollectionModel.find({ creator: userId }).sort({ updatedAt: -1 }).lean();
+  const state = await getTeamState(userId);
+  const filter = state ? { $or: [{ creator: userId }, { teamId: state.team._id }] } : { creator: userId };
+  const items = await CollectionModel.find(filter)
+    .sort({ updatedAt: -1 })
+    .populate('creator', 'name picture')
+    .lean();
+
+  const counts = await countAssets(items.map((c) => c._id));
+
+  return items.map((c) => {
+    const owned = idOf(c.creator) === userId;
+    const access: CollectionAccess = owned
+      ? { view: true, edit: true, manage: true, via: 'owner', teamReadOnly: false }
+      : { view: true, edit: Boolean(state?.writable), manage: false, via: 'team', teamReadOnly: !state?.writable };
+    return { ...c, tags: c.tags ?? [], assetCount: counts.get(idOf(c._id)) ?? 0, access: accessSummary(access) };
+  });
+}
+
+/**
+ * How many assets each collection holds, in one grouped query on the
+ * `collectionId` index (never one count per card). Collections with no images
+ * are absent from the result and count as 0. Computed on read, so every write
+ * path (editor export, upload, delete, account purge) keeps it right without a
+ * stored counter to maintain.
+ */
+export async function countAssets(collectionIds: readonly unknown[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (collectionIds.length === 0) return counts;
+  const rows = await ImageModel.aggregate<{ _id: Types.ObjectId; n: number }>([
+    { $match: { collectionId: { $in: collectionIds } } },
+    { $group: { _id: '$collectionId', n: { $sum: 1 } } },
+  ]);
+  for (const row of rows) counts.set(String(row._id), row.n);
+  return counts;
 }
 
 export async function listPublicCollections(params: ListParams) {
@@ -157,7 +209,9 @@ export async function listPublicCollections(params: ListParams) {
   const sortKey = params.sort ?? 'createdAt';
 
   const filter: Record<string, unknown> = { isPublic: true, status: 'published' };
-  if (params.tags?.length) filter['tags'] = { $in: params.tags };
+  // Tags are stored normalised, so the filter is normalised the same way ("Pixel Art" finds "pixel-art").
+  const tags = normalizeTags(params.tags ?? []).slice(0, MAX_TAGS);
+  if (tags.length) filter['tags'] = { $in: tags };
   if (params.q?.trim()) filter['$text'] = { $search: params.q.trim() };
 
   const sort: Record<string, 1 | -1> = { [sortKey]: -1 };
@@ -172,21 +226,37 @@ export async function listPublicCollections(params: ListParams) {
     CollectionModel.countDocuments(filter),
   ]);
 
-  return { items, total, page, limit, hasMore: page * limit < total };
+  const counts = await countAssets(items.map((c) => c._id));
+  return {
+    items: items.map((c) => ({
+      ...c,
+      // Collections stored before tags existed have no field at all.
+      tags: (c.tags ?? []).slice(0, MAX_TAGS),
+      assetCount: counts.get(idOf(c._id)) ?? 0,
+    })),
+    total,
+    page,
+    limit,
+    hasMore: page * limit < total,
+  };
 }
 
 /**
- * Full collection tree (folders + nested images). Draft/private collections are
- * only visible to their owner.
+ * Full collection tree (folders + nested images) with what the requester may do
+ * with it. Private collections are visible to their owner and, when shared, to
+ * the owner's team; published ones to everyone.
  */
 export async function getCollectionTree(id: string, requesterId?: string) {
   const collection = await CollectionModel.findById(id).populate('creator', 'name picture').lean();
   if (!collection) throw ApiError.notFound('Collection not found');
 
-  const isOwner = requesterId && collection.creator && idOf(collection.creator) === requesterId;
-  if (!collection.isPublic && !isOwner) {
-    throw ApiError.forbidden('This collection is private');
-  }
+  const access = await resolveCollectionAccess(collection, requesterId);
+  assertCanView(access);
+
+  const team =
+    collection.teamId && (access.via === 'owner' || access.via === 'team')
+      ? await TeamModel.findById(collection.teamId).select('name').lean()
+      : null;
 
   const [folders, images] = await Promise.all([
     FolderModel.find({ collectionId: id }).sort({ createdAt: 1 }).lean(),
@@ -201,8 +271,30 @@ export async function getCollectionTree(id: string, requesterId?: string) {
 
   return {
     ...collection,
+    tags: collection.tags ?? [],
+    assetCount: images.length,
+    access: accessSummary(access),
+    team: team ? { id: String(team._id), name: team.name } : null,
     folders: folders.map((f) => ({ ...f, images: imagesByFolder.get(idOf(f._id)) ?? [] })),
   };
+}
+
+/** Loads a collection and what the user may do with it, or 404. */
+async function loadWithAccess(id: string, userId: string | undefined, select?: string) {
+  const query = CollectionModel.findById(id);
+  const collection = await (select ? query.select(`creator teamId isPublic ${select}`) : query);
+  if (!collection) throw ApiError.notFound('Collection not found');
+  return { collection, access: await resolveCollectionAccess(collection, userId) };
+}
+
+/**
+ * Throws unless the user may edit folders and images in the collection. The
+ * upload route calls this before it stores anything, so a refused request never
+ * costs a storage write.
+ */
+export async function assertCollectionEditable(id: string, userId: string): Promise<void> {
+  const { access } = await loadWithAccess(id, userId);
+  assertCanEdit(access);
 }
 
 /* ------------------------------------------------------------------ *
@@ -222,7 +314,7 @@ export async function createCollection(
     description: input.description,
     isPublic: input.isPublic ?? false,
     status: input.isPublic ? 'published' : 'draft',
-    tags: dedupe(input.tags ?? []),
+    tags: requireTags(input.tags ?? []),
   });
 }
 
@@ -231,15 +323,14 @@ export async function updateCollection(
   requesterId: string,
   input: { name?: string; description?: string; isPublic?: boolean; tags?: string[] },
 ): Promise<ICollection> {
-  const collection = await CollectionModel.findById(id);
-  if (!collection) throw ApiError.notFound('Collection not found');
-  assertOwner(idOf(collection.creator), requesterId, 'Not your collection');
+  const { collection, access } = await loadWithAccess(id, requesterId);
+  assertCanManage(access);
 
   if (input.name !== undefined) collection.name = input.name;
   if (input.description !== undefined) collection.description = input.description;
-  if (input.tags !== undefined) collection.tags = dedupe(input.tags);
+  if (input.tags !== undefined) collection.tags = requireTags(input.tags);
   if (input.isPublic !== undefined) {
-    // Cannot publish an unnamed/placeholder pack — name it first.
+    // Cannot publish an unnamed/placeholder collection — name it first.
     if (input.isPublic === true && isUntitled(collection.name)) {
       throw ApiError.badRequest('Name your collection before publishing it');
     }
@@ -254,11 +345,8 @@ export async function deleteCollection(
   id: string,
   requester: { id: string; role: string },
 ): Promise<void> {
-  const collection = await CollectionModel.findById(id);
-  if (!collection) throw ApiError.notFound('Collection not found');
-  if (requester.role !== 'admin') {
-    assertOwner(idOf(collection.creator), requester.id, 'Not your collection');
-  }
+  const { collection, access } = await loadWithAccess(id, requester.id);
+  if (requester.role !== 'admin') assertCanManage(access);
 
   const images = await ImageModel.find({ collectionId: id }).select('cloudinaryPublicId').lean();
   await Promise.allSettled(
@@ -278,9 +366,8 @@ export async function createFolder(
   requesterId: string,
   input: { name: string; description?: string; tags?: string[] },
 ) {
-  const collection = await CollectionModel.findById(collectionId).select('creator');
-  if (!collection) throw ApiError.notFound('Collection not found');
-  assertOwner(idOf(collection.creator), requesterId, 'Not your collection');
+  const { access } = await loadWithAccess(collectionId, requesterId);
+  assertCanEdit(access);
 
   return FolderModel.create({
     collectionId,
@@ -290,16 +377,15 @@ export async function createFolder(
   });
 }
 
-/** Persist already-uploaded images into a folder (owner only). */
+/** Persist already-uploaded images into a folder (owner, or a team member while the team is editable). */
 export async function addImagesToFolder(
   collectionId: string,
   folderId: string,
   requesterId: string,
   images: ScaffoldImage[],
 ): Promise<IImage[]> {
-  const collection = await CollectionModel.findById(collectionId).select('creator coverImageUrls');
-  if (!collection) throw ApiError.notFound('Collection not found');
-  assertOwner(idOf(collection.creator), requesterId, 'Not your collection');
+  const { collection, access } = await loadWithAccess(collectionId, requesterId, 'coverImageUrls');
+  assertCanEdit(access);
 
   const folder = await FolderModel.findOne({ _id: folderId, collectionId }).select('_id');
   if (!folder) throw ApiError.notFound('Folder not found in this collection');
@@ -336,9 +422,8 @@ export async function deleteImage(
   imageId: string,
   requesterId: string,
 ): Promise<void> {
-  const collection = await CollectionModel.findById(collectionId).select('creator');
-  if (!collection) throw ApiError.notFound('Collection not found');
-  assertOwner(idOf(collection.creator), requesterId, 'Not your collection');
+  const { access } = await loadWithAccess(collectionId, requesterId);
+  assertCanEdit(access);
 
   const image = await ImageModel.findOne({ _id: imageId, folderId, collectionId });
   if (!image) throw ApiError.notFound('Image not found');
@@ -349,8 +434,9 @@ export async function deleteImage(
 
 /** Idempotent like: a duplicate (E11000) is swallowed and does not double-count. */
 export async function likeCollection(userId: string, collectionId: string): Promise<number> {
-  const collection = await CollectionModel.findById(collectionId).select('_id isPublic');
-  if (!collection) throw ApiError.notFound('Collection not found');
+  // Liking is a view-level action: it needs a collection the user can see.
+  const { access } = await loadWithAccess(collectionId, userId);
+  assertCanView(access);
 
   try {
     await CollectionLikeModel.create({ user: userId, collectionId });
@@ -369,6 +455,36 @@ export async function likeCollection(userId: string, collectionId: string): Prom
   return updated?.likesCount ?? 0;
 }
 
+/**
+ * Moves one of the caller's own collections into their team, or back out.
+ * Only the team owner shares, only their own collections, and only while their
+ * plan includes team sharing. Taking a collection back is always allowed.
+ */
+export async function setCollectionTeamShared(
+  id: string,
+  user: { id: string; plan?: 'free' | 'byok' | 'pro'; trialEndsAt?: Date },
+  shared: boolean,
+): Promise<ICollection> {
+  const { collection, access } = await loadWithAccess(id, user.id);
+  assertCanManage(access);
+
+  if (!shared) {
+    collection.teamId = undefined;
+    await collection.save();
+    return collection;
+  }
+
+  assertEntitled(user, 'teamSharing');
+  const state = await getTeamState(user.id);
+  if (!state) throw new ApiError(404, 'Create a team in Settings before sharing a collection.', TEAM_ERROR.NO_TEAM);
+  if (state.role !== 'owner') {
+    throw new ApiError(403, 'Only the team owner can share collections.', TEAM_ERROR.NOT_OWNER);
+  }
+  collection.teamId = state.team._id as ICollection['teamId'];
+  await collection.save();
+  return collection;
+}
+
 export async function incrementDownloadCount(collectionId: string): Promise<void> {
   await CollectionModel.updateOne({ _id: collectionId }, { $inc: { downloadCount: 1 } });
 }
@@ -377,17 +493,19 @@ export async function incrementDownloadCount(collectionId: string): Promise<void
  * Helpers
  * ------------------------------------------------------------------ */
 
+/** The owner's tags, normalised; 400 when there are too many or one is too long. The route's schema says the same. */
+function requireTags(raw: string[]): string[] {
+  const checked = checkTags(raw);
+  if (!checked.ok) throw ApiError.badRequest(checked.message);
+  return checked.tags;
+}
+
 function dedupe(arr: string[]): string[] {
   return [...new Set(arr.map((s) => s.trim()).filter(Boolean))];
 }
 
 function hasGemini(img: ScaffoldImage): boolean {
   return Boolean(img.description || img.labels?.length || img.dominantColors?.length);
-}
-
-function idOf(v: unknown): string {
-  if (v && typeof v === 'object' && '_id' in v) return String((v as { _id: unknown })._id);
-  return String(v);
 }
 
 function isDuplicateKey(err: unknown): boolean {

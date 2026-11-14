@@ -2,8 +2,10 @@ import { defineBackground } from 'wxt/utils/define-background';
 import { browser } from 'wxt/browser';
 import { connectAccount, requireAccount, signOut } from '../src/shared/auth';
 import type { AppSnapshot, ChatGptEvent, QueueItem, WorkerRequest, WorkerResponse } from '../src/shared/contracts';
-import { getLibrary, getQueue, getSnapshot, saveLibrary, saveQueue, saveRuntime } from '../src/shared/storage';
+import { clearNotice, clearSent, getLibrary, getQueue, getSnapshot, saveLibrary, saveNotice, saveQueue, saveRuntime } from '../src/shared/storage';
 import { extractImage } from '../src/shared/extract';
+import { toWorkerError } from '../src/shared/errors';
+import { refreshSent } from '../src/shared/sentSync';
 
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
@@ -83,11 +85,37 @@ async function recordChatGptEvent(event: ChatGptEvent): Promise<void> {
   await startNext();
 }
 
+const ACTION_TITLE = 'OpenAssets';
+
+// Context-menu and keyboard extractions have no UI open to show a failure in.
+// A badge and tooltip on the toolbar button need no extra permission (unlike
+// notifications) and clear themselves after a minute. The failure, with its
+// API code, is also kept so the popup and side panel can show it (with a
+// "See plans" link for a plan limit) the next time they open.
+async function flagError(message: string, code?: string): Promise<void> {
+  await saveNotice(code ? { message, code } : { message });
+  await publish();
+  await browser.action.setBadgeBackgroundColor({ color: '#C8102E' });
+  await browser.action.setBadgeText({ text: '!' });
+  await browser.action.setTitle({ title: `${ACTION_TITLE}: ${message}` });
+  await browser.alarms.create('openassets-clear-error', { delayInMinutes: 1 });
+}
+
+async function clearError(): Promise<void> {
+  await browser.action.setBadgeText({ text: '' });
+  await browser.action.setTitle({ title: ACTION_TITLE });
+}
+
+async function dismissNotice(): Promise<void> {
+  await clearNotice();
+  await clearError();
+}
+
 async function handle(request: WorkerRequest): Promise<WorkerResponse> {
   try {
     if (request.type === 'APP_SNAPSHOT') return { ok: true, snapshot: await snapshot() };
     if (request.type === 'CONNECT_ACCOUNT') { await connectAccount(); return { ok: true, snapshot: await snapshot() }; }
-    if (request.type === 'SIGN_OUT') { await signOut(); await saveRuntime({ isRunning: false, activeItemId: null }); return { ok: true, snapshot: await snapshot() }; }
+    if (request.type === 'SIGN_OUT') { await signOut(); await saveRuntime({ isRunning: false, activeItemId: null }); await clearError(); return { ok: true, snapshot: await snapshot() }; }
     await requireAccount();
     if (request.type === 'ADD_PROMPTS') {
       const additions = request.prompts.filter(Boolean).map((prompt): QueueItem => ({ id: id(), prompt, aspectRatio: request.aspectRatio, references: request.references ?? [], status: 'draft', attempts: 0, outputs: [], createdAt: now(), updatedAt: now() }));
@@ -112,7 +140,8 @@ async function handle(request: WorkerRequest): Promise<WorkerResponse> {
         const hint = document.createElement('div');
         hint.dataset.openassetsPicker = 'true';
         hint.textContent = 'OpenAssets: click an image to extract, or press Escape to cancel';
-        hint.style.cssText = 'position:fixed;z-index:2147483647;top:16px;left:50%;transform:translateX(-50%);padding:10px 14px;border-radius:8px;background:#20201d;color:#fff;font:600 13px system-ui;box-shadow:0 8px 30px rgba(0,0,0,.28)';
+        // Injected into the page, so it cannot use the extension's oa.css tokens: literal OpenAssets paper/ink values.
+        hint.style.cssText = 'position:fixed;z-index:2147483647;top:16px;left:50%;transform:translateX(-50%);padding:10px 14px;border:1.5px solid #0A0A0A;border-radius:0;background:#F4F3EE;color:#0A0A0A;font:700 12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em;box-shadow:6px 6px 0 #0A0A0A';
         document.documentElement.append(hint);
         const cleanup = () => { hint.remove(); document.removeEventListener('click', onClick, true); document.removeEventListener('keydown', onKey, true); };
         const onClick = (event: MouseEvent) => { const image = (event.target as Element | null)?.closest('img'); if (!image || !(image as HTMLImageElement).currentSrc) return; event.preventDefault(); event.stopPropagation(); chrome.runtime.sendMessage({ type: 'EXTRACT_IMAGE_URL', imageUrl: (image as HTMLImageElement).currentSrc }); cleanup(); };
@@ -121,10 +150,17 @@ async function handle(request: WorkerRequest): Promise<WorkerResponse> {
       } });
       return { ok: true };
     }
-    if (request.type === 'EXTRACT_IMAGE_URL') { await extractImage(request.imageUrl); return { ok: true }; }
+    if (request.type === 'EXTRACT_IMAGE_URL') {
+      const { jobId } = await extractImage(request.imageUrl, { ...(request.via ? { via: request.via } : {}), ...(request.fileName ? { fileName: request.fileName } : {}) });
+      await publish();
+      return { ok: true, jobId };
+    }
+    if (request.type === 'SENT_REFRESH') { await refreshSent(); await publish(); return { ok: true }; }
+    if (request.type === 'CLEAR_SENT') { await clearSent(); await publish(); return { ok: true }; }
+    if (request.type === 'DISMISS_NOTICE') { await dismissNotice(); await publish(); return { ok: true }; }
     return { ok: false, error: 'Unsupported request.' };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Unexpected extension error.' };
+    return toWorkerError(error);
   }
 }
 
@@ -135,10 +171,25 @@ export default defineBackground(() => {
   browser.contextMenus.onClicked.addListener(async (info) => {
     if (info.menuItemId !== 'openassets-extract' || !info.srcUrl) return;
     const result = await handle({ type: 'EXTRACT_IMAGE_URL', imageUrl: info.srcUrl });
-    if (!result.ok) await browser.notifications?.create?.({ type: 'basic', iconUrl: '/icon/48.png', title: 'OpenAssets', message: result.error });
+    if (!result.ok) await flagError(result.error, result.code);
   });
-  browser.commands.onCommand.addListener(async (command) => { if (command === 'extract-image') await handle({ type: 'EXTRACT_CURRENT_IMAGE' }); });
-  browser.runtime.onMessage.addListener((request: WorkerRequest) => handle(request));
+  browser.commands.onCommand.addListener(async (command) => {
+    if (command !== 'extract-image') return;
+    const result = await handle({ type: 'EXTRACT_CURRENT_IMAGE' });
+    if (!result.ok) await flagError(result.error, result.code);
+  });
+  // Answer through sendResponse (and return true to keep the channel open): it works in every Chrome version.
+  browser.runtime.onMessage.addListener((request: WorkerRequest, sender, sendResponse) => {
+    void handle(request).then(async (result) => {
+      // The in-page picker discards the answer, so a failed pick has to be flagged here.
+      if (!result.ok && sender.tab && request.type === 'EXTRACT_IMAGE_URL') await flagError(result.error, result.code);
+      sendResponse(result);
+    });
+    return true;
+  });
   browser.alarms.create('openassets-resume', { periodInMinutes: 1 });
-  browser.alarms.onAlarm.addListener((alarm) => { if (alarm.name === 'openassets-resume') void startNext(); });
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'openassets-resume') void startNext();
+    if (alarm.name === 'openassets-clear-error') void clearError();
+  });
 });

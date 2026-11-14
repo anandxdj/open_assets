@@ -11,6 +11,18 @@ import {
 } from '../../common/utils/jwt.utils';
 
 import { sendVerificationEmail, sendResetPasswordEmail } from '../../common/config/email';
+import { ExtensionAuthService } from './extensionAuth.service';
+import {
+  addRefreshSession,
+  clearRefreshSessions,
+  removeRefreshSession,
+  useRefreshSession,
+} from './refreshSessions';
+
+/** Request details a sign-in records on its session (coarse device label only). */
+export interface SignInMeta {
+  userAgent?: string;
+}
 
 export class AuthService {
   static async register(userData: Partial<IUser>) {
@@ -49,7 +61,7 @@ export class AuthService {
     return userObj;
   }
 
-  static async login(credentials: { email?: string; password?: string }) {
+  static async login(credentials: { email?: string; password?: string }, meta: SignInMeta = {}) {
     const { email, password } = credentials;
 
     if (!email || !password) {
@@ -78,14 +90,16 @@ export class AuthService {
     });
     const refreshToken = generateRefreshToken({ id: user._id });
 
-    // Store hashed refresh token in DB
-    user.refreshToken = hashToken(refreshToken);
+    // One more session beside the user's others: signing in here must not sign
+    // out any other browser. Only the hash is stored.
+    await addRefreshSession(user._id, refreshToken, meta.userAgent);
     user.lastLogin = new Date();
     await user.save();
 
     const userObj = user.toObject();
     delete userObj.password;
     delete userObj.refreshToken;
+    delete userObj.refreshSessions;
 
     return { user: userObj, accessToken, refreshToken };
   }
@@ -97,9 +111,11 @@ export class AuthService {
 
     try {
       const decoded = verifyRefreshToken(token) as any;
-      const user = await UserModel.findById(decoded.id).select('+refreshToken');
+      // Matches this browser's own session only (and migrates a legacy
+      // single-token user on the way); other sessions are not touched.
+      const user = await useRefreshSession(decoded.id, token);
 
-      if (!user || user.refreshToken !== hashToken(token)) {
+      if (!user) {
         throw ApiError.unauthorized('Invalid refresh token — please log in again');
       }
 
@@ -115,13 +131,14 @@ export class AuthService {
     }
   }
 
+  /** Signs a user out of every browser. */
   static async logout(userId: string) {
-    await UserModel.findByIdAndUpdate(userId, { $unset: { refreshToken: 1 } });
+    await clearRefreshSessions(userId);
   }
 
+  /** Signs out the one browser that holds this refresh token; the user's other sessions stay. */
   static async logoutByToken(token: string) {
-    const hashedToken = hashToken(token);
-    await UserModel.findOneAndUpdate({ refreshToken: hashedToken }, { $unset: { refreshToken: 1 } });
+    await removeRefreshSession(token);
   }
 
   static async resendVerification(email: string) {
@@ -203,7 +220,13 @@ export class AuthService {
     user.password = newPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+    // A reset is a password change: whoever held the old password (or a stolen
+    // session) is signed out at once, in every browser and the extension.
+    user.refreshSessions = [];
+    user.refreshToken = undefined;
+    user.tokensValidAfter = new Date();
     await user.save();
+    await ExtensionAuthService.revokeAllForUser(String(user._id));
   }
 
   static async getMe(userId: string) {
@@ -232,7 +255,7 @@ export class AuthService {
     return `${rootUrl}?${qs.toString()}`;
   }
 
-  static async handleGoogleCallback(code: string) {
+  static async handleGoogleCallback(code: string, meta: SignInMeta = {}) {
     const url = 'https://oauth2.googleapis.com/token';
     const values = {
       code,
@@ -279,7 +302,8 @@ export class AuthService {
           sub: googleUser.sub,
         });
       } else {
-        user.name = googleUser.name || googleUser.given_name;
+        // The name is only taken from Google at signup; after that it belongs
+        // to the user (Settings → Profile) and must survive later sign-ins.
         user.picture = googleUser.picture;
         user.isVerified = true;
         user.lastLogin = new Date();
@@ -295,8 +319,7 @@ export class AuthService {
       });
       const refreshToken = generateRefreshToken({ id: user._id });
 
-      user.refreshToken = hashToken(refreshToken);
-      await user.save();
+      await addRefreshSession(user._id, refreshToken, meta.userAgent);
 
       return { user, accessToken, refreshToken };
     } catch (error: any) {

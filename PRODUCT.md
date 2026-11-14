@@ -14,18 +14,18 @@ Turn browser images and ChatGPT generations into organised, usable OpenAssets as
 
 ## Brand Personality
 
-Precise, calm, dependable. The product should feel like a capable creative tool that stays out of the user's way.
+Precise, direct, dependable. A brutalist creative tool: hard lines, plain words, nothing decorative, and it stays out of the user's way.
 
 ## Anti-references
 
-Avoid neon AI-lab styling, harsh brutalism, all-caps monospace interfaces, card-heavy dashboards, decorative animation, and opaque automation.
+Avoid neon AI-lab styling (glows, gradients, multiple neon accents), terminal cosplay copy (`[ SUBMIT_CREDENTIALS ]`, `// STATUS`), fake system consoles and simulators, card-heavy dashboards, decorative animation, and opaque automation.
 
 ## Design Principles
 
 - Put the active creative task before product chrome.
 - Make automation legible, interruptible, and recoverable.
 - Preserve user control over every external action and every upload.
-- Keep dense creative workflows calm through strong hierarchy and familiar controls.
+- Keep dense creative workflows readable through grid, lines and hierarchy, never ornament.
 
 ## Accessibility & Inclusion
 

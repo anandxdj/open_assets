@@ -7,6 +7,7 @@ import {
   createCollectionSchema,
   updateCollectionSchema,
   createFolderSchema,
+  shareCollectionSchema,
 } from './dto/collection.schema';
 import * as ctrl from './collection.controller';
 
@@ -30,11 +31,14 @@ router.post('/collections', authenticate(), validate(createCollectionSchema), as
 router.get('/collections/:id', authenticate(true), asyncHandler(ctrl.getCollection));
 router.put('/collections/:id', authenticate(), validate(updateCollectionSchema), asyncHandler(ctrl.updateCollection));
 router.delete('/collections/:id', authenticate(), asyncHandler(ctrl.deleteCollection));
+// Owner only: move the collection into the owner's team, or back out.
+router.put('/collections/:id/team', authenticate(), validate(shareCollectionSchema), asyncHandler(ctrl.shareCollection));
 
 router.post('/collections/:id/folders', authenticate(), validate(createFolderSchema), asyncHandler(ctrl.createFolder));
 router.post(
   '/collections/:id/folders/:folderId/images',
   authenticate(),
+  asyncHandler(ctrl.requireEditAccess),
   upload.array('images', 50),
   asyncHandler(ctrl.addImages),
 );

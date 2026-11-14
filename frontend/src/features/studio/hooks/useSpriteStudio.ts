@@ -34,7 +34,7 @@ import {
 } from "@/features/studio/lib/imageProcessor";
 import { drawPoseGuideSheet, measureSubjectBounds } from "@/features/studio/lib/rig/poseRig";
 import type { SubjectBounds } from "@/features/studio/lib/rig/poseRig";
-import { StudioApiError, studioPost } from "@/features/studio/api/studioClient";
+import { reportStudioError, studioPost } from "@/features/studio/api/studioClient";
 import { useStudioSettings } from "@/features/studio/hooks/useStudioSettings";
 import { useSceneBrief } from "@/features/studio/hooks/useSceneBrief";
 
@@ -49,7 +49,7 @@ export type SpriteAnchor = {
 };
 
 export function useSpriteStudio() {
-  const { apiKey, selectedModel, debugMode, refreshCredits } = useStudioSettings();
+  const { selectedModel, debugMode } = useStudioSettings();
   const { sceneBrief } = useSceneBrief();
 
   const [bodyPlan, setBodyPlan] = useState<BodyPlan>("biped");
@@ -82,18 +82,6 @@ export function useSpriteStudio() {
     }
     return next;
   }, [sheetCache, sheet, bodyPlan]);
-
-  const reportError = useCallback((err: unknown) => {
-    if (err instanceof StudioApiError && err.code) {
-      toast.error(
-        err.code === "AUTH_REQUIRED"
-          ? "Sign in for free credits, or add your OpenRouter key in Studio settings (gear icon)."
-          : "Out of free credits. Add your own OpenRouter key in Studio settings to keep going.",
-      );
-      return;
-    }
-    toast.error(err instanceof Error ? err.message : "An error occurred");
-  }, []);
 
   // ── Mode switches ────────────────────────────────────────────────────────
 
@@ -530,18 +518,17 @@ export function useSpriteStudio() {
           ...prev,
           frames: prev.frames.map((f) => ({ ...f, imageUrl: null })),
         }));
-        reportError(err);
+        reportStudioError(err);
       } finally {
         clearInterval(tickHandle);
         setGenerating(false);
         setProgressMsg(null);
-        if (!apiKey) void refreshCredits();
         if (debugMode) {
           console.log(`🎭 Sprite sheet generated in ${Math.floor((Date.now() - startedAt) / 1000)}s`);
         }
       }
     },
-    [generating, anchor, prompt, anim, fps, debugMode, runSpriteAnchorPass, runSpriteSheetPass, detectSpriteDuplicateCells, reportError, apiKey, refreshCredits],
+    [generating, anchor, prompt, anim, fps, debugMode, runSpriteAnchorPass, runSpriteSheetPass, detectSpriteDuplicateCells],
   );
 
   const handleRerollCharacter = useCallback(() => {
@@ -619,10 +606,10 @@ export function useSpriteStudio() {
         setSheet(createEmptySpriteSheet(anim));
         setProgressMsg(null);
       } catch (err) {
-        reportError(err);
+        reportStudioError(err);
       }
     },
-    [generating, prompt, anim, buildSpriteAnchorFromUpload, reportError],
+    [generating, prompt, anim, buildSpriteAnchorFromUpload],
   );
 
   const handleRemoveUploadedCharacter = useCallback(() => {
@@ -749,9 +736,9 @@ export function useSpriteStudio() {
       document.body.removeChild(linkJson);
       URL.revokeObjectURL(jsonUrl);
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     }
-  }, [sheet.frames, anim, prompt, composeSpriteGridSheet, composeSpriteStripSheet, buildSpriteManifest, reportError]);
+  }, [sheet.frames, anim, prompt, composeSpriteGridSheet, composeSpriteStripSheet, buildSpriteManifest]);
 
   const handleDownloadZip = useCallback(async () => {
     try {
@@ -794,9 +781,9 @@ export function useSpriteStudio() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     }
-  }, [sheet.frames, anim, prompt, composeSpriteGridSheet, composeSpriteStripSheet, buildSpriteManifest, reportError]);
+  }, [sheet.frames, anim, prompt, composeSpriteGridSheet, composeSpriteStripSheet, buildSpriteManifest]);
 
   return {
     sheet,

@@ -1,15 +1,17 @@
-import { Navbar } from "@/components/layout/Navbar";
-import { ComingSoonPage } from "@/components/layout/ComingSoonPage";
+import type { Metadata } from "next";
+import { AppShell } from "@/components/layout/AppShell";
+import { AuthGate } from "@/components/layout/AuthGate";
+import { CreditsProvider } from "@/features/usage/CreditsProvider";
 
+export const metadata: Metadata = { title: "AniBuddy · OpenAssets" };
+
+// AniBuddy's AI steps spend credits (never a user key), so it needs a signed-in user.
 export default function AniBuddyLayout({ children }: { children: React.ReactNode }) {
-  void children;
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground font-mono transition-colors duration-200">
-      <Navbar />
-      <ComingSoonPage
-        name="AniBuddy"
-        description="Our animation workspace is still being prepared for release. It is not available in this deployment yet."
-      />
-    </div>
+    <AppShell>
+      <AuthGate label="Opening AniBuddy">
+        <CreditsProvider>{children}</CreditsProvider>
+      </AuthGate>
+    </AppShell>
   );
 }

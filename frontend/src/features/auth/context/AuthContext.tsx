@@ -10,6 +10,7 @@ import {
 } from "react";
 import { apiClient } from "@/lib/api-client";
 import { tokenStore } from "@/lib/token-store";
+import { setSessionHint } from "@/lib/session-hint";
 
 interface User {
   _id: string;
@@ -33,6 +34,8 @@ interface AuthContextValue {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   setTokenAndUser: (token: string, user: User) => void;
+  /** Merge fields into the signed-in user (e.g. after a profile edit) without a refetch. */
+  updateUser: (patch: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -43,7 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setTokenAndUser = useCallback((token: string, u: User) => {
     tokenStore.set(token);
+    setSessionHint(true);
     setUser(u);
+  }, []);
+
+  const updateUser = useCallback((patch: Partial<User>) => {
+    setUser((current) => (current ? { ...current, ...patch } : current));
   }, []);
 
   useEffect(() => {
@@ -54,9 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         tokenStore.set(refresh.data.accessToken);
         const me = await apiClient.get<ApiWrap<User>>("/api/auth/me");
-        if (me.data) setUser(me.data);
+        if (me.data) {
+          setUser(me.data);
+          setSessionHint(true);
+        }
       } catch {
         // no valid session — stay logged out
+        setSessionHint(false);
       } finally {
         setLoading(false);
       }
@@ -70,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       { email, password }
     );
     tokenStore.set(res.data.accessToken);
+    setSessionHint(true);
     setUser(res.data.user);
   }
 
@@ -84,11 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore — clear local state regardless
     }
     tokenStore.set(null);
+    setSessionHint(false);
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, setTokenAndUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, setTokenAndUser, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

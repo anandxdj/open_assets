@@ -23,3 +23,10 @@ export const refundSchema = z.object({
 });
 
 export type RefundInput = z.infer<typeof refundSchema>;
+
+export const listEventsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(1000).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export type ListEventsQuery = z.infer<typeof listEventsQuerySchema>;

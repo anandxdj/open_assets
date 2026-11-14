@@ -44,7 +44,7 @@ import {
   sliceImageGrid,
 } from "@/features/studio/lib/imageProcessor";
 import { skipsArtDirectorReview } from "@/features/studio/lib/models";
-import { StudioApiError, studioPost } from "@/features/studio/api/studioClient";
+import { reportStudioError, studioPost } from "@/features/studio/api/studioClient";
 import { useStudioSettings } from "@/features/studio/hooks/useStudioSettings";
 import { useSceneBrief } from "@/features/studio/hooks/useSceneBrief";
 
@@ -57,7 +57,7 @@ const TILE_CHROMA_KEY_OPTS = {
 };
 
 export function useTileStudio() {
-  const { apiKey, selectedModel, debugMode, refreshCredits } = useStudioSettings();
+  const { selectedModel, debugMode } = useStudioSettings();
   const { sceneBrief, setSceneBrief, sceneBriefLoading } = useSceneBrief();
 
   const [tileSet, setTileSet] = useState<TileSetSlot[]>(() => createEmptyTileSet());
@@ -66,18 +66,6 @@ export function useTileStudio() {
   const [generating, setGenerating] = useState(false);
   const [progressMsg, setProgressMsg] = useState<string | null>(null);
   const stopRef = useRef(false);
-
-  const reportError = useCallback((err: unknown) => {
-    if (err instanceof StudioApiError && err.code) {
-      toast.error(
-        err.code === "AUTH_REQUIRED"
-          ? "Sign in for free credits, or add your OpenRouter key in Studio settings (gear icon)."
-          : "Out of free credits. Add your own OpenRouter key in Studio settings to keep going.",
-      );
-      return;
-    }
-    toast.error(err instanceof Error ? err.message : "An error occurred");
-  }, []);
 
   const patchTileSlot = useCallback((role: TileSetRole, patch: Partial<TileSetSlot>) => {
     setTileSet((prev) => prev.map((s) => (s.role === role ? { ...s, ...patch } : s)));
@@ -412,17 +400,16 @@ export function useTileStudio() {
       if (best) applyMap(best.map, false);
     } catch (err) {
       setTileSet((prev) => prev.map((s) => ({ ...s, generating: false })));
-      reportError(err);
+      reportStudioError(err);
     } finally {
       clearInterval(tickHandle);
       setGenerating(false);
       setProgressMsg(null);
-      if (!apiKey) void refreshCredits();
       if (debugMode) {
         console.log(`🧱 Tile-set generated in ${Math.floor((Date.now() - startedAt) / 1000)}s`);
       }
     }
-  }, [generating, tilePrompt, artStyle, selectedModel, sceneBrief, debugMode, postProcessTile, buildTilePreviewCompositeDataUrl, buildSheetFromMapDataUrl, fetchTileReview, reportError, apiKey, refreshCredits]);
+  }, [generating, tilePrompt, artStyle, selectedModel, sceneBrief, debugMode, postProcessTile, buildTilePreviewCompositeDataUrl, buildSheetFromMapDataUrl, fetchTileReview]);
 
   const handleStopTileSet = useCallback(() => {
     stopRef.current = true;
@@ -498,14 +485,13 @@ export function useTileStudio() {
         }
       } catch (err) {
         patchTileSlot(role, { generating: false });
-        reportError(err);
+        reportStudioError(err);
       } finally {
         setGenerating(false);
         setProgressMsg(null);
-        if (!apiKey) void refreshCredits();
       }
     },
-    [generating, tilePrompt, artStyle, selectedModel, sceneBrief, tileSet, postProcessTile, patchTileSlot, reportError, apiKey, refreshCredits],
+    [generating, tilePrompt, artStyle, selectedModel, sceneBrief, tileSet, postProcessTile, patchTileSlot],
   );
 
   const handleClearTileSet = useCallback(() => {
@@ -649,9 +635,9 @@ export function useTileStudio() {
       document.body.removeChild(linkJson);
       URL.revokeObjectURL(jsonUrl);
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     }
-  }, [buildTileSheetDataUrl, buildPaddedTileSheetDataUrl, buildTileSetManifest, tilePrompt, reportError]);
+  }, [buildTileSheetDataUrl, buildPaddedTileSheetDataUrl, buildTileSetManifest, tilePrompt]);
 
   const handleDownloadTileSetZip = useCallback(async () => {
     try {
@@ -690,9 +676,9 @@ export function useTileStudio() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     }
-  }, [tileSet, buildTileSheetDataUrl, buildPaddedTileSheetDataUrl, buildTileSetManifest, tilePrompt, reportError]);
+  }, [tileSet, buildTileSheetDataUrl, buildPaddedTileSheetDataUrl, buildTileSetManifest, tilePrompt]);
 
   return {
     tileSet,

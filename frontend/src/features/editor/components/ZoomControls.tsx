@@ -1,46 +1,38 @@
 "use client";
 
-import { Minus, Plus, Maximize2 } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface Props {
+/** Zoom group: out, current percentage (click to fit), in. */
+export function ZoomControls({
+  zoom,
+  onZoom,
+  onFit,
+  className,
+}: {
   zoom: number;
   onZoom: (newZoom: number) => void;
   onFit: () => void;
-}
-
-export function ZoomControls({ zoom, onZoom, onFit }: Props) {
+  className?: string;
+}) {
   const pct = Math.round(zoom * 100);
 
   return (
-    <div className="absolute bottom-4 left-4 flex items-center gap-1 bg-zinc-900/90 backdrop-blur-sm border border-zinc-800 rounded-lg px-1.5 py-1 shadow-lg">
-      <button
-        title="Zoom out"
-        onClick={() => onZoom(zoom * 0.8)}
-        className="w-6 h-6 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
-      >
-        <Minus size={12} />
+    <div role="group" aria-label="Zoom" data-canvas-controls className={cn("oa-float p-0.5", className)}>
+      <button type="button" className="oa-tool" aria-label="Zoom out" title="Zoom out" onClick={() => onZoom(zoom * 0.8)}>
+        <Minus aria-hidden />
       </button>
-
-      <span className="text-xs text-zinc-400 tabular-nums w-9 text-center select-none">
-        {pct}%
-      </span>
-
       <button
-        title="Zoom in"
-        onClick={() => onZoom(zoom * 1.25)}
-        className="w-6 h-6 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
-      >
-        <Plus size={12} />
-      </button>
-
-      <div className="w-px h-3 bg-zinc-700 mx-0.5" />
-
-      <button
-        title="Fit to screen"
+        type="button"
+        className="oa-btn oa-btn-ghost oa-btn-sm min-w-14 px-1.5 tabular-nums"
+        aria-label={`Zoom ${pct}%. Fit to screen (Ctrl+0)`}
+        title="Fit to screen (Ctrl+0)"
         onClick={onFit}
-        className="w-6 h-6 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
       >
-        <Maximize2 size={12} />
+        {pct}%
+      </button>
+      <button type="button" className="oa-tool" aria-label="Zoom in" title="Zoom in" onClick={() => onZoom(zoom * 1.25)}>
+        <Plus aria-hidden />
       </button>
     </div>
   );

@@ -3,12 +3,20 @@ import { ApiResponse } from '../../common/utils/ApiResponse';
 import { ApiError } from '../../common/utils/ApiError';
 import type { AuthRequest } from '../auth/auth.middleware';
 import * as usageService from './usage.service';
-import type { ConsumeInput, RefundInput } from './dto/consume.schema';
+import type { ConsumeInput, ListEventsQuery, RefundInput } from './dto/consume.schema';
 
 export async function getMyUsage(req: AuthRequest, res: Response): Promise<void> {
   if (!req.user) throw ApiError.unauthorized();
   const usage = await usageService.getUsage(req.user.id);
   ApiResponse.ok(res, 'Usage', usage);
+}
+
+export async function getMyUsageEvents(req: AuthRequest, res: Response): Promise<void> {
+  if (!req.user) throw ApiError.unauthorized();
+  // Already coerced and defaulted by validateQuery(listEventsQuerySchema).
+  const { page, limit } = req.query as unknown as ListEventsQuery;
+  const events = await usageService.listEvents(req.user.id, page, limit);
+  ApiResponse.ok(res, 'Usage events', events);
 }
 
 export async function consumeCredits(req: AuthRequest, res: Response): Promise<void> {

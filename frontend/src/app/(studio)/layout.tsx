@@ -1,19 +1,25 @@
-"use client";
+import type { Metadata } from "next";
+import { AppShell } from "@/components/layout/AppShell";
+import { AuthGate } from "@/components/layout/AuthGate";
+import { StudioShell } from "@/features/studio/components/StudioShell";
+import { StudioSettingsProvider } from "@/features/studio/hooks/useStudioSettings";
+import { CreditsProvider } from "@/features/usage/CreditsProvider";
 
-import { Navbar } from "@/components/layout/Navbar";
-import { ComingSoonPage } from "@/components/layout/ComingSoonPage";
+export const metadata: Metadata = { title: "Studio · OpenAssets" };
 
-// Studio works signed-out too (BYOK), so unlike (dashboard) this layout does
-// not redirect unauthenticated users — generation prompts sign-in/BYOK instead.
+// Studio spends credits, so it needs a signed-in user. Bringing your own
+// OpenRouter key (StudioSettingsProvider) skips the credit charge, not the
+// sign-in. useStudioSettings and useCredits throw without their providers.
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
-  void children;
   return (
-    <div className="flex h-screen flex-col">
-      <Navbar />
-      <ComingSoonPage
-        name="Studio"
-        description="Our asset-generation workspace is still being prepared for release. It is not available in this deployment yet."
-      />
-    </div>
+    <AppShell>
+      <AuthGate label="Opening Studio">
+        <CreditsProvider>
+          <StudioSettingsProvider>
+            <StudioShell>{children}</StudioShell>
+          </StudioSettingsProvider>
+        </CreditsProvider>
+      </AuthGate>
+    </AppShell>
   );
 }

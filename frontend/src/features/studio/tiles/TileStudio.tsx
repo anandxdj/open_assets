@@ -1,22 +1,38 @@
 "use client";
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
-// Tile Studio UI: 4×4 sprite-sheet grid + platform preview + prompt rail.
+// Tile Studio: form panel (material, art style, scene direction) and results
+// (4 × 4 sheet grid with per-tile replace, platform preview).
 
-import { useEffect, useRef } from "react";
-import { Download, Layers, Loader2, Sparkles, Square, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { ART_STYLE_GROUPS } from "@/features/studio/lib/artStyles";
+import { useEffect, useId, useRef } from "react";
+import { Download, FileArchive, Grid2x2, LoaderCircle, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/feedback";
+import { Field } from "@/components/ui/field";
+import { findStyleLabel } from "@/features/studio/lib/artStyles";
 import {
   TILESET_COLS,
   TILESET_PRESETS,
   TILESET_ROWS,
   TILESET_SLOTS,
+  TILESET_TILE_SIZE,
   TILE_TEMPLATE_MASK,
 } from "@/features/studio/lib/tileset";
 import type { TileSetRole, TileSetSlot, TileSetSlotSpec } from "@/features/studio/lib/tileset";
-
-const CHECKER =
-  "bg-[repeating-conic-gradient(#80808033_0%_25%,transparent_0%_50%)] bg-[length:12px_12px]";
+import {
+  GeneratorLayout,
+  PanelSection,
+  RunFooter,
+  RunHeader,
+  useRunHint,
+} from "@/features/studio/components/GeneratorLayout";
+import {
+  ArtStyleField,
+  PresetSelect,
+  PromptField,
+  SceneBriefField,
+  matchPreset,
+} from "@/features/studio/components/fields";
 
 export function TileSlotCell({
   slot,
@@ -32,45 +48,46 @@ export function TileSlotCell({
   showActions: boolean;
 }) {
   return (
-    <div
-      className={cn("group relative overflow-hidden border border-zinc-300 dark:border-zinc-700 aspect-square", CHECKER)}
-      title={spec.hint}
-    >
+    <li className="oa-checker group relative aspect-square" title={spec.hint}>
       {slot.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={slot.imageUrl}
-          alt={spec.hint}
-          draggable={false}
-          className="block h-full w-full object-contain"
-        />
+        <img src={slot.imageUrl} alt={spec.hint} draggable={false} className="block h-full w-full object-contain" />
       ) : (
-        <div className="flex h-full w-full items-center justify-center font-mono text-[9px] uppercase text-muted-foreground">
+        <span className="flex h-full w-full items-center justify-center px-1 text-center text-[10.5px] leading-[14px] text-ink-3">
           {spec.label}
-        </div>
+        </span>
       )}
 
       {slot.generating && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/55">
-          <Loader2 size={18} className="animate-spin text-white" />
-        </div>
+        <span className="absolute inset-0 flex items-center justify-center bg-surface/70">
+          <LoaderCircle aria-hidden className="size-4 animate-spin text-ink-2" />
+          <span className="sr-only">Generating {spec.label}</span>
+        </span>
       )}
 
-      <div className="pointer-events-none absolute left-1 top-1 bg-black/55 px-1 py-px font-mono text-[8px] uppercase text-white backdrop-blur">
-        {spec.label}
-      </div>
+      {slot.imageUrl && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-1 top-1 bg-surface px-1 text-[10px] leading-4 text-ink-2"
+        >
+          {spec.label}
+        </span>
+      )}
 
       {showActions && slot.imageUrl && !slot.generating && (
-        <button
+        <Button
+          size="sm"
+          icon
           onClick={onRegenerate}
           disabled={busy}
-          className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 backdrop-blur"
-          title="Replace this tile (separate call — may not match the rest). For best consistency, re-roll the whole sheet instead."
+          aria-label={`Replace ${spec.label} tile`}
+          title="Replace this tile with a separate call. It may not match the rest; for the best match, regenerate the whole sheet."
+          className="absolute right-1 top-1 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
         >
-          <Sparkles size={11} />
-        </button>
+          <RefreshCw aria-hidden />
+        </Button>
       )}
-    </div>
+    </li>
   );
 }
 
@@ -119,7 +136,7 @@ export function PlatformPreview({ tileSet }: { tileSet: TileSetSlot[] }) {
       Array.from(row).map((_, x) => {
         const role = roleForCell(x, y);
         return `${role ?? "-"}:${role && byRole(role) ? byRole(role)!.length : 0}`;
-      }),
+      })
     )
     .join("|");
 
@@ -149,8 +166,8 @@ export function PlatformPreview({ tileSet }: { tileSet: TileSetSlot[] }) {
             img.onload = () => resolve([role, img]);
             img.onerror = () => resolve([role, null]);
             img.src = src;
-          }),
-      ),
+          })
+      )
     ).then((loaded) => {
       if (cancelled) return;
       const imgByRole = new Map<TileSetRole, HTMLImageElement>();
@@ -158,6 +175,7 @@ export function PlatformPreview({ tileSet }: { tileSet: TileSetSlot[] }) {
         if (img) imgByRole.set(role, img);
       });
 
+      // Transparent canvas over the checkerboard: only tile pixels are drawn.
       ctx.clearRect(0, 0, sheetW, sheetH);
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
@@ -180,16 +198,20 @@ export function PlatformPreview({ tileSet }: { tileSet: TileSetSlot[] }) {
 
   return (
     <div
-      className="flex w-full items-center justify-center overflow-hidden border-2 border-zinc-950 dark:border-zinc-700 bg-gradient-to-b from-sky-300/20 to-blue-900/30 p-3"
+      className="oa-checker flex w-full items-center justify-center overflow-hidden border-[1.5px] border-line p-3"
       style={{ aspectRatio: `${cols} / ${rows}` }}
     >
-      <canvas ref={canvasRef} width={sheetW} height={sheetH} className="block h-auto w-full" />
+      <canvas
+        ref={canvasRef}
+        width={sheetW}
+        height={sheetH}
+        role="img"
+        aria-label="Platform built from the current tiles"
+        className="block h-auto w-full"
+      />
     </div>
   );
 }
-
-const ghostBtn =
-  "inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase border border-zinc-300 dark:border-zinc-700 text-muted-foreground hover:text-foreground hover:border-zinc-500 disabled:opacity-40 rounded-none";
 
 export function TileStudio({
   tileSet,
@@ -226,9 +248,15 @@ export function TileStudio({
   onDownloadSheet: () => void;
   onDownloadZip: () => void;
 }) {
+  const ids = { preset: useId(), run: useId(), sheet: useId(), preview: useId() };
   const filledCount = tileSet.filter((s) => s.hasImage).length;
   const total = tileSet.length;
   const hasAny = filledCount > 0;
+  const generatingAny = generating || tileSet.some((s) => s.generating);
+  const canGenerate = !!prompt.trim();
+  const runHint = useRunHint(1);
+  const preset = matchPreset(TILESET_PRESETS, prompt);
+  const materialName = preset?.label ?? (prompt.trim() ? "Custom material" : "Tile set");
 
   type GridCell = { spec?: TileSetSlotSpec; slot?: TileSetSlot; empty?: boolean };
   const grid: GridCell[][] = [];
@@ -246,208 +274,152 @@ export function TileStudio({
     grid.push(row);
   }
 
-  return (
-    <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4 pt-3 font-mono sm:px-6">
-      <div className="flex items-center justify-center gap-2 text-[11px] uppercase">
-        <Layers size={14} />
-        <span className="text-muted-foreground">
-          Tile-set mode — one AI call generates all 13 tiles as a single sprite-sheet.
-          Drop into Unity, Phaser, Godot, or Tiled.
-        </span>
-      </div>
-
-      {/* Action bar */}
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {generating ? (
-          <button
-            onClick={onStop}
-            className="inline-flex items-center gap-1.5 border border-destructive px-3 py-1.5 text-[11px] font-bold uppercase text-destructive rounded-none"
-            title="Stop the current generation"
-          >
-            <Square size={12} />
-            Stop
-          </button>
-        ) : (
-          <button
-            onClick={onGenerateAll}
-            disabled={!prompt.trim()}
-            className="inline-flex items-center gap-1.5 bg-zinc-950 text-white dark:bg-white dark:text-black border border-zinc-950 dark:border-white px-3 py-1.5 text-[11px] font-black uppercase rounded-none disabled:opacity-40 hover:bg-transparent hover:text-zinc-950 dark:hover:bg-transparent dark:hover:text-white transition-colors"
-            title="Generate the full 4×4 sprite sheet in one AI call"
-          >
-            <Sparkles size={14} />
-            {hasAny ? "Re-roll sheet" : "Generate sheet (1 call)"}
-          </button>
-        )}
-        <button
-          onClick={onDownloadSheet}
-          disabled={!hasAny || generating}
-          className={ghostBtn}
-          title="Export clean + padded sprite-sheet PNGs with a JSON manifest"
-        >
-          <Download size={14} />
-          Sheets + manifest
-        </button>
-        <button
-          onClick={onDownloadZip}
-          disabled={!hasAny || generating}
-          className={ghostBtn}
-          title="Export individual PNGs + sheets + manifest as a ZIP"
-        >
-          <Layers size={14} />
-          ZIP
-        </button>
-        <button
-          onClick={onClearAll}
-          disabled={!hasAny || generating}
-          className={ghostBtn}
-          title="Clear all tiles and start over"
-        >
-          <Trash2 size={14} />
-          Clear
-        </button>
-        <div className="border border-zinc-300 dark:border-zinc-700 px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-          {filledCount}/{total} tiles
-          {progressMessage ? ` · ${progressMessage}` : ""}
-        </div>
-      </div>
-
-      {/* Grid + preview */}
-      <div className="grid w-full flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-2">
-          <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-            Sprite sheet (4×4)
-          </div>
-          <div
-            className="grid w-full gap-1.5"
-            style={{ gridTemplateColumns: `repeat(${TILESET_COLS}, 1fr)` }}
-          >
-            {grid.flat().map((cell, i) =>
-              cell.empty || !cell.spec || !cell.slot ? (
-                <div
-                  key={`empty-${i}`}
-                  className="aspect-square border border-dashed border-zinc-200 dark:border-zinc-800"
-                />
-              ) : (
-                <TileSlotCell
-                  key={cell.spec.role}
-                  slot={cell.slot}
-                  spec={cell.spec}
-                  onRegenerate={() => onRegenerate(cell.spec!.role)}
-                  busy={generating}
-                  showActions
-                />
-              ),
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-            <span>Platform preview</span>
-            <span className="font-mono normal-case tracking-normal">How tiles fit together</span>
-          </div>
-          <PlatformPreview tileSet={tileSet} />
-          <div className="text-[10px] uppercase text-muted-foreground">
-            Hover a tile and click the spark to replace it (separate call, may drift). For best
-            consistency, re-roll the whole sheet.
-          </div>
-        </div>
-      </div>
-
-      {/* Command rail */}
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
-        <div className="border-2 border-zinc-950 dark:border-zinc-700 bg-background p-3">
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              Scene direction
-            </label>
-            {sceneBriefLoading && (
-              <span className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
-                <Loader2 size={10} className="animate-spin" />
-                Updating…
-              </span>
-            )}
-          </div>
-          <textarea
-            value={sceneBrief}
-            onChange={(e) => setSceneBrief(e.target.value)}
-            disabled={generating || sceneBriefLoading}
-            placeholder="Optional shared art direction. If you built a parallax scene, the brief is reused here so tiles match palette and lighting."
-            rows={2}
-            className="w-full resize-none bg-transparent text-[13px] leading-relaxed focus:outline-none"
-          />
-        </div>
-
-        {/* Material presets */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-            Quick start
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {TILESET_PRESETS.map((preset) => {
-              const active = prompt.trim() === preset.prompt;
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => setPrompt(preset.prompt)}
-                  disabled={generating}
-                  className={cn(
-                    "border px-2.5 py-1 text-[10px] font-bold uppercase transition-colors rounded-none disabled:opacity-50",
-                    active
-                      ? "border-zinc-950 dark:border-white bg-zinc-950 text-white dark:bg-white dark:text-black"
-                      : "border-zinc-300 dark:border-zinc-700 text-muted-foreground hover:border-zinc-500 hover:text-foreground",
-                  )}
-                  title={preset.prompt}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="flex w-full items-stretch gap-2 border-2 border-zinc-950 dark:border-zinc-700 bg-background p-1.5">
-          <input
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+  const form = (
+    <>
+      <PanelSection>
+        <Field label="Material" htmlFor={ids.preset}>
+          <PresetSelect
+            id={ids.preset}
+            presets={TILESET_PRESETS}
+            prompt={prompt}
+            setPrompt={setPrompt}
             disabled={generating}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && prompt.trim() && !generating) {
-                e.preventDefault();
-                onGenerateAll();
-              }
-            }}
-            placeholder="Describe the material — or pick a quick start above"
-            className="flex-1 bg-transparent px-3 py-2.5 text-[13px] focus:outline-none"
           />
-          <div className="hidden items-center border-l border-border sm:flex">
-            <select
-              value={artStyle}
-              onChange={(e) => setArtStyle(e.target.value)}
-              disabled={generating}
-              className="cursor-pointer border-0 bg-transparent py-2 pl-3 pr-7 text-[12px] uppercase font-bold text-muted-foreground focus:outline-none"
-              title="Art style for the tile-set"
-            >
-              {ART_STYLE_GROUPS.map((group) =>
-                group.options.length === 1 && group.label === "Match original" ? (
-                  <option key={group.options[0].value} value={group.options[0].value}>
-                    {group.options[0].label}
-                  </option>
-                ) : (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.options.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ),
-              )}
-            </select>
+        </Field>
+        <PromptField
+          value={prompt}
+          onChange={setPrompt}
+          onSubmit={onGenerateAll}
+          canSubmit={canGenerate && !generating}
+          disabled={generating}
+          placeholder="Weathered granite with moss along the top edge"
+        />
+        <ArtStyleField value={artStyle} onChange={setArtStyle} disabled={generating} />
+      </PanelSection>
+      <PanelSection>
+        <SceneBriefField
+          value={sceneBrief}
+          onChange={setSceneBrief}
+          loading={sceneBriefLoading}
+          disabled={generating}
+          placeholder="Shared palette and lighting for the whole scene"
+          help="Reused from your parallax scene when you have one, so tiles match its palette and lighting."
+        />
+      </PanelSection>
+      <PanelSection className="border-b-0">
+        <p className="text-xs leading-[18px] text-ink-2">
+          One call draws all {TILESET_SLOTS.length} tiles at {TILESET_TILE_SIZE} px as a{" "}
+          {TILESET_COLS} × {TILESET_ROWS} sheet, ready for Unity, Godot, Phaser or Tiled.
+        </p>
+      </PanelSection>
+    </>
+  );
+
+  const footer = (
+    <RunFooter running={generating} message={progressMessage} onStop={onStop} hint={`${runHint} · 1 call`}>
+      <Button variant="primary" size="lg" block onClick={onGenerateAll} disabled={!canGenerate}>
+        <Sparkles aria-hidden />
+        {hasAny ? "Regenerate sheet" : "Generate sheet"}
+      </Button>
+    </RunFooter>
+  );
+
+  return (
+    <GeneratorLayout formLabel="Tile settings" form={form} footer={footer} resultsLabel="Tile results">
+      {hasAny || generatingAny ? (
+        <section aria-labelledby={ids.run} className="mx-auto flex w-full max-w-[980px] flex-col gap-4">
+          <RunHeader
+            id={ids.run}
+            title={materialName}
+            meta={
+              <>
+                {artStyle !== "none" && <Badge>{findStyleLabel(artStyle)}</Badge>}
+                <span className="text-xs text-ink-3">
+                  {filledCount}/{total} tiles
+                </span>
+              </>
+            }
+            actions={
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClearAll}
+                  disabled={!hasAny || generating}
+                  title="Clear all tiles and start over"
+                >
+                  <Trash2 aria-hidden />
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={onDownloadZip}
+                  disabled={!hasAny || generating}
+                  aria-label="Download ZIP"
+                  title="Tile PNGs, sheets and JSON manifest"
+                >
+                  <FileArchive aria-hidden />
+                  ZIP
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={onDownloadSheet}
+                  disabled={!hasAny || generating}
+                  aria-label="Download sheet PNG and manifest"
+                  title="Clean and padded sheet PNGs with a JSON manifest"
+                >
+                  <Download aria-hidden />
+                  Sheet PNG
+                </Button>
+              </>
+            }
+          />
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <h3 id={ids.sheet} className="oa-label">
+                Sheet, {TILESET_COLS} × {TILESET_ROWS}
+              </h3>
+              <ol
+                aria-labelledby={ids.sheet}
+                className="grid w-full gap-px border-[1.5px] border-line bg-line"
+                style={{ gridTemplateColumns: `repeat(${TILESET_COLS}, minmax(0, 1fr))` }}
+              >
+                {grid.flat().map((cell, i) =>
+                  cell.empty || !cell.spec || !cell.slot ? (
+                    <li key={`empty-${i}`} aria-hidden className="aspect-square bg-sunken" />
+                  ) : (
+                    <TileSlotCell
+                      key={cell.spec.role}
+                      slot={cell.slot}
+                      spec={cell.spec}
+                      onRegenerate={() => onRegenerate(cell.spec!.role)}
+                      busy={generating}
+                      showActions
+                    />
+                  )
+                )}
+              </ol>
+            </div>
+            <div className="flex flex-col gap-2">
+              <h3 id={ids.preview} className="oa-label">
+                Platform preview
+              </h3>
+              <PlatformPreview tileSet={tileSet} />
+              <p className="text-xs leading-[18px] text-ink-2">
+                Hover or focus a tile to replace it on its own. A single tile may drift from the
+                rest; regenerate the sheet for the closest match.
+              </p>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </section>
+      ) : (
+        <EmptyState
+          className="m-auto w-full max-w-xl"
+          icon={<Grid2x2 aria-hidden className="size-5" />}
+          title="No tile set yet"
+          description={`Pick a material or describe one, then generate. All ${TILESET_SLOTS.length} tiles arrive together as one sheet with a platform preview.`}
+        />
+      )}
+    </GeneratorLayout>
   );
 }

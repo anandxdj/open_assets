@@ -1,48 +1,196 @@
-version: '3.8'
+# OpenAssets, whole stack: web app, API + workers, AI service, MongoDB and Redis.
+#
+#   cp .env.example .env     # then fill it in (see the comments in that file)
+#   docker compose up -d --build
+#
+# Configuration comes from the root .env only. Compose reads it automatically and
+# passes each service just the variables it needs.
+#
+# Only the web app and the API are published, and only on 127.0.0.1 (put a reverse
+# proxy in front, see docker-compose.traefik.yml). MongoDB, Redis and the AI service
+# are reachable only from inside the stack's network and publish nothing.
+#
+# The workers run inside the `backend` process (4 BullMQ workers), so there is no
+# separate worker service.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
-  # 🐍 Python Vision Service: Processes OpenCV and Gemini tasks
-  openasset-py-backend:
-    image: anando1/openasset-py-backend:1.0.0
-    container_name: openasset-py-backend
+  mongo:
+    image: mongo:7
     restart: unless-stopped
-    mem_limit: 512m
-    env_file:
-      - ./py_backend/.env
-    environment:
-      - PORT=8000
-      - REDIS_URL=redis://openpoll-redis:6379
-    networks:
-      - proxy
+    logging: *logging
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
-  # 🚀 Node.js Backend: Handled by Traefik and serves the Frontend
-  openasset-backend:
-    image: anando1/openasset-backend:1.0.0
-    container_name: openasset-backend
+  redis:
+    image: redis:7-alpine
     restart: unless-stopped
+    logging: *logging
+    # Append-only file so job state and queued work survive a restart. noeviction is
+    # what BullMQ requires: Redis must refuse writes rather than drop queue keys.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  # Python AI service: OpenCV detection, LLM naming, cropping.
+  py_backend:
+    build:
+      context: ./py_backend
+    image: ${OA_REGISTRY:-anando1}/openasset-py-backend:${OA_VERSION:-1.0.0}
+    restart: unless-stopped
+    logging: *logging
     mem_limit: 512m
-    env_file:
-      - ./backend/.env
     environment:
-      - NODE_ENV=production
-      - PORT=4000
-      - REDIS_URL=redis://openpoll-redis:6379
-      - PY_BACKEND_URL=http://openasset-py-backend:8000
-      - FRONTEND_URL=https://openassets.anands.dev
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      OPENQUOTA_API_KEY: ${OPENQUOTA_API_KEY:-}
+      # This service calls the /llm root; the frontend uses /llm/v1 (OPENQUOTA_BASE_URL),
+      # so the root .env has two variables for the one name this service reads.
+      OPENQUOTA_BASE_URL: ${OPENQUOTA_PY_BASE_URL:-https://openquota.anands.dev/llm}
+      OPENQUOTA_VISION_MODEL: ${OPENQUOTA_VISION_MODEL:-auto}
+      OPENQUOTA_MODEL: ${OPENQUOTA_MODEL:-auto}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env (openssl rand -hex 32)}
+      ALLOWED_IMAGE_HOSTS: ${ALLOWED_IMAGE_HOSTS:-res.cloudinary.com,cloudinary.com}
+      MIN_BOX_WIDTH: ${MIN_BOX_WIDTH:-20}
+      MIN_BOX_HEIGHT: ${MIN_BOX_HEIGHT:-20}
+      MIN_BOX_AREA: ${MIN_BOX_AREA:-400}
+      BINARY_THRESH_VALUE: ${BINARY_THRESH_VALUE:-240}
+      TRANSPARENCY_ALPHA_THRESHOLD: ${TRANSPARENCY_ALPHA_THRESHOLD:-250}
+      TRANSPARENCY_MIN_FRACTION: ${TRANSPARENCY_MIN_FRACTION:-0.01}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Express API and the four BullMQ workers (detection, crop, finalize, enhance).
+  backend:
+    build:
+      context: ./backend
+    image: ${OA_REGISTRY:-anando1}/openasset-backend:${OA_VERSION:-1.0.0}
+    restart: unless-stopped
+    logging: *logging
+    init: true
+    # Longer than SHUTDOWN_TIMEOUT_MS so the graceful shutdown finishes before SIGKILL.
+    stop_grace_period: 35s
+    mem_limit: 512m
     depends_on:
-      openasset-py-backend:
-        condition: service_started
-    networks:
-      - proxy
-    labels:
-      - "traefik.enable=true"
-      # Securely handles the router & dynamic sub-domain routing
-      - "traefik.http.routers.openasset-backend.rule=Host(`openasset-backend.anands.dev`)"
-      - "traefik.http.routers.openasset-backend.entrypoints=web"
-      # Point to container port 4000 where our backend listens
-      - "traefik.http.services.openasset-backend.loadbalancer.server.port=4000"
-      - "traefik.docker.network=proxy"
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      py_backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-4000}:4000"
+    environment:
+      # production: strict startup validation, Secure cookies, no error details in responses.
+      # development (set APP_ENV=development in .env): relaxed, for a trial run over http://localhost.
+      NODE_ENV: ${APP_ENV:-production}
+      PORT: "4000"
+      SHUTDOWN_TIMEOUT_MS: "25000"
+      # Defaults to the mongo service. Set MONGO_URI in .env to use a managed MongoDB instead.
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-open_assets}
+      REDIS_URL: redis://redis:6379
+      PY_BACKEND_URL: http://py_backend:8000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env (openssl rand -hex 32)}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env (openssl rand -hex 32)}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      EXTENSION_ORIGINS: ${EXTENSION_ORIGINS:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-cloudinary}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      IMAGEKIT_PRIVATE_KEY: ${IMAGEKIT_PRIVATE_KEY:-}
+      IMAGEKIT_URL_ENDPOINT: ${IMAGEKIT_URL_ENDPOINT:-}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET in .env (openssl rand -hex 32)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in .env (openssl rand -hex 32)}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      RESEND_FROM_NAME: ${RESEND_FROM_NAME:-OpenAssets}
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:4000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
-networks:
-  proxy:
-    external: true
+  # Next.js web app. NEXT_PUBLIC_* values are baked into the image when it is built.
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    image: ${OA_REGISTRY:-anando1}/openasset-frontend:${OA_VERSION:-1.0.0}
+    restart: unless-stopped
+    logging: *logging
+    init: true
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    environment:
+      # Server-side calls from the Studio and AniBuddy route handlers to the API (credits).
+      EXPRESS_INTERNAL_URL: http://backend:4000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env (openssl rand -hex 32)}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MOCK: ${OPENROUTER_MOCK:-0}
+      OPENROUTER_FALLBACK_MODEL: ${OPENROUTER_FALLBACK_MODEL:-}
+      OPENQUOTA_API_KEY: ${OPENQUOTA_API_KEY:-}
+      OPENQUOTA_BASE_URL: ${OPENQUOTA_BASE_URL:-}
+      OPENQUOTA_TEXT_MODEL: ${OPENQUOTA_TEXT_MODEL:-}
+      OPENQUOTA_VISION_MODEL: ${OPENQUOTA_VISION_MODEL:-}
+      OPENQUOTA_MODEL: ${OPENQUOTA_MODEL:-}
+      ANIBUDDY_PROMPT_OPENQUOTA_MODEL: ${ANIBUDDY_PROMPT_OPENQUOTA_MODEL:-}
+      ANIBUDDY_PROMPT_OPENQUOTA_FALLBACK_MODEL: ${ANIBUDDY_PROMPT_OPENQUOTA_FALLBACK_MODEL:-}
+      ANIBUDDY_RIG_OPENQUOTA_MODEL: ${ANIBUDDY_RIG_OPENQUOTA_MODEL:-}
+      ANIBUDDY_RIG_OPENQUOTA_FALLBACK_MODEL: ${ANIBUDDY_RIG_OPENQUOTA_FALLBACK_MODEL:-}
+      ANIBUDDY_ANIMATE_OPENQUOTA_MODEL: ${ANIBUDDY_ANIMATE_OPENQUOTA_MODEL:-}
+      ANIBUDDY_ANIMATE_OPENQUOTA_FALLBACK_MODEL: ${ANIBUDDY_ANIMATE_OPENQUOTA_FALLBACK_MODEL:-}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/robots.txt"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  # Users, collections, credits: the only durable data. Back this up.
+  mongo-data:
+  mongo-config:
+  # Job state (24h TTL) and queued work.
+  redis-data:

@@ -5,14 +5,7 @@ import { ApiError } from '../../common/utils/ApiError';
 import { verifyAccessToken } from '../../common/utils/jwt.utils';
 import type { AuthRequest } from './auth.middleware';
 import { ExtensionAuthService } from './extensionAuth.service';
-
-const sessionCookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'none' as const : 'lax' as const,
-  path: '/',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-};
+import { clearSessionCookieOptions, sessionCookieOptions } from '../../common/config/cookies';
 
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction) {
@@ -26,10 +19,10 @@ export class AuthController {
 
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const { user, accessToken, refreshToken } = await AuthService.login(req.body);
+      const { user, accessToken, refreshToken } = await AuthService.login(req.body, { userAgent: req.get('user-agent') });
 
       // Set refresh token in httpOnly cookie
-      res.cookie('refreshToken', refreshToken, sessionCookieOptions);
+      res.cookie('refreshToken', refreshToken, sessionCookieOptions());
 
       return ApiResponse.ok(res, 'Login successful', { user, accessToken });
     } catch (error) {
@@ -54,7 +47,7 @@ export class AuthController {
         await AuthService.logoutByToken(token);
       }
       
-      res.clearCookie('refreshToken', sessionCookieOptions);
+      res.clearCookie('refreshToken', clearSessionCookieOptions());
       return ApiResponse.ok(res, 'Logged out successfully');
     } catch (error) {
       next(error);
@@ -134,10 +127,12 @@ export class AuthController {
         return res.redirect(`${process.env.FRONTEND_URL}/login?error=Google authentication failed`);
       }
 
-      const { user, accessToken, refreshToken } = await AuthService.handleGoogleCallback(code as string);
+      const { user, accessToken, refreshToken } = await AuthService.handleGoogleCallback(code as string, {
+        userAgent: req.get('user-agent'),
+      });
 
       // Set refresh token in httpOnly cookie
-      res.cookie('refreshToken', refreshToken, sessionCookieOptions);
+      res.cookie('refreshToken', refreshToken, sessionCookieOptions());
 
       // SECURITY (#7): deliver the access token in the URL *fragment*, not the
       // query string. Fragments are never sent to servers, so the token stays

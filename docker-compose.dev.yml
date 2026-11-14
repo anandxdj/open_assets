@@ -1,0 +1,45 @@
+# MongoDB and Redis only, published on localhost, for running the backend, AI service
+# and web app from source (see "Run locally" in README.md). It needs no .env.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml down        # keeps the data volumes
+#
+# This is separate from docker-compose.yml (the full stack), which publishes neither
+# database. If something on this machine already listens on 27017 or 6379, skip this
+# file and point MONGO_URI / REDIS_URL at that instance instead.
+
+name: openassets-dev
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+volumes:
+  mongo-data:
+  redis-data:

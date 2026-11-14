@@ -7,5 +7,5 @@
     "baseUrl": ".",
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": [".wxt/wxt.d.ts", "src", "entrypoints", "wxt.config.ts", "vitest.config.ts"]
+  "include": [".wxt/wxt.d.ts", "src", "entrypoints", "harness", "wxt.config.ts", "vitest.config.ts"]
 }

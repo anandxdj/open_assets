@@ -24,14 +24,14 @@ import {
   makeHorizontallyTileable,
 } from "@/features/studio/lib/imageProcessor";
 import { runExtendCore } from "@/features/studio/lib/extendRunner";
-import { StudioApiError, studioPost } from "@/features/studio/api/studioClient";
+import { reportStudioError, studioPost } from "@/features/studio/api/studioClient";
 import { useStudioSettings } from "@/features/studio/hooks/useStudioSettings";
 import { useSceneBrief } from "@/features/studio/hooks/useSceneBrief";
 
 export type Dims = { width: number; height: number };
 
 export function useParallax() {
-  const { apiKey, selectedModel, debugMode, refreshCredits } = useStudioSettings();
+  const { selectedModel, debugMode } = useStudioSettings();
   const { sceneBrief, setSceneBrief, sceneBriefLoading, deriveSceneBrief } = useSceneBrief();
 
   const [layers, setLayers] = useState<ParallaxLayer[]>(() => createDefaultLayers());
@@ -66,20 +66,6 @@ export function useParallax() {
   const [generating, setGenerating] = useState(false);
 
   const activeLayer: ParallaxLayer | null = layers[activeIdx] ?? null;
-
-  const reportError = useCallback((err: unknown) => {
-    if (err instanceof StudioApiError) {
-      if (err.code === "AUTH_REQUIRED") {
-        toast.error("Sign in for free credits, or add your OpenRouter key in Studio settings (gear icon).");
-        return;
-      }
-      if (err.code === "INSUFFICIENT_CREDITS") {
-        toast.error("Out of free credits. Add your own OpenRouter key in Studio settings to keep going.");
-        return;
-      }
-    }
-    toast.error(err instanceof Error ? err.message : "An error occurred");
-  }, []);
 
   // ── Layer helpers ─────────────────────────────────────────────────────────
 
@@ -216,15 +202,14 @@ export function useParallax() {
         });
         adoptCandidates(next);
       } catch (err) {
-        reportError(err);
+        reportStudioError(err);
         setActiveDirection(null);
       } finally {
         setLoading(false);
         setProgressMsg(null);
-        if (!apiKey) void refreshCredits();
       }
     },
-    [loading, autoExtending, activeLayer, customPrompt, artStyle, selectedModel, debugMode, sceneBrief, adoptCandidates, reportError, apiKey, refreshCredits],
+    [loading, autoExtending, activeLayer, customPrompt, artStyle, selectedModel, debugMode, sceneBrief, adoptCandidates],
   );
 
   const handleRegenerate = useCallback(async () => {
@@ -245,13 +230,12 @@ export function useParallax() {
       });
       adoptCandidates(next);
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     } finally {
       setLoading(false);
       setProgressMsg(null);
-      if (!apiKey) void refreshCredits();
     }
-  }, [lastExtensionParams, imageBeforeExtension, loading, selectedModel, debugMode, sceneBrief, adoptCandidates, reportError, apiKey, refreshCredits]);
+  }, [lastExtensionParams, imageBeforeExtension, loading, selectedModel, debugMode, sceneBrief, adoptCandidates]);
 
   const handleAccept = useCallback(() => {
     if (!activeCandidate || !activeLayer) return;
@@ -326,12 +310,11 @@ export function useParallax() {
       setGenerateOpen(false);
       setGeneratePrompt("");
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     } finally {
       setGenerating(false);
-      if (!apiKey) void refreshCredits();
     }
-  }, [generatePrompt, generateWidth, generateHeight, artStyle, selectedModel, activeLayer, sceneBrief, applyImageToActiveLayer, deriveSceneBrief, reportError, apiKey, refreshCredits]);
+  }, [generatePrompt, generateWidth, generateHeight, artStyle, selectedModel, activeLayer, sceneBrief, applyImageToActiveLayer, deriveSceneBrief]);
 
   const handleFile = useCallback(
     (file: File) => {
@@ -341,12 +324,12 @@ export function useParallax() {
         try {
           await applyImageToActiveLayer(dataUrl, { fromUpload: true });
         } catch (err) {
-          reportError(err);
+          reportStudioError(err);
         }
       };
       reader.readAsDataURL(file);
     },
-    [applyImageToActiveLayer, reportError],
+    [applyImageToActiveLayer],
   );
 
   // ── Tileable / harmonize ─────────────────────────────────────────────────
@@ -384,12 +367,12 @@ export function useParallax() {
     try {
       await makeLayerTileableByIdx(activeIdx);
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     } finally {
       setLoading(false);
       setProgressMsg(null);
     }
-  }, [loading, autoExtending, activeLayer, activeIdx, makeLayerTileableByIdx, reportError]);
+  }, [loading, autoExtending, activeLayer, activeIdx, makeLayerTileableByIdx]);
 
   const handleHarmonizeActiveLayer = useCallback(async () => {
     if (loading || autoExtending || !activeLayer?.imageUrl) return;
@@ -418,12 +401,12 @@ export function useParallax() {
         );
       }
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     } finally {
       setLoading(false);
       setProgressMsg(null);
     }
-  }, [loading, autoExtending, activeLayer, activeIdx, layers, reportError]);
+  }, [loading, autoExtending, activeLayer, activeIdx, layers]);
 
   // ── Auto-extend loop ─────────────────────────────────────────────────────
 
@@ -482,7 +465,7 @@ export function useParallax() {
         setLoading(false);
       }
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     } finally {
       setLoading(false);
       setActiveDirection(null);
@@ -504,8 +487,7 @@ export function useParallax() {
       }
     }
     autoStopRef.current = false;
-    if (!apiKey) void refreshCredits();
-  }, [loading, autoExtending, targetWidth, activeLayer, customPrompt, artStyle, selectedModel, debugMode, sceneBrief, patchActiveLayer, makeLayerTileableByIdx, activeIdx, reportError, apiKey, refreshCredits]);
+  }, [loading, autoExtending, targetWidth, activeLayer, customPrompt, artStyle, selectedModel, debugMode, sceneBrief, patchActiveLayer, makeLayerTileableByIdx, activeIdx]);
 
   const handleStopAutoExtend = useCallback(() => {
     autoStopRef.current = true;
@@ -577,11 +559,11 @@ export function useParallax() {
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     } finally {
       setProgressMsg(null);
     }
-  }, [layers, sceneBrief, reportError]);
+  }, [layers, sceneBrief]);
 
   const handleNewProject = useCallback(() => {
     setLayers(createDefaultLayers());

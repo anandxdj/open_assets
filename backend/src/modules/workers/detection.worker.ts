@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import { redis } from '../../common/config/redis';
 import { updateJob } from '../jobs/job.store';
 import { checkTransparency, detectAssets } from '../../lib/py.client';
+import { serializeBackground } from '../../lib/background';
 import { extractError } from '../../common/utils/extractError';
 import type { BoundingBox } from '../jobs/job.types';
 
@@ -11,7 +12,8 @@ interface DetectionJobData {
   publicId: string;
 }
 
-export function startDetectionWorker(): void {
+/** Starts the worker and returns it so the caller can close it on shutdown. */
+export function startDetectionWorker(): Worker<DetectionJobData> {
   const worker = new Worker<DetectionJobData>(
     'detection',
     async (job) => {
@@ -56,6 +58,7 @@ export function startDetectionWorker(): void {
         detectionMode: result.detection_mode,
         detectionConfidence: String(result.detection_confidence),
         detectionWarning: result.detection_warning ?? '',
+        background: serializeBackground(result.background),
       });
 
       console.log(`[detection.worker] Job ${jobId}: ${boxes.length} assets detected`);
@@ -75,4 +78,5 @@ export function startDetectionWorker(): void {
 
   worker.on('error', (err) => console.error('[detection.worker] Worker error:', extractError(err)));
   console.log('[detection.worker] Started');
+  return worker;
 }

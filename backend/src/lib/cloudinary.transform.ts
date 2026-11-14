@@ -12,7 +12,11 @@ const PROCESSING_STATUSES = new Set([202, 420, 423, 425]);
  * Non-transient errors (e.g. 404, 403, 500) are thrown immediately rather than retried —
  * this surfaces add-on misconfiguration or invalid publicIds promptly.
  */
-export async function pollUntilReady(url: string, timeoutMs = POLL_TIMEOUT_MS): Promise<void> {
+export async function pollUntilReady(
+  url: string,
+  timeoutMs = POLL_TIMEOUT_MS,
+  provider = 'Cloudinary',
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
 
   for (;;) {
@@ -27,7 +31,7 @@ export async function pollUntilReady(url: string, timeoutMs = POLL_TIMEOUT_MS): 
     } catch (networkErr: any) {
       // Transient network error — retry until deadline.
       if (Date.now() >= deadline) {
-        throw new Error(`Cloudinary transform timed out (network): ${networkErr.message} — URL: ${url}`);
+        throw new Error(`${provider} transform timed out (network): ${networkErr.message} — URL: ${url}`);
       }
       await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));
       continue;
@@ -38,7 +42,7 @@ export async function pollUntilReady(url: string, timeoutMs = POLL_TIMEOUT_MS): 
     if (PROCESSING_STATUSES.has(status)) {
       if (Date.now() >= deadline) {
         throw new Error(
-          `Cloudinary transform timed out after ${timeoutMs / 1000}s (HTTP ${status}). ` +
+          `${provider} transform timed out after ${timeoutMs / 1000}s (HTTP ${status}). ` +
           `Check that the AI Background Removal / Upscale add-on is enabled on your account. URL: ${url}`,
         );
       }
@@ -48,7 +52,7 @@ export async function pollUntilReady(url: string, timeoutMs = POLL_TIMEOUT_MS): 
 
     // Non-transient failure — throw immediately with clear diagnosis.
     throw new Error(
-      `Cloudinary transform failed (HTTP ${status}). ` +
+      `${provider} transform failed (HTTP ${status}). ` +
       `Ensure the AI add-on (background_removal / upscale) is enabled. URL: ${url}`,
     );
   }

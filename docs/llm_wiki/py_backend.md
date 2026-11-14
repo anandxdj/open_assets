@@ -75,6 +75,13 @@ Output:
 }
 ```
 
+With `"inline": true` (the backend sends it when `STORAGE_PROVIDER=local`) nothing is uploaded: each asset
+comes back as `{ "id", "name", "data_base64" }` (a PNG) and the backend stores it through its storage adapter.
+
+Image fetches are limited to https and `ALLOWED_IMAGE_HOSTS`. For local storage set
+`ALLOW_PRIVATE_IMAGE_HOSTS=true`: http and loopback/private hosts are then allowed, but still only the hosts
+named in `ALLOWED_IMAGE_HOSTS` (an empty list refuses everything). Never enable it in production.
+
 ## Services
 
 | File | Purpose |

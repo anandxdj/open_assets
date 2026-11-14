@@ -1,29 +1,20 @@
 "use client";
 // Adapted from boona13/image-extender (MIT) - https://github.com/boona13/image-extender
-// Studio-wide settings: BYOK OpenRouter key, model choice, debug overlay, and
-// the free-tier credits balance. Key/model persist to localStorage under the
-// upstream keys so existing image-extender users keep their settings.
+// Studio-wide settings: BYOK OpenRouter key, model choice and the debug
+// overlay. Key/model persist to localStorage under the upstream keys so
+// existing image-extender users keep their settings. The credits balance lives
+// in @/features/usage (shared with AniBuddy).
 
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
 import { STORAGE_KEY, STORAGE_MODEL } from "@/features/studio/lib/app";
 import { DEFAULT_MODEL } from "@/features/studio/lib/models";
-import { apiClient } from "@/lib/api-client";
-import { tokenStore } from "@/lib/token-store";
-
-export type CreditsInfo = {
-  credits: number;
-  plan: "free" | "byok" | "pro";
-  monthlyGrant: number;
-  resetAt: string;
-};
 
 // localStorage as an external store — SSR-safe (server snapshot = fallback)
 // and update-driven via a custom event, so writes propagate to all subscribers.
@@ -81,9 +72,6 @@ type StudioSettings = {
   setSelectedModel: (model: string) => void;
   debugMode: boolean;
   setDebugMode: (v: boolean) => void;
-  /** null until loaded; stays null when signed out or request fails. */
-  credits: CreditsInfo | null;
-  refreshCredits: () => Promise<void>;
   /** True once the client has hydrated (localStorage values are live). */
   hydrated: boolean;
 };
@@ -96,43 +84,12 @@ export function StudioSettingsProvider({ children }: { children: ReactNode }) {
   const storedModel = useLocalStorageValue(STORAGE_MODEL);
   const selectedModel = storedModel || DEFAULT_MODEL;
   const [debugMode, setDebugMode] = useState(false);
-  const [credits, setCredits] = useState<CreditsInfo | null>(null);
 
   const setApiKey = useCallback((key: string) => writeStorage(STORAGE_KEY, key), []);
   const setSelectedModel = useCallback(
     (model: string) => writeStorage(STORAGE_MODEL, model),
     [],
   );
-
-  const refreshCredits = useCallback(async () => {
-    if (!tokenStore.get()) {
-      setCredits(null);
-      return;
-    }
-    try {
-      const res = await apiClient.get<{ data: CreditsInfo }>("/api/usage/me");
-      setCredits(res.data);
-    } catch {
-      setCredits(null);
-    }
-  }, []);
-
-  // Initial balance load once the client is live.
-  useEffect(() => {
-    if (!hydrated || !tokenStore.get()) return;
-    let cancelled = false;
-    apiClient
-      .get<{ data: CreditsInfo }>("/api/usage/me")
-      .then((res) => {
-        if (!cancelled) setCredits(res.data);
-      })
-      .catch(() => {
-        if (!cancelled) setCredits(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [hydrated]);
 
   return (
     <StudioSettingsContext.Provider
@@ -143,8 +100,6 @@ export function StudioSettingsProvider({ children }: { children: ReactNode }) {
         setSelectedModel,
         debugMode,
         setDebugMode,
-        credits,
-        refreshCredits,
         hydrated,
       }}
     >

@@ -55,6 +55,28 @@ export interface Account {
   picture?: string;
 }
 
+/** What the list of images sent from this browser shows; derived from the API's job status. */
+export type SentStatus = 'queued' | 'detecting' | 'ready' | 'failed' | 'expired';
+
+/** One image this browser sent to OpenAssets. Holds no source URL, page URL or prompt. */
+export interface SentItem {
+  jobId: string;
+  fileName: string;
+  sentAt: string;
+  via: 'page' | 'library';
+  status: SentStatus;
+  /** The job's stored original (OpenAssets storage), known after the first status check. */
+  thumbnailUrl?: string;
+  error?: string;
+  checkedAt?: string;
+}
+
+/** A failure to show when the panel opens, kept for sends that had no UI open (context menu, shortcut). */
+export interface AppNotice {
+  message: string;
+  code?: string;
+}
+
 export interface AuthSnapshot {
   account: Account | null;
   accessToken: string | null;
@@ -67,6 +89,9 @@ export interface AppSnapshot {
   library: LibraryItem[];
   isRunning: boolean;
   activeItemId: string | null;
+  /** Images this browser sent to OpenAssets in the last 24 hours, newest first. */
+  sent: SentItem[];
+  notice: AppNotice | null;
 }
 
 export type WorkerRequest =
@@ -80,7 +105,10 @@ export type WorkerRequest =
   | { type: 'PAUSE_QUEUE'; reason?: string }
   | { type: 'RETRY_FAILED' }
   | { type: 'EXTRACT_CURRENT_IMAGE' }
-  | { type: 'EXTRACT_IMAGE_URL'; imageUrl: string; mode?: 'interactive' | 'direct' }
+  | { type: 'EXTRACT_IMAGE_URL'; imageUrl: string; via?: SentItem['via']; fileName?: string }
+  | { type: 'SENT_REFRESH' }
+  | { type: 'CLEAR_SENT' }
+  | { type: 'DISMISS_NOTICE' }
   | { type: 'CHATGPT_EVENT'; event: ChatGptEvent };
 
 export type ChatGptEvent =
@@ -92,5 +120,5 @@ export type ChatGptEvent =
 
 export type WorkerResponse =
   | { ok: true; snapshot: AppSnapshot }
-  | { ok: true; started?: boolean }
-  | { ok: false; error: string };
+  | { ok: true; started?: boolean; jobId?: string }
+  | { ok: false; error: string; code?: string };

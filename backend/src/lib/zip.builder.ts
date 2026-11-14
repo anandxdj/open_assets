@@ -5,6 +5,11 @@ import { mapLimit } from '../common/utils/mapLimit';
 
 export interface ZipItem {
   name: string; // filename without extension
+  /**
+   * File name without extension that is already safe to use as it is, for example from the
+   * naming pattern module (which keeps `.`, `@`, `-` and `_`). Replaces `name` when given.
+   */
+  stem?: string;
   url: string;  // image URL to download into the zip
   folder?: string; // optional subdirectory path inside the zip (e.g. "Weapons")
 }
@@ -29,7 +34,7 @@ export async function buildZipBuffer(items: ZipItem[], metaName: string): Promis
       responseType: 'arraybuffer',
       timeout: DOWNLOAD_TIMEOUT_MS,
     });
-    return { name: item.name, folder: item.folder, data: Buffer.from(res.data) };
+    return { name: item.name, stem: item.stem, folder: item.folder, data: Buffer.from(res.data) };
   });
 
   const archive = archiver('zip', { zlib: { level: 6 } });
@@ -41,9 +46,9 @@ export async function buildZipBuffer(items: ZipItem[], metaName: string): Promis
   });
 
   const usedPaths = new Set<string>();
-  for (const { name, folder, data } of downloaded) {
+  for (const { name, stem, folder, data } of downloaded) {
     const dir = folder ? `${sanitizeZipPath(folder)}/` : '';
-    const base = sanitizeZipPath(name);
+    const base = stem ?? sanitizeZipPath(name);
     let entry = `${dir}${base}.png`;
     let n = 2;
     while (usedPaths.has(entry)) entry = `${dir}${base}_${n++}.png`;

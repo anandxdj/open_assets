@@ -1,5 +1,8 @@
-import { EnhancePlaceholder } from "@/features/enhance/components/EnhancePlaceholder";
+import type { Metadata } from "next";
+import { AiEnhanceWorkspace } from "@/features/enhance/components/AiEnhanceWorkspace";
+
+export const metadata: Metadata = { title: "AI enhance · OpenAssets" };
 
 export default function AiEnhancePage() {
-  return <EnhancePlaceholder eyebrow="AI Enhance" title="Improve with configured capabilities" description="Only transformations supported by the active storage account will be offered here, with explicit provider and cost feedback." />;
+  return <AiEnhanceWorkspace />;
 }

@@ -1,3 +1,4 @@
+import axios from 'axios';
 import type { Response } from 'express';
 import { Resvg } from '@resvg/resvg-js';
 import { ApiError } from '../../common/utils/ApiError';
@@ -44,6 +45,21 @@ function renderSvg(svg: Buffer, scale: 1 | 2 | 3): Buffer {
   }).render().asPng();
 }
 
+/**
+ * What the user reads when the Python service fails. The service's own text
+ * (a stack trace, "Internal Server Error", a connection error) stays in the log.
+ * A 4xx from it means it rejected this image; anything else means it is down or broke.
+ */
+export function excaliburFailure(error: unknown): ApiError {
+  if (error instanceof ApiError) return error;
+  console.error('[enhance] cleanup failed:', axios.isAxiosError(error) ? (error.code ?? error.message) : error);
+  const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+  if (status !== undefined && status >= 400 && status < 500) {
+    return ApiError.badRequest('Cleanup could not read this image. Try a different PNG, JPEG or WebP.', 'ENHANCE_REJECTED');
+  }
+  return ApiError.badGateway('Cleanup is not available right now. Try again in a moment.', 'ENHANCE_UNAVAILABLE');
+}
+
 export async function startExcalibur(req: AuthRequest, res: Response): Promise<void> {
   if (!req.file) throw ApiError.badRequest('Provide a PNG, JPEG, or WebP image.');
   if (!req.user?.id) throw ApiError.unauthorized();
@@ -74,7 +90,9 @@ export async function startExcalibur(req: AuthRequest, res: Response): Promise<v
   recipe.sourceSha256 = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
   const result = recipe.sourceKind === 'svg'
     ? renderSvg(req.file.buffer, recipe.scale)
-    : await runExcaliburEnhancement(req.file.buffer, req.file.mimetype, recipe);
+    : await runExcaliburEnhancement(req.file.buffer, req.file.mimetype, recipe).catch((error: unknown) => {
+        throw excaliburFailure(error);
+      });
   res.setHeader('Content-Type', 'image/png');
   res.setHeader('Content-Disposition', 'inline; filename="enhanced.png"');
   res.setHeader('X-Enhancement-Recipe', Buffer.from(JSON.stringify(recipe)).toString('base64url'));

@@ -9,7 +9,7 @@
 
 ```
 backend/
-  index.ts                          entry: connectDB, Redis ping, start 3 workers, listen
+  index.ts                          entry: connectDB, Redis ping, start the workers, listen
   src/
     app.ts                          Express factory: CORS, json, cookies, routes, errorHandler
     common/

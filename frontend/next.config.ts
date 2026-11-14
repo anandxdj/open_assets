@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 
 // SECURITY (#8): the API ships helmet headers, but the Next app users actually
 // load shipped none. Add them here. connect-src must include the backend API so
-// fetch() still works; img-src allows Cloudinary-hosted assets.
+// fetch() still works; img-src allows Cloudinary-hosted assets and the API itself (the local
+// storage provider serves files from it).
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 const csp = [
@@ -11,7 +12,7 @@ const csp = [
   // nonces. Tighten to a nonce-based policy later if needed.
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://res.cloudinary.com https://*.cloudinary.com https://lh3.googleusercontent.com https://*.googleusercontent.com",
+  `img-src 'self' data: blob: ${API_URL} https://res.cloudinary.com https://*.cloudinary.com https://lh3.googleusercontent.com https://*.googleusercontent.com`,
   "font-src 'self' data:",
   `connect-src 'self' ${API_URL} https://res.cloudinary.com https://*.cloudinary.com`,
   "frame-ancestors 'none'",
@@ -29,8 +30,14 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // The dev "N" badge overlaps the bottom bar on phones. Build and runtime errors still show.
+  devIndicators: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+  async redirects() {
+    // AniBuddy is a top-level tool at /anibuddy; /enhance/anibuddy was its first address.
+    return [{ source: "/enhance/anibuddy", destination: "/anibuddy", permanent: true }];
   },
 };
 

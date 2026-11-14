@@ -1,0 +1,95 @@
+import * as React from "react";
+import { CircleAlert, CircleCheck, Info, LoaderCircle, TriangleAlert } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type Tone = "info" | "warning" | "danger" | "success";
+
+const toneIcon: Record<Tone, React.ElementType> = {
+  info: Info,
+  warning: TriangleAlert,
+  danger: CircleAlert,
+  success: CircleCheck,
+};
+
+/** Inline message in the flow of a page or panel. */
+export function Notice({
+  tone = "info",
+  className,
+  children,
+  role,
+}: {
+  tone?: Tone;
+  className?: string;
+  children: React.ReactNode;
+  role?: "status" | "alert";
+}) {
+  const Icon = toneIcon[tone];
+  return (
+    <div role={role} className={cn("oa-notice", `oa-notice-${tone}`, className)}>
+      <Icon aria-hidden className="mt-px size-4 flex-none" />
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+/** Announced loading line: a spinner and an uppercase label. Block-level; add layout classes as needed. */
+export function Loading({
+  label = "Loading",
+  className,
+  announce = true,
+}: {
+  label?: React.ReactNode;
+  className?: string;
+  /** Turn off when the page already announces the same thing in a live region. */
+  announce?: boolean;
+}) {
+  return (
+    <p role={announce ? "status" : undefined} className={cn("oa-label flex items-center gap-2.5", className)}>
+      <LoaderCircle aria-hidden className="size-4 animate-spin" />
+      {label}
+    </p>
+  );
+}
+
+/** Empty, gated or failed screen state with one next step. */
+export function EmptyState({
+  icon,
+  title,
+  description,
+  actions,
+  tone = "neutral",
+  headingLevel = 2,
+  className,
+}: {
+  icon?: React.ReactNode;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  tone?: "neutral" | "danger";
+  /** Use 1 when the state replaces the whole page, so the page still has its h1. */
+  headingLevel?: 1 | 2;
+  className?: string;
+}) {
+  const Heading = headingLevel === 1 ? "h1" : "h2";
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center gap-3 px-6 py-10 text-center",
+        tone === "danger" ? "border-2 border-danger bg-danger-soft" : "border-2 border-dashed border-line",
+        className
+      )}
+    >
+      {icon && (
+        <span className={cn("oa-icon-box", tone === "danger" && "border-danger text-danger")}>{icon}</span>
+      )}
+      <Heading className="oa-h3">{title}</Heading>
+      {description && <p className="max-w-sm text-xs leading-[18px] text-ink-2">{description}</p>}
+      {actions && <div className="mt-1 flex flex-wrap justify-center gap-2.5">{actions}</div>}
+    </div>
+  );
+}
+
+/** Transparent assets always sit on the checkerboard. */
+export function Checker({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("oa-checker", className)} {...props} />;
+}

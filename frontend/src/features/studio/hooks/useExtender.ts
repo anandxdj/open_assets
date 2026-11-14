@@ -4,16 +4,15 @@
 // (extender-only branches; parallax dispatch lives in useParallax instead).
 
 import { useCallback, useState } from "react";
-import { toast } from "sonner";
 import type { Candidate, Direction } from "@/features/studio/lib/app";
 import { runExtendCore } from "@/features/studio/lib/extendRunner";
-import { StudioApiError } from "@/features/studio/api/studioClient";
+import { reportStudioError } from "@/features/studio/api/studioClient";
 import { useStudioSettings } from "@/features/studio/hooks/useStudioSettings";
 
 export type Dims = { width: number; height: number };
 
 export function useExtender() {
-  const { apiKey, selectedModel, debugMode, refreshCredits } = useStudioSettings();
+  const { selectedModel, debugMode } = useStudioSettings();
 
   // Image state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -38,20 +37,6 @@ export function useExtender() {
   // Form state
   const [customPrompt, setCustomPrompt] = useState("");
   const [artStyle, setArtStyle] = useState("none");
-
-  const reportError = useCallback((err: unknown) => {
-    if (err instanceof StudioApiError) {
-      if (err.code === "AUTH_REQUIRED") {
-        toast.error("Sign in for free credits, or add your OpenRouter key in Studio settings (gear icon).");
-        return;
-      }
-      if (err.code === "INSUFFICIENT_CREDITS") {
-        toast.error("Out of free credits. Add your own OpenRouter key in Studio settings to keep going.");
-        return;
-      }
-    }
-    toast.error(err instanceof Error ? err.message : "An error occurred");
-  }, []);
 
   // ── Loaders ────────────────────────────────────────────────────────────────
 
@@ -125,15 +110,14 @@ export function useExtender() {
         const candidates = await runExtend(direction, selectedImage, customPrompt, artStyle);
         adoptCandidates(candidates);
       } catch (err) {
-        reportError(err);
+        reportStudioError(err);
         setActiveDirection(null);
       } finally {
         setLoading(false);
         setProgressMsg(null);
-        if (!apiKey) void refreshCredits();
       }
     },
-    [loading, selectedImage, customPrompt, artStyle, runExtend, adoptCandidates, reportError, apiKey, refreshCredits],
+    [loading, selectedImage, customPrompt, artStyle, runExtend, adoptCandidates],
   );
 
   const handleRegenerate = useCallback(async () => {
@@ -149,13 +133,12 @@ export function useExtender() {
       );
       adoptCandidates(candidates);
     } catch (err) {
-      reportError(err);
+      reportStudioError(err);
     } finally {
       setLoading(false);
       setProgressMsg(null);
-      if (!apiKey) void refreshCredits();
     }
-  }, [lastExtensionParams, imageBeforeExtension, loading, runExtend, adoptCandidates, reportError, apiKey, refreshCredits]);
+  }, [lastExtensionParams, imageBeforeExtension, loading, runExtend, adoptCandidates]);
 
   const cycleVariant = useCallback(
     (delta: 1 | -1) => {

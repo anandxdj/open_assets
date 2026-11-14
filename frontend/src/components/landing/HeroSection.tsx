@@ -1,83 +1,83 @@
-"use client";
-
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { HeroPrimaryAction } from "./HeroPrimaryAction";
 
+/** Plain text, not links: these are the teams the owner builds with. */
+const TRUSTED_BY = ["Open Polls", "Open Hire", "Tool Sadhan", "Chai Code", "Clipix"];
+
+/**
+ * Hero: one centred column that fills the first screen under the header. Headline with the
+ * tilted ink box, one sentence, two actions, then the "trusted by" row at the foot. A dot grid
+ * and a soft accent glow sit behind it. The spec grid and the editor shot live in the next
+ * section (ProductSection). Never wrap this in `Reveal`: it is what loads first.
+ */
 export function HeroSection() {
   return (
-    <section className="relative w-full lg:min-h-[calc(100vh-96px)] lg:h-[calc(100vh-96px)] bg-background text-foreground overflow-hidden flex flex-col items-center justify-center py-10 lg:py-16 px-6 border-b border-zinc-200 dark:border-zinc-900">
-      
-      {/* Grid Pattern & Glow Center */}
-      <div className="absolute inset-0 bg-[radial-gradient(#00000004_1px,transparent_1px)] dark:bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none z-0 opacity-80" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-orange-600/10 to-amber-500/5 rounded-full blur-[140px] pointer-events-none z-0" />
+    <section
+      aria-labelledby="hero-title"
+      className="relative isolate flex flex-col items-center overflow-hidden border-b border-line-soft px-5 py-10 md:px-8 lg:min-h-[calc(100svh-61px)] lg:py-16"
+    >
+      {/* Dot grid and glow (decorative) */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(color-mix(in_srgb,var(--oa-ink)_7%,transparent)_1px,transparent_1px)] bg-[size:24px_24px]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-tr from-brand/10 to-brand-hover/5 blur-[140px]"
+      />
 
-      {/* Content wrapper */}
-      <div className="w-full max-w-5xl mx-auto text-center relative z-10 flex flex-col justify-between h-full gap-10">
-        
-        {/* Spacer at the top to balance the centered layout */}
-        <div className="hidden lg:block h-6" />
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-between gap-10 text-center">
+        {/* Top spacer: balances the centred copy against the trust row on tall screens */}
+        <div aria-hidden className="hidden h-6 lg:block" />
 
-        {/* Hero copy elements */}
-        <div className="space-y-6 max-w-3xl mx-auto">
-          {/* Breathtaking Retro Header */}
-          <div className="space-y-3 py-1">
-            <h1 className="text-3xl sm:text-5xl md:text-6xl font-black font-mono tracking-tighter uppercase leading-tight select-none">
-              AI contour pipeline for
-              <br />
-              <span className="mt-4 text-lg sm:text-2xl md:text-4xl lg:text-5xl text-white dark:text-black bg-black dark:bg-white px-4 py-1.5 inline-block tracking-tight font-black shadow-[4px_4px_0px_#ff7c00] border-2 border-black dark:border-white transform -rotate-1 hover:rotate-0 transition-transform duration-300 whitespace-nowrap">
-                [ DEEP ASSET EXTRACTION ]
-              </span>
-            </h1>
-          </div>
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+          <h1
+            id="hero-title"
+            className="text-balance py-1 text-3xl font-black uppercase leading-tight tracking-tighter sm:text-5xl md:text-6xl"
+          >
+            AI contour pipeline for{" "}
+            <br />
+            <span className="mt-4 inline-block -rotate-1 whitespace-nowrap border-2 border-ink bg-ink px-4 py-1.5 text-base font-black tracking-tight text-page shadow-[4px_4px_0_var(--oa-accent)] transition-transform duration-(--oa-dur-3) ease-(--oa-ease-out) hover:rotate-0 min-[360px]:text-lg sm:text-2xl md:text-4xl lg:text-5xl">
+              <span aria-hidden>[ </span>
+              Deep asset extraction
+              <span aria-hidden> ]</span>
+            </span>
+          </h1>
 
-          {/* Detailed monospaced subtitle */}
-          <p className="text-xs sm:text-sm md:text-base text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto font-mono tracking-tight leading-relaxed">
-            High-performance computer vision SaaS built to segment complex sprite sheets, UI kits, and icon packs in milliseconds. Powered by AI to auto-name batch layers in production queues.
+          <p className="mx-auto max-w-2xl text-xs leading-relaxed tracking-tight text-ink-2 sm:text-sm md:text-base">
+            High-performance computer vision SaaS built to segment complex sprite sheets, UI kits, and icon packs in
+            milliseconds. Powered by AI to auto-name batch layers in production queues.
           </p>
 
-          {/* CTA Actions */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-            <Link
-              href="/register"
-              className="w-full sm:w-auto px-6 py-3 rounded-none bg-zinc-900 dark:bg-white text-white dark:text-black font-bold uppercase tracking-wider text-xs border border-zinc-900 dark:border-white hover:bg-[#00ff66] hover:text-black hover:border-[#00ff66] hover:shadow-[0_0_25px_rgba(0,255,102,0.45)] transition-all font-mono duration-200 flex items-center justify-center gap-2"
-            >
-              Start Free Trial
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-            <Link
-              href="/collections"
-              className="w-full sm:w-auto px-6 py-3 rounded-none bg-transparent text-zinc-600 dark:text-zinc-300 font-bold uppercase tracking-wider text-xs border border-zinc-200 dark:border-zinc-800 hover:border-zinc-500 dark:hover:border-[#00ff66] hover:text-black dark:hover:text-[#00ff66] transition-all font-mono duration-200 flex items-center justify-center gap-1.5"
-            >
-              View Collection
-              <ArrowRight className="h-3 w-3" />
-            </Link>
+          <div className="flex flex-col items-center justify-center gap-4 pt-2 sm:flex-row">
+            <HeroPrimaryAction />
+            <Button asChild variant="secondary" size="lg" className="max-sm:w-full">
+              <Link href="/collections">View collection</Link>
+            </Button>
           </div>
         </div>
 
-        {/* Social Proof Brand Monospace Row */}
-        <div className="pt-8 border-t border-zinc-200 dark:border-zinc-900/60 max-w-4xl mx-auto flex flex-col items-center gap-4 w-full">
-          <span className="text-[10px] font-mono tracking-widest uppercase text-zinc-500 dark:text-zinc-600">
-            Trusted & integrated by builders at
-          </span>
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[11px] sm:text-xs font-mono font-bold text-zinc-600 dark:text-zinc-500 select-none">
-            <span className="hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors uppercase tracking-wider">
-              [ Open Polls ]
-            </span>
-            <span className="hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors uppercase tracking-wider">
-              [ Open Hire ]
-            </span>
-            <span className="hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors uppercase tracking-wider">
-              [ Tool Sadhan ]
-            </span>
-            <span className="hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors uppercase tracking-wider">
-              [ Chai Code ]
-            </span>
-            <span className="hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors uppercase tracking-wider">
-              [ Clipix ]
-            </span>
-          </div>
+        <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 border-t border-line-soft pt-8">
+          <p id="hero-trusted" className="text-[10px] font-bold uppercase leading-4 tracking-widest text-ink-3">
+            Trusted &amp; integrated by builders at
+          </p>
+          <ul
+            aria-labelledby="hero-trusted"
+            className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[11px] font-bold uppercase leading-4 tracking-wider text-ink-2 sm:text-xs"
+          >
+            {TRUSTED_BY.map((name) => (
+              <li
+                key={name}
+                className="transition-colors duration-(--oa-dur-1) ease-(--oa-ease) hover:text-ink"
+              >
+                <span aria-hidden>[ </span>
+                {name}
+                <span aria-hidden> ]</span>
+              </li>
+            ))}
+          </ul>
         </div>
-
       </div>
     </section>
   );

@@ -1,43 +1,56 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { uploadImage } from "@/features/upload/services/uploadApi";
+import { ApiRequestError } from "@/lib/api-error";
+import { uploadImageWithProgress } from "@/features/upload/services/uploadApi";
+import {
+  createUploadController,
+  INITIAL_UPLOAD_STATE,
+  type UploadController,
+  type UploadSource,
+  type UploadState,
+} from "@/features/upload/lib/uploadController";
 
-type UploadStatus = "idle" | "uploading" | "success" | "error";
+export type { UploadStatus, UploadingFile } from "@/features/upload/lib/uploadController";
 
+/**
+ * idle → preparing (client side work before any byte is sent) → uploading (bytes
+ * leaving the browser, real progress) → processing (bytes sent, server storing the
+ * image and queueing detection) → success (redirecting to the editor). Any failure
+ * lands in error. Cancel works in preparing and uploading and ends in idle with
+ * `cancelled` set, never in error. The rules live in uploadController.ts.
+ */
 export function useFileUpload() {
   const router = useRouter();
-  const [status, setStatus] = useState<UploadStatus>("idle");
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<UploadState>(INITIAL_UPLOAD_STATE);
 
-  const upload = useCallback(
-    async (file: File) => {
-      setStatus("uploading");
-      setError(null);
-      setProgress(0);
-
-      // Simulate progress up to 85% while real request runs
-      const interval = setInterval(() => {
-        setProgress((p) => (p < 85 ? p + 5 : p));
-      }, 200);
-
-      try {
-        const res = await uploadImage(file);
-        clearInterval(interval);
-        setProgress(100);
-        setStatus("success");
-        router.push(`/editor/${res.jobId}`);
-      } catch (err: unknown) {
-        clearInterval(interval);
-        setStatus("error");
-        setProgress(0);
-        setError(err instanceof Error ? err.message : "Upload failed");
-      }
-    },
-    [router]
+  const [controller] = useState<UploadController>(() =>
+    createUploadController({
+      send: uploadImageWithProgress,
+      onChange: setState,
+      // The app router instance is stable for the life of the page.
+      onNavigate: (jobId) => router.push(`/editor/${jobId}`),
+      createPreviewUrl: (file) => URL.createObjectURL(file),
+      revokePreviewUrl: (url) => URL.revokeObjectURL(url),
+      errorCode: (err) => (err instanceof ApiRequestError ? (err.code ?? null) : null),
+    })
   );
 
-  return { upload, status, progress, error };
+  // Leaving the page cancels an upload still in flight and frees the preview.
+  useEffect(() => {
+    controller.attach();
+    return () => controller.dispose();
+  }, [controller]);
+
+  /** Uploads a file, or runs a step that makes one first (cancellable while it runs). */
+  const upload = useCallback(
+    (source: UploadSource, meta?: { name: string; size?: number }) => controller.start(source, meta),
+    [controller]
+  );
+
+  /** Stops an upload whose bytes are still being sent, or a file still being prepared. */
+  const cancel = useCallback(() => controller.cancel(), [controller]);
+
+  return { upload, cancel, ...state };
 }

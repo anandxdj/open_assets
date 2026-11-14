@@ -3,13 +3,23 @@ import type { Document, Types } from 'mongoose';
 
 export interface ICollection extends Document {
   creator: Types.ObjectId; // ref User
+  /**
+   * Set while the collection is shared with the creator's team (ref Team). Only
+   * the team owner can set it, on their own collections. See collection.access.ts.
+   */
+  teamId?: Types.ObjectId;
   name: string;
   description?: string;
   isPublic: boolean;
   status: 'draft' | 'published';
   likesCount: number;
   downloadCount: number;
-  tags: string[]; // aggregated search tags
+  /**
+   * Up to 5 lowercase tags (<= 24 chars), see tags.ts. Set by the owner when they
+   * publish or edit, or by the naming step on extraction. Collections stored
+   * before this have none; read it as `tags ?? []`.
+   */
+  tags: string[];
   coverImageUrls: string[]; // auto-collaged cover sheet for the gallery card
   sourceJobId?: string; // the editor job this was auto-scaffolded from (if any)
   createdAt: Date;
@@ -18,6 +28,7 @@ export interface ICollection extends Document {
 
 const CollectionSchema = new Schema<ICollection>({
   creator: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  teamId: { type: Schema.Types.ObjectId, ref: 'Team', index: true },
   name: { type: String, required: true, trim: true, maxlength: 120 },
   description: { type: String, trim: true, maxlength: 2000 },
   isPublic: { type: Boolean, default: false }, // drafts are private until published
@@ -35,6 +46,8 @@ const CollectionSchema = new Schema<ICollection>({
 CollectionSchema.index({ isPublic: 1, createdAt: -1 });
 CollectionSchema.index({ isPublic: 1, likesCount: -1 });
 CollectionSchema.index({ isPublic: 1, downloadCount: -1 });
+// Community tag filter: published collections with a tag, newest first.
+CollectionSchema.index({ isPublic: 1, status: 1, tags: 1, createdAt: -1 });
 // Keyword search across name/description/tags.
 CollectionSchema.index({ name: 'text', description: 'text', tags: 'text' });
 
