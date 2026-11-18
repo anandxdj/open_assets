@@ -52,6 +52,16 @@ Small copy on marketing pages is 13/21.
   a band are paper-coloured. The hero has a dot grid and one soft accent glow behind the copy (the only glow on the site, static). Its
   headline box (ink inversion, hard accent shadow) is the one tilted object, -1deg, flat on hover over
   `--oa-dur-3`. The app keeps 1.5px ink lines everywhere.
+- The landing page opens with an announcement bar above the header: an
+  ink-inverted strip (black on light, paper on dark, unlike the fixed dark bands)
+  with three accent stars at each end and the accent words in `--oa-accent-on-ink`
+  (the bright orange on the black strip, the dark orange on the paper strip, so
+  both pass 4.5:1). It scrolls away; the header under it stays sticky. The hero
+  fills the screen under both (36px bar, 61px header).
+- The browser tab icon is black and white: the ink OA mark on a paper disc with a
+  faint edge. The Apple and PWA icons are the same mark on a full paper square,
+  because the platform applies its own mask. The social share image keeps the
+  orange.
 - Docked surfaces are flat. Only floating things cast a hard offset shadow:
   3px (tool bar, primary button), 6px (menus, toasts), 8px (dialogs).
 - Primary buttons press into their shadow on click.
@@ -183,7 +193,11 @@ What animates:
   only) scales to 1.1 on hover over `--oa-dur-2` on `--oa-ease-out`; under
   reduced motion it does not scale. The header is a 3-column grid (section links,
   mark, actions) from 520px wide; below that the mark sits next to the menu
-  button, because the signed-in actions need the room.
+  button, because the signed-in actions need the room. From 1280px the left
+  column shows Product, Pricing, Resources, Enterprise and Book a call inline, and
+  the right column adds Careers and GitHub, LinkedIn and X icon buttons before the
+  theme toggle. Below 1280px all six links are in the menu and the icons are in
+  the footer.
 - **Link cards** (`oa-lift`): up and left 2px with a 4px hard shadow on hover or
   keyboard focus, flat again while pressed; the same language as the primary
   button. The focus ring moves with the card. Hover applies only where the
@@ -226,11 +240,19 @@ What animates:
   and under reduced motion it shows a static final frame. Its easing uses
   `--oa-ease-out`.
 
+- **Landing cursor** (`LandingCursor`, landing page only): an accent arrow with
+  an ink edge replaces the system arrow for a fine pointer that can hover. It
+  follows on a spring (stiffness 300, damping 25), leans up to 45deg and shrinks
+  up to 10% with speed, fades in over `--oa-dur-2`, and hides when the pointer
+  leaves the window or the tab is hidden. Touch and pen keep the system pointer;
+  under reduced motion it sits exactly on the pointer with no spring, lean or
+  fade. It is the one cursor effect on the site.
+
 No decorative motion anywhere else (the marketing scroll-in reveal above is the
 one exception to "scrolling"). What never animates: `width`, `height` and
 `all` in new rules (the progress fill's `width` and Sonner's stacking are the
 two older exceptions), page loads, route changes, the app while scrolling, infinite loops
-other than status spinners, glows, cursor effects, anything on the editor
+other than status spinners, glows, cursor effects outside the landing cursor, anything on the editor
 canvas, and anything that carries meaning without also being visible when it
 stops.
 

@@ -6,7 +6,8 @@ import { HeroPrimaryAction } from "./HeroPrimaryAction";
 const TRUSTED_BY = ["Open Polls", "Open Hire", "Tool Sadhan", "Chai Code", "Clipix"];
 
 /**
- * Hero: one centred column that fills the first screen under the header. Headline with the
+ * Hero: one centred column that fills the first screen under the announcement bar (36px) and the
+ * header (61px). Headline with the
  * tilted ink box, one sentence, two actions, then the "trusted by" row at the foot. A dot grid
  * and a soft accent glow sit behind it. The spec grid and the editor shot live in the next
  * section (ProductSection). Never wrap this in `Reveal`: it is what loads first.
@@ -15,7 +16,7 @@ export function HeroSection() {
   return (
     <section
       aria-labelledby="hero-title"
-      className="relative isolate flex flex-col items-center overflow-hidden border-b border-line-soft px-5 py-10 md:px-8 lg:min-h-[calc(100svh-61px)] lg:py-16"
+      className="relative isolate flex flex-col items-center overflow-hidden border-b border-line-soft px-5 py-10 md:px-8 lg:min-h-[calc(100svh-97px)] lg:py-16"
     >
       {/* Dot grid and glow (decorative) */}
       <div

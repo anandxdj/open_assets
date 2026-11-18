@@ -23,9 +23,15 @@ export function brandMarkSrc(color: string): string {
 
 const MARK_RATIO = 780 / 1370;
 
-/** Square icon: orange monogram centred on an ink field. `fill` is the mark's share of the width. */
-export function renderIcon(size: number, fill: number) {
+/**
+ * Black-and-white icon: the ink monogram on paper. `fill` is the mark's share of the width.
+ * `circle` is the browser tab icon: a paper disc with a faint edge (so it holds on a white tab
+ * strip) and transparent corners. `square` fills the canvas for the Apple and PWA icons, which the
+ * platform masks itself.
+ */
+export function renderIcon(size: number, fill: number, shape: "circle" | "square" = "square") {
   const width = Math.round(size * fill);
+  const circle = shape === "circle";
   return new ImageResponse(
     (
       <div
@@ -35,11 +41,12 @@ export function renderIcon(size: number, fill: number) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: BRAND.ink,
+          background: BRAND.paper,
+          ...(circle && { borderRadius: "50%", border: `${Math.max(1, Math.round(size / 48))}px solid rgba(10,10,10,0.18)` }),
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- rendered by Satori, not the browser */}
-        <img src={brandMarkSrc(BRAND.orange)} width={width} height={Math.round(width * MARK_RATIO)} alt="" />
+        <img src={brandMarkSrc(BRAND.ink)} width={width} height={Math.round(width * MARK_RATIO)} alt="" />
       </div>
     ),
     { width: size, height: size },

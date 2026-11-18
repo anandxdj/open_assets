@@ -55,14 +55,17 @@ export type MarketingLink = {
   external?: boolean;
 };
 
-/** Primary header navigation. */
+/** Primary header navigation, left of the mark. */
 export const NAV_LINKS: MarketingLink[] = [
   { label: "Product", href: "/#how" },
-  { label: "Tools", href: "/#tools" },
-  { label: "Gallery", href: "/#gallery" },
   { label: "Pricing", href: "/pricing" },
-  { label: "Docs", href: DOCS_URL },
+  { label: "Resources", href: DOCS_URL },
+  { label: "Enterprise", href: "/pricing#enterprise" },
+  { label: "Book a call", href: SOCIAL.x, external: true },
 ];
+
+/** Right of the mark, before the social icons; in the menu with the section links on smaller screens. */
+export const CAREERS_LINK: MarketingLink = { label: "Careers", href: "/careers" };
 
 /** Contact for account, support and billing questions (also shown on the auth pages). */
 export const SUPPORT_EMAIL = "support@openassets.dev";

@@ -29,8 +29,10 @@ export function PricingTiers({ headingLevel = "h3" }: { headingLevel?: "h2" | "h
       {PLANS.map((plan) => (
         <li
           key={plan.id}
+          // The header's Enterprise link lands here (/pricing#enterprise), clear of the sticky header.
+          id={plan.id === "enterprise" ? "enterprise" : undefined}
           className={cn(
-            "flex flex-col bg-surface",
+            "flex scroll-mt-24 flex-col bg-surface",
             plan.featured ? "border-[1.5px] border-line-strong shadow-pop" : "border border-line-soft"
           )}
         >

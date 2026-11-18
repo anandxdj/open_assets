@@ -40,6 +40,7 @@
   --color-brand-fg: var(--oa-accent-fg);
   --color-brand-soft: var(--oa-accent-soft);
   --color-brand-text: var(--oa-accent-text);
+  --color-brand-on-ink: var(--oa-accent-on-ink);
   --color-success: var(--oa-success);
   --color-success-soft: var(--oa-success-soft);
   --color-warning: var(--oa-warning);
@@ -121,6 +122,8 @@
   --oa-accent-fg: #0A0A0A;
   --oa-accent-soft: #FFE2C4;
   --oa-accent-text: #A84D00;
+  /* accent words on an ink-inverted strip (the landing announcement bar): 7.9:1 on #0A0A0A */
+  --oa-accent-on-ink: #FF7C00;
 
   /* status: always icon + words + colour */
   --oa-success: #0B7A3B;
@@ -209,6 +212,8 @@
   --oa-accent-fg: #0A0A0A;
   --oa-accent-soft: #3A2200;
   --oa-accent-text: #FF9A3D;
+  /* the strip is light here, so the darker orange: 5.6:1 on #F4F3EE */
+  --oa-accent-on-ink: #A84D00;
 
   --oa-success: #3DDC84;
   --oa-success-soft: #0E2A1A;
@@ -524,4 +529,22 @@ html[data-session="1"] [data-auth="out"] { display: none; }
 @keyframes oa-theme-reveal {
   from { clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 50%)); }
   to { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 50%)); }
+}
+
+/* Landing custom cursor (components/landing/LandingCursor.tsx): the system arrow is hidden only
+   while the drawn one is on screen, and only for a fine pointer. */
+@media (hover: hover) and (pointer: fine) {
+  html.oa-cursor-none,
+  html.oa-cursor-none * {
+    cursor: none !important;
+  }
+}
+.oa-landing-cursor svg {
+  transform: rotate(var(--oa-cursor-rotate, 0deg)) scale(var(--oa-cursor-scale, 1));
+  transform-origin: 4.5% 11%;
+}
+.oa-landing-cursor svg { opacity: 0; scale: 0; transition: opacity var(--oa-dur-2) var(--oa-ease-out), scale var(--oa-dur-2) var(--oa-ease-out); }
+.oa-landing-cursor[data-visible="true"] svg { opacity: 1; scale: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .oa-landing-cursor svg { transition: none; scale: 1; }
 }
