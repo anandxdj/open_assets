@@ -9,7 +9,14 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/compo
 import { LogoMark } from "@/components/layout/Logo";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { UserMenu } from "@/components/layout/UserMenu";
-import { NAV_LINKS, WRAP, type MarketingLink } from "./site";
+import { CAREERS_LINK, NAV_LINKS, WRAP, type MarketingLink } from "./site";
+import { SocialLinks } from "./SocialLinks";
+
+/** A same-site link is current on its own path and below it; a link with a hash never is. */
+function isCurrent(link: MarketingLink, pathname: string) {
+  if (link.external || link.href.includes("#")) return false;
+  return pathname === link.href || pathname.startsWith(`${link.href}/`);
+}
 
 function NavAnchor({ link, current }: { link: MarketingLink; current: boolean }) {
   if (link.external) {
@@ -45,7 +52,9 @@ const SIGNED_OUT_ACTIONS = (
 );
 
 /**
- * Sticky header for the public pages: section links left, the mark centred, auth actions right.
+ * Sticky header for the public pages: section links left, the mark centred, Careers, socials and
+ * auth actions right. The inline links, Careers and the socials need 1280px; below that the links
+ * and Careers are in the menu.
  *
  * A 3-column grid (`1fr auto 1fr`) keeps the mark exactly centred and lets nothing overlap it. The
  * mark needs a side column as wide as the widest actions (the signed-in set, 175px with the theme
@@ -66,12 +75,12 @@ export function MarketingHeader() {
           {/* Section links on smaller screens */}
           <Menu>
             <MenuTrigger asChild>
-              <Button variant="ghost" size="sm" icon className="lg:hidden" aria-label="Open navigation menu">
+              <Button variant="ghost" size="sm" icon className="xl:hidden" aria-label="Open navigation menu">
                 <MenuIcon aria-hidden />
               </Button>
             </MenuTrigger>
             <MenuContent align="start" className="w-56">
-              {NAV_LINKS.map((link) => (
+              {[...NAV_LINKS, CAREERS_LINK].map((link) => (
                 <MenuItem key={link.label} asChild>
                   {link.external ? (
                     <a href={link.href} target="_blank" rel="noopener noreferrer">
@@ -94,10 +103,10 @@ export function MarketingHeader() {
             </MenuContent>
           </Menu>
 
-          <ul className="hidden items-center gap-1 lg:flex">
+          <ul className="hidden items-center gap-1 xl:flex">
             {NAV_LINKS.map((link) => (
               <li key={link.label}>
-                <NavAnchor link={link} current={!link.external && (pathname === link.href || pathname.startsWith(`${link.href}/`))} />
+                <NavAnchor link={link} current={isCurrent(link, pathname)} />
               </li>
             ))}
           </ul>
@@ -113,6 +122,14 @@ export function MarketingHeader() {
         </Link>
 
         <div className="flex items-center gap-2 justify-self-end">
+          {/* Careers and the socials from 1280px, where the section links are inline too. Below that
+              Careers is in the menu and the socials are in the footer. */}
+          <div className="hidden items-center gap-2 xl:flex">
+            <NavAnchor link={CAREERS_LINK} current={isCurrent(CAREERS_LINK, pathname)} />
+            <span aria-hidden className="h-4 border-l border-line-soft" />
+            <SocialLinks className="flex items-center" />
+            <span aria-hidden className="h-4 border-l border-line-soft" />
+          </div>
           <ThemeToggle />
 
           {/* Same widths before and after the session is restored, so the buttons do not move. */}

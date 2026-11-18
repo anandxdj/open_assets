@@ -84,6 +84,13 @@ test.describe("marketing header, mobile menu", () => {
     await page.goto("/pricing");
     await settle(page, "light");
     await page.getByRole("button", { name: "Open navigation menu" }).click();
-    await expect(page.getByRole("menuitem")).toHaveText(["Product", "Tools", "Gallery", "Pricing", "Docs"]);
+    await expect(page.getByRole("menuitem")).toHaveText([
+      "Product",
+      "Pricing",
+      "Resources",
+      "Enterprise",
+      "Book a call (opens in a new tab)",
+      "Careers",
+    ]);
   });
 });
